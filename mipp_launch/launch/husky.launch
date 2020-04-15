@@ -1,0 +1,122 @@
+<?xml version="1.0"?>
+<launch>
+  <!---
+    Run Husky spawn
+  -->
+  <arg name="robot_namespace" default="/"/>
+  <arg name="x" default="0.0"/>
+  <arg name="y" default="0.0"/>
+  <arg name="z" default="0.0"/>
+  <arg name="yaw" default="0.0"/>
+  <arg name="laser_enabled" default="true"/> <!-- K: Changed to true -->
+  <arg name="kinect_enabled" default="false"/>
+  <arg name="urdf_extras" default="$(find mipp_description)/urdf/accessories/extras.urdf.xacro"/>
+  <group ns="$(arg robot_namespace)">
+    <!-- K: Removed multimaster option -->
+    <!-- Note that husky_description/description.launch is already included in husky_control/control.launch. 
+    <include file="$(find husky_control)/launch/control.launch">
+      <arg name="multimaster" value="false"/>
+      <arg name="laser_enabled" value="$(arg laser_enabled)"/>
+      <arg name="kinect_enabled" value="$(arg kinect_enabled)"/>
+      <arg name="urdf_extras" value="$(arg urdf_extras)"/>
+    </include> -->
+    <!-- K: Husky Control launch -->
+    <group>
+      <arg name="config_extras"
+      default="$(eval optenv('HUSKY_CONFIG_EXTRAS', find('husky_control') + '/config/empty.yaml'))"/>
+      <!-- Load robot description -->
+      <param name="robot_description" command="$(find xacro)/xacro '$(find mipp_description)/urdf/mipp_robots.urdf.xacro'
+        --inorder
+        robot_namespace:=$(arg robot_namespace)
+        laser_enabled:=$(arg laser_enabled)
+        kinect_enabled:=$(arg kinect_enabled)
+        urdf_extras:=$(arg urdf_extras)
+        " />
+      <!-- Load controller configuration -->
+      <rosparam command="load" file="$(find husky_control)/config/control.yaml" />
+      <!-- Spawn controllers -->
+      <node name="base_controller_spawner" pkg="controller_manager" type="spawner"
+        args="husky_joint_publisher husky_velocity_controller"/>
+      <!-- Start EKF for localization -->
+      <node pkg="robot_localization" type="ekf_localization_node" name="ekf_localization">
+        <rosparam command="load" file="$(find husky_control)/config/localization.yaml" />
+      </node>
+      <node pkg="interactive_marker_twist_server" type="marker_server" name="twist_marker_server" output="screen"/>
+      <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+      <node pkg="twist_mux" type="twist_mux" name="twist_mux">
+        <rosparam command="load" file="$(find husky_control)/config/twist_mux.yaml" />
+        <remap from="cmd_vel_out" to="husky_velocity_controller/cmd_vel"/>
+      </node>
+      <!-- Override the default control parameters, see config/empty.yaml for default. -->
+      <rosparam command="load" file="$(arg config_extras)" />
+    </group>
+
+    <group if="$(arg kinect_enabled)">
+      <!-- Include poincloud_to_laserscan if simulated Kinect is attached -->
+      <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan" output="screen">
+        <remap from="cloud_in" to="camera/depth/points"/>
+        <remap from="scan" to="scan"/>
+        <rosparam>
+          target_frame: base_link # Leave empty to output scan in the pointcloud frame
+          tolerance: 1.0
+          min_height: 0.05
+          max_height: 1.0
+
+          angle_min: -0.52 # -30.0*M_PI/180.0
+          angle_max: 0.52 # 30.0*M_PI/180.0
+          angle_increment: 0.005 # M_PI/360.0
+          scan_time: 0.3333
+          range_min: 0.45
+          range_max: 4.0
+          use_inf: true
+
+          # Concurrency level, affects number of pointclouds queued for processing and number of threads used
+          # 0 : Detect number of cores
+          # 1 : Single threaded
+          # 2->inf : Parallelism level
+          concurrency_level: 1
+        </rosparam>
+      </node>
+    </group>
+
+    <!-- Spawn robot in gazebo -->
+    <node name="spawn_husky_model" pkg="gazebo_ros" type="spawn_model"
+        args="-x $(arg x)
+              -y $(arg y)
+              -z $(arg z)
+              -Y $(arg yaw)
+              -unpause
+              -urdf
+              -param robot_description
+              -model $(arg robot_namespace)" />
+  </group>
+
+  <!---
+    Run Move Base Demo 
+  -->
+  <arg name="no_static_map" default="true"/> <!-- K: Changed to true (mapless) -->
+  <arg name="base_global_planner" default="navfn/NavfnROS"/>
+  <arg name="base_local_planner" default="dwa_local_planner/DWAPlannerROS"/>
+  <!-- <arg name="base_local_planner" default="base_local_planner/TrajectoryPlannerROS"/> -->
+
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+    <param name="base_global_planner" value="$(arg base_global_planner)"/>
+    <param name="base_local_planner" value="$(arg base_local_planner)"/>
+    <rosparam file="$(find husky_navigation)/config/planner.yaml" command="load"/>
+    <!-- observation sources located in costmap_common.yaml -->
+    <rosparam file="$(find husky_navigation)/config/costmap_common.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find husky_navigation)/config/costmap_common.yaml" command="load" ns="local_costmap" />
+    <!-- local costmap, needs size -->
+    <rosparam file="$(find husky_navigation)/config/costmap_local.yaml" command="load" ns="local_costmap" />
+    <param name="local_costmap/width" value="10.0"/>
+    <param name="local_costmap/height" value="10.0"/>
+    <!-- static global costmap, static map provides size -->
+    <rosparam file="$(find husky_navigation)/config/costmap_global_static.yaml" command="load" ns="global_costmap" unless="$(arg no_static_map)"/>
+    <!-- global costmap with laser, for odom_navigation_demo -->
+    <rosparam file="$(find husky_navigation)/config/costmap_global_laser.yaml" command="load" ns="global_costmap" if="$(arg no_static_map)"/>
+    <param name="global_costmap/width" value="100.0" if="$(arg no_static_map)"/>
+    <param name="global_costmap/height" value="100.0" if="$(arg no_static_map)"/>
+  </node>
+
+</launch>
