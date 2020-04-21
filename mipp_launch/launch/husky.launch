@@ -11,15 +11,9 @@
   <arg name="laser_enabled" default="true"/> <!-- K: Changed to true -->
   <arg name="kinect_enabled" default="false"/>
   <arg name="urdf_extras" default="$(find mipp_description)/urdf/accessories/extras.urdf.xacro"/>
+  <arg name="republish_pointcloud"    default="true"/>
+  <arg name="octomap_cloud_topic"    default="/octomap/points"/>
   <group ns="$(arg robot_namespace)">
-    <!-- K: Removed multimaster option -->
-    <!-- Note that husky_description/description.launch is already included in husky_control/control.launch. 
-    <include file="$(find husky_control)/launch/control.launch">
-      <arg name="multimaster" value="false"/>
-      <arg name="laser_enabled" value="$(arg laser_enabled)"/>
-      <arg name="kinect_enabled" value="$(arg kinect_enabled)"/>
-      <arg name="urdf_extras" value="$(arg urdf_extras)"/>
-    </include> -->
     <!-- K: Husky Control launch -->
     <group>
       <arg name="config_extras"
@@ -118,5 +112,8 @@
     <param name="global_costmap/width" value="100.0" if="$(arg no_static_map)"/>
     <param name="global_costmap/height" value="100.0" if="$(arg no_static_map)"/>
   </node>
+
+  <!-- Relay/republish pointcloud to common cloud for OctoMap -->
+  <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
 
 </launch>

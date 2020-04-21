@@ -6,16 +6,12 @@
   <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
-  <arg name="run_uav0"    default="true"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
 
   <node pkg="tf" type="static_transform_publisher" name="world_odom_link" args="0 0 0 0 0 0  /world /odom  100"/>
   <node pkg="tf" type="static_transform_publisher" name="world_map_link" args="0 0 0 0 0 0  /world /map  100"/>
   <node pkg="tf" type="static_transform_publisher" name="base_frd_link" args="0 0 0 0 0 0  /base_link_uav0 /base_link_frd  100"/>
- <!---
-  <node pkg="tf" type="static_transform_publisher" name="temp_local_link" args="0 0 0 0 0 0  /world /local_origin  100"/>
-  <node pkg="tf" type="static_transform_publisher" name="temp_fcu_link" args="0 0 0 0 0 0  /base_link_uav0 /fcu  100"/>
--->
+
   <!---
     Run OctoMap
   -->
@@ -25,24 +21,31 @@
 		<param name="base_frame_id"     type="string" value="base_footprint"/>
 		<param name="sensor_model/max_range"          value="5.0"/>
   	<param name="latch"             type="bool"   value="false"/>
-		<param name="filter_ground"     type="bool"   value="false"/>
-		<param name="pointcloud_min_z"  type="double" value="0.25"/>
+		<param name="filter_ground"     type="bool"   value="true"/>
+		<param name="pointcloud_min_z"  type="double" value="0.0"/>
 		<param name="pointcloud_max_z"  type="double" value="5.0"/>
 	  <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
   </include>
 
   <!--- 
-    Spawn single uav
+    Spawn first uav
   -->
-  <include file="$(find mipp_launch)/launch/uav_test.launch" if="$(arg run_uav0)">
+  <include file="$(find mipp_launch)/launch/uav.launch">
     <arg name="uav_id"        value="0"/>
     <arg name="initial_x"     value="-3"/>
     <arg name="initial_y"     value="0"/>
-    <arg name="run_gazebo"    value="false"/>
-    <arg name="run_rviz"      value="false"/>
-    <arg name="gui"           value="false"/>
-    <arg name="world_file_name"    value="$(arg world_file_name)"/>
     <arg name="octomap_cloud_topic"    value="$(arg octomap_cloud_topic)"/>
+  </include>
+
+  <!--- 
+    Spawn second uav
+  -->
+  <include file="$(find mipp_launch)/launch/uav.launch">
+    <arg name="uav_id"        value="1"/>
+    <arg name="initial_x"     value="0"/>
+    <arg name="initial_y"     value="3"/>
+    <arg name="octomap_cloud_topic"    value="$(arg octomap_cloud_topic)"/>
+  -->
   </include>
 
   <!-- Load custom console configuration -->
@@ -62,13 +65,11 @@
   <!--- 
     Run Rviz 
   -->
-  <node name="rviz" pkg="rviz" type="rviz" output="screen" args="-d $(find mipp_viz)/rviz/mipp_1ugv_1uav.rviz"  if="$(arg run_rviz)"/>
+  <node name="rviz" pkg="rviz" type="rviz" output="screen" args="-d $(find mipp_viz)/rviz/mipp_1ugv_2uav.rviz"  if="$(arg run_rviz)"/>
 
   <!--- 
     Spawn single husky
   -->
-  <include file="$(find mipp_launch)/launch/husky.launch" if="$(arg run_husky)">
-    <arg name="octomap_cloud_topic"    value="$(arg octomap_cloud_topic)"/>
-  </include>
+  <include file="$(find mipp_launch)/launch/husky.launch" if="$(arg run_husky)"/>
 
 </launch>
