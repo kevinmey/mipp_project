@@ -5,21 +5,26 @@
 UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
 {
   ROS_INFO("UAVServer object is being created.");
-  
-  //Initialize values
+
+  // Initialize values
   getParams(np);
-  //Establish publish timers and publishers
+  uav_local_goal_.pose.position.z = uav_takeoff_z_;
+  uav_local_goal_.pose.orientation.w = 1.0;
+  uav_global_goal_ = uav_local_goal_;
+  // Establish publish timers and publishers
   pub_timer_mavros_setpoint_ =  n.createTimer(ros::Duration(0.1), boost::bind(&UAVServer::pubMavrosSetpoint, this));
   pub_mavros_setpoint_ =        n.advertise<geometry_msgs::PoseStamped>("uav_server/mavros_setpoint", 10);
-  //Establish subscriptions
+  // Establish subscriptions
   sub_global_goal_ =    n.subscribe("uav_server/global_goal", 1, &UAVServer::subGlobalGoal, this);
   sub_local_goal_ =     n.subscribe("uav_server/local_goal", 1, &UAVServer::subLocalGoal, this);
   sub_mavros_state_ =   n.subscribe("uav_server/mavros_state", 1, &UAVServer::subMavrosState, this);
   sub_odometry_ =       n.subscribe("uav_server/ground_truth_uav", 1, &UAVServer::subOdometry, this);
-  //Establish service clients
+  // Establish service clients
   cli_arm_ =      n.serviceClient<mavros_msgs::CommandBool>("uav_server/arm");
   cli_set_mode_ = n.serviceClient<mavros_msgs::SetMode>("uav_server/set_mode");
-  // Mavros related init. procedure:
+  // TF
+  tf_listener_ = new tf2_ros::TransformListener(tf_buffer_);
+  // Init.
   takeoff();
 }
 
@@ -38,9 +43,24 @@ void UAVServer::pubMavrosSetpoint()
 {
   ROS_DEBUG("UAVServer: pubMavrosSetpoint");
   // Block if UAV still initializing (taking off)
-  if(uav_takeoff_complete_)
+  if(!uav_takeoff_complete_)
   {
-    pub_mavros_setpoint_.publish(uav_local_goal_);
+    return;
+  }
+  /* Transform local goal back to uav local origin/odom:
+  *  MAVROS takes setpoints/commands in it's own local frame (as
+  *  if it started at origin). Since local goal has been trans-
+  *  formed into world frame, we must transform it back before
+  *  sending it as a setpoint.
+  */ 
+  try{
+    geometry_msgs::PoseStamped mavros_setpoint;
+    tf_buffer_.transform(uav_local_goal_, mavros_setpoint, uav_local_frame_);
+    pub_mavros_setpoint_.publish(mavros_setpoint);
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
+    ros::Duration(1.0).sleep();
   }
 }
 
@@ -48,15 +68,28 @@ void UAVServer::pubMavrosSetpoint()
 *  Callback functions for subscriptions
 */
 
-void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& local_goal_msg)
+void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global_goal_msg)
 { 
-  ROS_DEBUG("UAVServer: subGlobalGoal");
+  ROS_DEBUG("UAVServer: subGlobalGoal");  
+  try{
+    tf_buffer_.transform(*global_goal_msg, uav_global_goal_, uav_world_frame_);
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
+    ros::Duration(1.0).sleep();
+  }
 }
 
 void UAVServer::subLocalGoal(const geometry_msgs::PoseStamped::ConstPtr& local_goal_msg)
 { 
   ROS_DEBUG("UAVServer: subLocalGoal");
-  uav_local_goal_ = *local_goal_msg;
+  try{
+    tf_buffer_.transform(*local_goal_msg, uav_local_goal_, uav_world_frame_);
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("UAVServer: subLocalGoal: %s",ex.what());
+    ros::Duration(1.0).sleep();
+  }
 }
 
 void UAVServer::subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_msg)
@@ -68,7 +101,16 @@ void UAVServer::subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_
 void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg)
 { 
   ROS_DEBUG("UAVServer: subOdometry");
-  uav_odometry_ = *odometry_msg;
+  geometry_msgs::PoseStamped pose_msg;
+  pose_msg.header = odometry_msg->header;
+  pose_msg.pose = odometry_msg->pose.pose;
+  try{
+    tf_buffer_.transform(pose_msg, uav_pose_, uav_world_frame_);
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("UAVServer: subOdometry: %s",ex.what());
+    ros::Duration(1.0).sleep();
+  }
 }
 
 // Utility functions
@@ -78,6 +120,9 @@ void UAVServer::getParams(ros::NodeHandle np)
   ROS_DEBUG("UAVServer: getParams");
   np.param<int>("uav_id", uav_id_, 0);
   np.param<double>("uav_takeoff_z", uav_takeoff_z_, 2.0);
+  np.param<std::string>("uav_world_frame", uav_world_frame_, "world");
+  np.param<std::string>("uav_local_frame", uav_local_frame_, "odom_uav"+std::to_string(uav_id_));
+  np.param<std::string>("uav_body_frame", uav_body_frame_, "base_link_uav"+std::to_string(uav_id_));
 }
 
 void UAVServer::takeoff()
@@ -94,10 +139,8 @@ void UAVServer::takeoff()
   ROS_DEBUG("UAVServer: FCU connected");
 
   // Send a few setpoints before starting procedure
-  geometry_msgs::PoseStamped uav_takeoff_pose;
-  uav_takeoff_pose.pose.position.z = uav_takeoff_z_;
   for(int i = 50; ros::ok() && i > 0; --i){
-    pub_mavros_setpoint_.publish(uav_takeoff_pose);
+    pub_mavros_setpoint_.publish(uav_local_goal_);
     ros::spinOnce();
     rate.sleep();
   }
@@ -139,7 +182,7 @@ void UAVServer::takeoff()
         uav_takeoff_complete_ = true;
       }
     }
-    pub_mavros_setpoint_.publish(uav_takeoff_pose);
+    pub_mavros_setpoint_.publish(uav_local_goal_);
     ros::spinOnce();
     rate.sleep();
   }

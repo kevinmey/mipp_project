@@ -1,12 +1,16 @@
-#include "ros/ros.h"
+#include <ros/ros.h>
 
-#include <string>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include <geometry_msgs/PoseStamped.h>
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
 #include <nav_msgs/Odometry.h>
+
+#include <string>
  
 class UAVServer
 {
@@ -80,14 +84,20 @@ private:
   // Service clients
   ros::ServiceClient cli_arm_;
   ros::ServiceClient cli_set_mode_;
+  // TF
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener* tf_listener_; 
   // Parameters
   int uav_id_;
   double uav_takeoff_z_;
+  std::string uav_world_frame_;
+  std::string uav_local_frame_;
+  std::string uav_body_frame_;
   // Variables
   bool uav_takeoff_complete_;
   geometry_msgs::PoseStamped uav_global_goal_;
   geometry_msgs::PoseStamped uav_local_goal_;
   float uav_global_goal_dist;
-  nav_msgs::Odometry uav_odometry_;
+  geometry_msgs::PoseStamped uav_pose_;
   mavros_msgs::State uav_state_;
 };

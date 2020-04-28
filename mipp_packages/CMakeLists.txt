@@ -14,6 +14,9 @@ find_package(
     std_msgs
     roscpp
     cmake_modules
+    tf2
+    tf2_ros
+    tf2_geometry_msgs
 )
 ## Includes headers in include folder
 catkin_package(
