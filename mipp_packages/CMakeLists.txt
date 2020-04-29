@@ -30,22 +30,40 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
 )
 
-## Adds a ros node with name node_name
+## uav_server_node
+
 add_executable(
     uav_server_node
     src/uav_server_node.cpp
     src/UAVServer.cpp
 )
 
-## Adds a compilation dependency to node_name
 add_dependencies(
     uav_server_node 
     ${uav_server_node_EXPORTED_TARGETS} 
     ${catkin_EXPORTED_TARGETS}
 )
 
-## Links node_name together with other libraries
 target_link_libraries(
     uav_server_node
+    ${catkin_LIBRARIES}
+)
+
+## rrt_planner_node
+
+add_executable(
+    rrt_planner_node
+    src/rrt_planner_node.cpp
+    src/RRTPlanner.cpp
+)
+
+add_dependencies(
+    rrt_planner_node 
+    ${rrt_planner_node_EXPORTED_TARGETS} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    rrt_planner_node
     ${catkin_LIBRARIES}
 )

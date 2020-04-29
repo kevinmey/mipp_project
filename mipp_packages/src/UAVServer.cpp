@@ -114,6 +114,7 @@ void UAVServer::subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_
 void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg)
 { 
   ROS_DEBUG("UAVServer: subOdometry");
+  // Only need pose information (twist/velocities not needed)
   geometry_msgs::PoseStamped pose_msg;
   pose_msg.header = odometry_msg->header;
   pose_msg.pose = odometry_msg->pose.pose;
@@ -129,7 +130,7 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg)
                                    uav_rpy_.vector.y, 
                                    uav_rpy_.vector.z);
 
-    // Calculate distance to global goal
+    // Calculate distance to global goal in 2D
     uav_global_goal_dist_ = sqrt( pow(uav_global_goal_.pose.position.x - uav_pose_.pose.position.x, 2.0 ) +
                                   pow(uav_global_goal_.pose.position.y - uav_pose_.pose.position.y, 2.0 ) );
   }
