@@ -11,6 +11,7 @@
 #include <nav_msgs/Odometry.h>
 
 #include <string>
+#include <math.h> /* sqrt, pow */
  
 class UAVServer
 {
@@ -97,7 +98,8 @@ private:
   bool uav_takeoff_complete_;
   geometry_msgs::PoseStamped uav_global_goal_;
   geometry_msgs::PoseStamped uav_local_goal_;
-  float uav_global_goal_dist;
+  float uav_global_goal_dist_;
   geometry_msgs::PoseStamped uav_pose_;
+  geometry_msgs::Vector3Stamped uav_rpy_;
   mavros_msgs::State uav_state_;
 };

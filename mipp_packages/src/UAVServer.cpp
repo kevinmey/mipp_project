@@ -56,6 +56,9 @@ void UAVServer::pubMavrosSetpoint()
   try{
     geometry_msgs::PoseStamped mavros_setpoint;
     tf_buffer_.transform(uav_local_goal_, mavros_setpoint, uav_local_frame_);
+    if(uav_global_goal_dist_ < 1.0){
+      mavros_setpoint.pose.orientation = uav_global_goal_.pose.orientation;
+    }
     pub_mavros_setpoint_.publish(mavros_setpoint);
   }
   catch (tf2::TransformException &ex) {
@@ -73,6 +76,16 @@ void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global
   ROS_DEBUG("UAVServer: subGlobalGoal");  
   try{
     tf_buffer_.transform(*global_goal_msg, uav_global_goal_, uav_world_frame_);
+
+    double roll, pitch, yaw;
+    tf2::Quaternion tf_quat;
+    tf2::fromMsg(uav_global_goal_.pose.orientation, tf_quat);
+    tf2::Matrix3x3(tf_quat).getRPY(roll, pitch, yaw);
+    ROS_INFO("UAVServer: New global goal: [%f,%f,%f,%f]",
+              uav_global_goal_.pose.position.x, 
+              uav_global_goal_.pose.position.y,
+              uav_global_goal_.pose.position.z,
+              yaw);  
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
@@ -105,7 +118,20 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg)
   pose_msg.header = odometry_msg->header;
   pose_msg.pose = odometry_msg->pose.pose;
   try{
+    // Transform pose information contained in odom message to world frame and store
     tf_buffer_.transform(pose_msg, uav_pose_, uav_world_frame_);
+
+    // Store orientation in pose also as roll, pitch and yaw
+    uav_rpy_.header = pose_msg.header;
+    tf2::Quaternion tf_quat;
+    tf2::fromMsg(pose_msg.pose.orientation, tf_quat);
+    tf2::Matrix3x3(tf_quat).getRPY(uav_rpy_.vector.x, 
+                                   uav_rpy_.vector.y, 
+                                   uav_rpy_.vector.z);
+
+    // Calculate distance to global goal
+    uav_global_goal_dist_ = sqrt( pow(uav_global_goal_.pose.position.x - uav_pose_.pose.position.x, 2.0 ) +
+                                  pow(uav_global_goal_.pose.position.y - uav_pose_.pose.position.y, 2.0 ) );
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("UAVServer: subOdometry: %s",ex.what());
