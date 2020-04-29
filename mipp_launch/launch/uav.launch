@@ -20,8 +20,8 @@
 
   <arg name="run_gazebo"        default="false"/>
   <arg name="run_rviz"          default="false"/>
-  <arg name="world_file_name"   default="simple_obstacle" />
-  <arg name="world_path"        default="$(find avoidance)/sim/worlds/$(arg world_file_name).world" />
+  <arg name="world_file_name"   default="playpen" />
+  <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
   <arg name="gui"               default="false"/>
 
   <arg name="pointcloud_topics"     default="[$(arg ns)/camera/depth/points]"/>
@@ -34,11 +34,12 @@
   <remap from="/mavros/mission/waypoints"                     to="$(arg ns)/mavros/mission/waypoints" />
   <remap from="/mavros/obstacle/send"                         to="$(arg ns)/mavros/obstacle/send" />
   <remap from="/mavros/param/param_value"                     to="$(arg ns)/mavros/param/param_value" />
-  <remap from="/mavros/setpoint_position/local"               to="$(arg ns)/mavros/setpoint_position/local" />
   <remap from="/mavros/setpoint_velocity/cmd_vel_unstamped"   to="$(arg ns)/mavros/setpoint_velocity/cmd_vel_unstamped" />
   <remap from="/mavros/state"                                 to="$(arg ns)/mavros/state" />
   <remap from="/mavros/trajectory/desired"                    to="$(arg ns)/mavros/trajectory/desired" />
   <remap from="/mavros/trajectory/generated"                  to="$(arg ns)/mavros/trajectory/generated" />
+
+  <remap from="/mavros/setpoint_position/local"               to="$(arg ns)/uav_server/local_goal" />
 
   <remap from="/camera/depth/points"                          to="$(arg ns)/camera/depth/points" />
   <remap from="/camera/rgb/image_raw"                         to="$(arg ns)/camera/rgb/image_raw" />
@@ -52,30 +53,24 @@
   <group ns="$(arg ns)">
     <!-- Launch PX4 SITL -->
     <include file="$(find px4)/launch/px4.launch">
-        <arg name="vehicle" value="$(arg vehicle)"/>
-        <arg name="ID"      value="$(arg uav_id)"/>
+      <arg name="vehicle" value="$(arg vehicle)"/>
+      <arg name="ID"      value="$(arg uav_id)"/>
     </include>
 
     <!-- Launch MavROS -->
     <include file="$(find mavros)/launch/node.launch">
-        <arg name="pluginlists_yaml" value="$(find mavros)/launch/px4_pluginlists.yaml" />
-        <!-- Need to change the config file to get the tf topic and get local position in terms of local origin -->
-        <arg name="config_yaml" value="$(find mipp_description)/resource/px4_config_$(arg uav_name).yaml" />
-        <arg name="fcu_url" value="$(arg fcu_url)" />
-        <arg name="gcs_url" value="$(arg gcs_url)" />
-        <arg name="tgt_system" value="$(arg tgt_system)" />
-        <arg name="tgt_component" value="$(arg tgt_component)" />
+      <arg name="pluginlists_yaml" value="$(find mavros)/launch/px4_pluginlists.yaml" />
+      <!-- Need to change the config file to get the tf topic and get local position in terms of local origin -->
+      <arg name="config_yaml" value="$(find mipp_description)/resource/px4_config_$(arg uav_name).yaml" />
+      <arg name="fcu_url" value="$(arg fcu_url)" />
+      <arg name="gcs_url" value="$(arg gcs_url)" />
+      <arg name="tgt_system" value="$(arg tgt_system)" />
+      <arg name="tgt_component" value="$(arg tgt_component)" />
     </include>
 
-    <!-- Spawn vehicle model 
-    <arg name="cmd" default="xmlstarlet ed -d '//plugin[@name=&quot;mavlink_interface&quot;]/mavlink_tcp_port' -s '//plugin[@name=&quot;mavlink_interface&quot;]' -t elem -n mavlink_tcp_port -v $(arg mavlink_tcp_port) $(find px4)/Tools/sitl_gazebo/models/$(arg vehicle)/$(arg vehicle).sdf"/>
-    <param command="$(arg cmd)" name="model_description"/>
+    <!-- Spawn vehicle model -->
     <node name="spawn_model" pkg="gazebo_ros" type="spawn_model" output="screen"
-          args="-sdf -database $(find mipp_description)/models/iris_depth_camera_uav0/iris_depth_camera_uav0.sdf -model $(arg vehicle)_$(arg uav_id) -x $(arg initial_x) -y $(arg initial_y) -z 0 -R 0 -P 0 -Y 0">
-    </node> -->
-    <!-- generate sdf vehicle model -->
-    <node name="spawn_model" pkg="gazebo_ros" type="spawn_model" output="screen"
-          args="-sdf -database $(arg model) -model $(arg vehicle)_$(arg uav_id) -x $(arg initial_x) -y $(arg initial_y) -z 0 -R 0 -P 0 -Y 0">
+        args="-sdf -database $(arg model) -model $(arg vehicle)_$(arg uav_id) -x $(arg initial_x) -y $(arg initial_y) -z 0 -R 0 -P 0 -Y 0">
     </node>
     
     <!-- Launch local planner -->
@@ -89,15 +84,18 @@
       <param name="world_name"    value="$(find avoidance)/sim/worlds/$(arg world_file_name).yaml" />
       <rosparam param="pointcloud_topics" subst_value="True">$(arg pointcloud_topics)</rosparam>
 
-      <param name="tf_origin"  value="/odom_$(arg uav_name)" />
-      <param name="tf_base_link"  value="/base_link_$(arg uav_name)" />
+      <param name="tf_origin"  value="odom_$(arg uav_name)" />
+      <param name="tf_base_link"  value="base_link_$(arg uav_name)" />
     </node>
-    <!-- Offboard test node -->
+    <!-- Offboard test node 
     <node name="offb_test" pkg="offb_test" type="offb_test">
-    </node>
+    </node>-->
 
-    <!-- Relay/republish pointcloud to common cloud for OctoMap 
-    <node name="pointcloud_republisher_$(arg uav_name)" pkg="topic_tools" type="relay" args="camera/depth/points $(arg octomap_cloud_topic)"/>-->
+    <include file="$(find mipp_packages)/launch/uav_server.launch">
+      <arg name="uav_id"      value="$(arg uav_id)"/>
+    </include>
+
+    <!-- Relay/republish pointcloud to common cloud for OctoMap -->
     <node name="pointcloud_throttle_$(arg uav_name)" pkg="topic_tools" type="throttle" args="messages camera/depth/points 5.0 $(arg octomap_cloud_topic)"/>
 
   </group>
@@ -111,6 +109,6 @@
 
   <!-- Static TF for uav odom, which is offset from "real" odom/world -->
   <arg name="pub_odom_tf"   default="true"/>
-  <node pkg="tf" type="static_transform_publisher" name="world_odom_$(arg uav_name)_link" args="$(arg initial_x) $(arg initial_y) 0 0 0 0  /world /odom_$(arg uav_name) 100" if="$(arg pub_odom_tf)"/>
+  <node pkg="tf" type="static_transform_publisher" name="tf_world_odom_$(arg uav_name)_link" args="$(arg initial_x) $(arg initial_y) 0 0 0 0  /world /odom_$(arg uav_name) 100" if="$(arg pub_odom_tf)"/>
 
 </launch>

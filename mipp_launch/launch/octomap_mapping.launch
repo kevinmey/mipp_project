@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!-- src: http://wiki.ros.org/octomap_server.  -->
+<launch>
+  <!-- Resolution in meter for the map when starting with an empty map.
+        Otherwise the loaded file's resolution is used. -->
+  <arg name="resolution"              default="0.25"/>
+  <!-- Static global frame in which the map will be published. A 
+       transform from sensor data to this frame needs to be available 
+       when dynamically building maps. -->
+  <arg name="frame_id"                default="map"/>
+  <!-- The robot's base frame in which ground plane detection is 
+       performed (if enabled) -->
+  <arg name="base_frame_id"           default="base_footprint"/>
+  <!-- Maximum range in meter for inserting point cloud data when 
+       dynamically building a map. Limiting the range to something 
+       useful (e.g. 5m) prevents spurious erroneous points far away from 
+       the robot. -->
+  <arg name="sensor_model/max_range"  default="5.0"/>
+  <!-- Whether topics are published latched or only once per change. 
+       For maximum performance when building a map (with frequent 
+       updates), set to false. When set to true, on every map change 
+       all topics and visualizations will be created. -->
+  <arg name="latch"                   default="false"/>
+  <!-- Whether the ground plane should be detected and ignored from 
+       scan data when dynamically building a map, using 
+       pcl::SACMODEL_PERPENDICULAR_PLANE. This clears everything up to 
+       the ground, but will not insert the ground as obstacle in the 
+       map. If this is enabled, it can be further configured with the 
+       ~ground_filter/... parameters. -->
+  <arg name="filter_ground"           default="false"/>
+  <!-- Minimum and maximum height of points to consider for insertion 
+       in the callback. Any point outside of this intervall will be 
+       discarded before running any insertion or ground plane 
+       filtering. You can do a rough filtering based on height with 
+       this, but if you enable the ground_filter this interval needs 
+       to include the ground plane. -->
+  <arg name="pointcloud_min_z"        default="0.0"/>
+  <arg name="pointcloud_max_z"        default="5.0"/>
+  <!-- Common topic for point cloud data from all robot sensors (on
+       both UGV and UAVs) to be published to. -->
+  <arg name="octomap_cloud_topic"     default="/octomap/points"/>
+
+	<node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+		<param name="resolution"                      value="$(arg resolution)"/>
+    <param name="frame_id"          type="string" value="$(arg frame_id)"/>
+		<param name="base_frame_id"     type="string" value="$(arg base_frame_id)"/>
+		<param name="sensor_model/max_range"          value="$(arg sensor_model/max_range)"/>
+  	<param name="latch"             type="bool"   value="$(arg latch)"/>
+		<param name="filter_ground"     type="bool"   value="$(arg filter_ground)"/>
+		<param name="pointcloud_min_z"  type="double" value="$(arg pointcloud_min_z)"/>
+		<param name="pointcloud_max_z"  type="double" value="$(arg pointcloud_max_z)"/>
+	  <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
+	</node>
+<!--
+	<node pkg="tf" type="static_transform_publisher" name="tf_pub"
+          args="0 0 0 0 0 0 1 map camera_color_optical_frame 10"/>-->
+</launch>
+

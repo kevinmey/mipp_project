@@ -19,7 +19,7 @@
       <arg name="config_extras"
       default="$(eval optenv('HUSKY_CONFIG_EXTRAS', find('husky_control') + '/config/empty.yaml'))"/>
       <!-- Load robot description -->
-      <param name="robot_description" command="$(find xacro)/xacro '$(find mipp_description)/urdf/mipp_robots.urdf.xacro'
+      <param name="robot_description" command="$(find xacro)/xacro '$(find mipp_description)/urdf/husky.urdf.xacro'
         --inorder
         robot_namespace:=$(arg robot_namespace)
         laser_enabled:=$(arg laser_enabled)
@@ -114,6 +114,6 @@
   </node>
 
   <!-- Relay/republish pointcloud to common cloud for OctoMap -->
-  <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
+  <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="husky/velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
 
 </launch>

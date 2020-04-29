@@ -5,17 +5,20 @@
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
   <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
-  <arg name="run_husky"   default="true"/>
+  <arg name="run_husky"   default="false"/>
+  <arg name="run_husky_explore" default="false"/>
+  <arg name="run_uav0"    default="true"/>
+  <arg name="run_uav1"    default="false"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
 
-  <node pkg="tf" type="static_transform_publisher" name="world_odom_link" args="0 0 0 0 0 0  /world /odom  100"/>
-  <node pkg="tf" type="static_transform_publisher" name="world_map_link" args="0 0 0 0 0 0  /world /map  100"/>
-  <node pkg="tf" type="static_transform_publisher" name="base_frd_link" args="0 0 0 0 0 0  /base_link_uav0 /base_link_frd  100"/>
+  <node pkg="tf" type="static_transform_publisher" name="tf_world_odom_link" args="0 0 0 0 0 0  /world /odom  100"/>
+  <node pkg="tf" type="static_transform_publisher" name="tf_world_map_link" args="0 0 0 0 0 0  /world /map  100"/>
+  <node pkg="tf" type="static_transform_publisher" name="tf_base_frd_link" args="0 0 0 0 0 0  /base_link_uav0 /base_link_frd  100"/>
 
   <!---
     Run OctoMap
   -->
-  <include file="$(find octomap_server)/launch/octomap_mapping.launch">
+  <include file="$(find mipp_launch)/launch/octomap_mapping.launch">
     <param name="resolution"                      value="0.25"/>
     <param name="frame_id"          type="string" value="world"/>
 		<param name="base_frame_id"     type="string" value="base_footprint"/>
@@ -30,7 +33,7 @@
   <!--- 
     Spawn first uav
   -->
-  <include file="$(find mipp_launch)/launch/uav.launch">
+  <include file="$(find mipp_launch)/launch/uav.launch" if="$(arg run_uav0)">
     <arg name="uav_id"        value="0"/>
     <arg name="initial_x"     value="-3"/>
     <arg name="initial_y"     value="0"/>
@@ -40,7 +43,7 @@
   <!--- 
     Spawn second uav
   -->
-  <include file="$(find mipp_launch)/launch/uav.launch">
+  <include file="$(find mipp_launch)/launch/uav.launch" if="$(arg run_uav1)">
     <arg name="uav_id"        value="1"/>
     <arg name="initial_x"     value="0"/>
     <arg name="initial_y"     value="3"/>
@@ -70,6 +73,9 @@
   <!--- 
     Spawn single husky
   -->
-  <include file="$(find mipp_launch)/launch/husky.launch" if="$(arg run_husky)"/>
+  <group if="$(arg run_husky)">
+    <include file="$(find mipp_launch)/launch/husky.launch"/>
+    <include file="$(find explore_lite)/launch/explore.launch" if="$(arg run_husky_explore)"/>
+  </group>
 
 </launch>
