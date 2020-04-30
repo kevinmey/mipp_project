@@ -36,6 +36,7 @@ add_executable(
     uav_server_node
     src/uav_server_node.cpp
     src/UAVServer.cpp
+    src/utils.cpp
 )
 
 add_dependencies(
@@ -56,6 +57,7 @@ add_executable(
     src/rrt_planner_node.cpp
     src/RRTPlanner.cpp
     src/Node.cpp
+    src/utils.cpp
 )
 
 add_dependencies(

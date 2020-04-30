@@ -8,15 +8,17 @@
 
   <node pkg="mipp_packages" type="rrt_planner_node" name="rrt_planner_node" output="screen">
     <!-- Parameters -->
-    <param name="root_x"            value="0.0"/>
-    <param name="root_y"            value="0.0"/>
-    <param name="root_z"            value="0.0"/>
-    <param name="x_range_min"       value="-3.0"/>
-    <param name="x_range_max"       value="3.0"/>
-    <param name="y_range_min"       value="-3.0"/>
-    <param name="y_range_max"       value="3.0"/>
-    <param name="z_range_min"       value="0.0"/>
-    <param name="z_range_max"       value="0.5"/>
+    <param name="planner_world_frame"   value="world"/>
+    <param name="root_x"                value="0.0"/>
+    <param name="root_y"                value="0.0"/>
+    <param name="root_z"                value="0.0"/>
+    <param name="x_range_min"           value="-10.0"/>
+    <param name="x_range_max"           value="10.0"/>
+    <param name="y_range_min"           value="-10.0"/>
+    <param name="y_range_max"           value="10.0"/>
+    <param name="z_range_min"           value="0.0"/>
+    <param name="z_range_max"           value="0.5"/>
+    <param name="max_ray_distance"      value="3.0"/>
 
     <!-- Remap topics -->
     <!-- Published topics -->

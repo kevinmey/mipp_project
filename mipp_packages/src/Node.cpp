@@ -7,9 +7,9 @@
 #include "Node.hpp"
 
 Node::Node(double x, double y, double z, double yaw, double cost, double gain, int id, Node* parent) {
-  this->x_ = x;
-  this->y_ = y;
-  this->z_ = z;
+  this->position_.x = x;
+  this->position_.y = y;
+  this->position_.z = z;
   this->yaw_ = yaw;
   this->cost_ = cost;
   this->gain_ = gain;
@@ -39,9 +39,9 @@ std::stringstream Node::stringPosVec(std::vector<double> vec) {
 }
 
 double Node::findDistance(Node const &node) {
-	double distance = (double)sqrt( pow((double)x_ - (double)node.x_, 2.0)
-																+ pow((double)y_ - (double)node.y_, 2.0)
-																+ pow((double)z_ - (double)node.z_, 2.0));
+	double distance = (double)sqrt( pow(position_.x - node.position_.x, 2.0)
+																+ pow(position_.y - node.position_.y, 2.0)
+																+ pow(position_.z - node.position_.z, 2.0));
 	return distance;
 }
 
@@ -57,9 +57,9 @@ void Node::setParent(Node* node)
 
 Node Node::operator+(Node p){
   Node tmp;
-  tmp.x_ = this->x_ + p.x_;
-  tmp.y_ = this->y_ + p.y_;
-  tmp.z_ = this->z_ + p.z_;
+  tmp.position_.x = this->position_.x + p.position_.x;
+  tmp.position_.y = this->position_.y + p.position_.y;
+  tmp.position_.z = this->position_.z + p.position_.z;
   tmp.yaw_ = this->yaw_ + p.yaw_;
   tmp.cost_ = this->cost_ + p.cost_;
   return tmp;
@@ -67,9 +67,9 @@ Node Node::operator+(Node p){
 
 Node Node::operator-(Node p){
   Node tmp;
-  tmp.x_ = this->x_ - p.x_;
-  tmp.y_ = this->y_ - p.y_;
-  tmp.z_ = this->z_ - p.z_;
+  tmp.position_.x = this->position_.x - p.position_.x;
+  tmp.position_.y = this->position_.y - p.position_.y;
+  tmp.position_.z = this->position_.z - p.position_.z;
   tmp.yaw_ = this->yaw_ - p.yaw_;
   tmp.cost_ = this->cost_ - p.cost_;
   tmp.gain_ = this->gain_ - p.gain_;
@@ -77,9 +77,9 @@ Node Node::operator-(Node p){
 }
 
 void Node::operator=(Node p){
-  this->x_ = p.x_;
-  this->y_ = p.y_;
-  this->z_ = p.z_;
+  this->position_.x = p.position_.x;
+  this->position_.y = p.position_.y;
+  this->position_.z = p.position_.z;
   this->yaw_ = p.yaw_;
   this->cost_ = p.cost_;
   this->gain_ = p.gain_;

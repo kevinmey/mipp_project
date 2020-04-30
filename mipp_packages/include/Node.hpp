@@ -4,11 +4,10 @@
 * @brief Contains the Node class
 */
 
-#ifndef NODE_H
-#define NODE_H
-#define _USE_MATH_DEFINES
+#include <ros/ros.h>
 
-//#include "main.hpp"
+#include <geometry_msgs/Point.h>
+
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -23,7 +22,7 @@
 
 /**
 * @brief Node class
-* @param x_ X value
+* @param position (x,y,z) coordinate of point
 * @param y_ Y value
 * @param z_ Y value
 * @param cost_ Cost to get to this node
@@ -41,12 +40,8 @@ private:
   */
   std::stringstream stringPosVec(std::vector<double> vec);
 public:
-  /** \brief x coordinate */
-  double x_;
-  /** \brief y coordinate */
-  double y_;
-  /** \brief z coordinate */
-  double z_;
+  /** \brief Point coordinate */
+  geometry_msgs::Point position_;
   /** \brief yaw angle */
   double yaw_;
   /** \brief cost to reach this node */
@@ -138,5 +133,3 @@ public:
   */
   bool operator<(Node p);
 };
-
-#endif // NODE_H
