@@ -4,8 +4,8 @@
 * @brief Contains the Node class
 */
 
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef NODE_H
+#define NODE_H
 #define _USE_MATH_DEFINES
 
 //#include "main.hpp"
@@ -28,11 +28,13 @@
 * @param z_ Y value
 * @param cost_ Cost to get to this node
 * @param id_ Node's id
-* @param parent_ Node's parent's id
+* @param parent_id_ Node's parent's id
 */
 class Node{
 // Variables used here are constantly accessed and checked; leaving public for now.
 private:
+  /** \brief Node's parent */
+  Node* parent_;
   /**
   * @brief Prints the position vector
   * @return void
@@ -52,9 +54,7 @@ public:
   /** \brief exploration gain after reaching this node */
   double gain_;
   /** \brief Node's id */
-  std::vector<double> id_;
-  /** \brief Node's parent's id */
-  std::vector<double> parent_;
+  int id_;
 
   /**
   * @brief Constructor for Node class
@@ -62,27 +62,38 @@ public:
   * @param y    Y value
   * @param z    Z value
   * @param yaw  Yaw value
-  * @param cost Cost to get to this node
+  * @param cost Cost to get to this node (usually distance to root)
   * @param id Node's id
-  * @param pid Node's parent's id
+  * @param parent_ Node's parent
   */
-  Node(double x = 0, double y = 0, double z = 0, double yaw = 0, double cost = 0, double gain = 0, std::vector<double> parent = {});
+  Node(double x = 0, double y = 0, double z = 0, double yaw = 0, double cost = 0, double gain = 0, int id = 0, Node* parent = NULL);
 
   /**
   * @brief Prints the nodes id and parent id
   * @return void
   */
-  std::stringstream printStatus();
-
-  
-
+  std::string printStatus();
 
   /**
   * @brief Prints the position vector
   * @param node the node to find the distance to
   * @return double distance between nodes
   */
-  double findDistance(Node node);
+  double findDistance(Node const &node);
+
+  /**
+  * @brief Prints the position vector
+  * @param node the node to find the distance to
+  * @return double distance between nodes
+  */
+  Node* getParent();
+
+  /**
+  * @brief Prints the position vector
+  * @param node the node to find the distance to
+  * @return double distance between nodes
+  */
+  void setParent(Node* node);
 
 
   /**
@@ -119,6 +130,13 @@ public:
   * @return bool whether current node is not equal to input node
   */
   bool operator!=(Node p);
+
+  /**
+  * @brief Overloading operator < for Node class
+  * @param p node
+  * @return bool whether current node cost is less than input node cost
+  */
+  bool operator<(Node p);
 };
 
-#endif // UTILS_H
+#endif // NODE_H

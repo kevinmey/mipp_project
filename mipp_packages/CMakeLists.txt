@@ -55,6 +55,7 @@ add_executable(
     rrt_planner_node
     src/rrt_planner_node.cpp
     src/RRTPlanner.cpp
+    src/Node.cpp
 )
 
 add_dependencies(
