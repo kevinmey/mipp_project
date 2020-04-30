@@ -16,7 +16,9 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
 
   pub_random_point_ = n.advertise<geometry_msgs::Point>("rrt_planner/random_point", 1);
   pub_viz_tree_ = n.advertise<visualization_msgs::Marker>("rrt_planner/viz_tree", 1);
+  pub_viz_collision_tree_ = n.advertise<visualization_msgs::Marker>("rrt_planner/viz_collision_tree", 1);
 
+  received_map_ = false;
   sub_octomap_ = n.subscribe("octomap_binary", 1, &RRTPlanner::subOctomap, this);
 
   // Init. random number generator distributions
@@ -60,14 +62,38 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
     geometry_msgs::Point new_point = castRay(nearest_neighbor->position_, 
                                              new_point_direction, 
                                              std::min(nearest_neighbor_distance, max_ray_distance_));
+    geometry_msgs::Vector3 new_point_return_direction = getDirection(new_point, new_point_origin);
 
+    while(!received_map_)
+    {
+      ros::spinOnce();
+      rate.sleep();
+    }
     // Attempt to cast OctoMap ray
-
-    int node_id = tree_.size();
-    Node new_node(new_point.x, new_point.y, new_point.z, 0.0, 0.0, 0.0, node_id, nearest_neighbor);
-    tree_.push_back(new_node);
+    octomap::point3d om_ray_origin = octomap::point3d(new_point_origin.x, new_point_origin.y, new_point_origin.z);
+    octomap::point3d om_ray_direction = octomap::point3d(new_point_direction.x, new_point_direction.y, new_point_direction.z);
+    octomap::point3d om_ray_end = octomap::point3d(new_point.x, new_point.y, new_point.z);
+    octomap::point3d om_ray_return_direction = octomap::point3d(new_point_return_direction.x, new_point_return_direction.y, new_point_return_direction.z);
+    octomap::point3d om_ray_end_cell;
+    octomap::point3d om_ray_return_cell;
+    double om_ray_distance = std::min(nearest_neighbor_distance, max_ray_distance_);
+    bool hit_occupied_to = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, om_ray_distance);
+    bool hit_occupied_from = map_->castRay(om_ray_end, om_ray_return_direction, om_ray_return_cell, false, om_ray_distance);
+    if(hit_occupied_to or hit_occupied_from)
+    {
+      ROS_INFO("I hit something");
+      collision_tree_.push_back(new_point_origin);
+      collision_tree_.push_back(new_point);
+    }
+    else
+    {
+      int node_id = tree_.size();
+      Node new_node(new_point.x, new_point.y, new_point.z, 0.0, 0.0, 0.0, node_id, nearest_neighbor);
+      tree_.push_back(new_node);
+    }
 
     visualizeTree();
+    visualizeCollisionTree();
 
     ros::spinOnce();
     rate.sleep();
@@ -83,8 +109,17 @@ RRTPlanner::~RRTPlanner()
 
 void RRTPlanner::subOctomap(const octomap_msgs::Octomap& octomap_msg)
 {
-  ROS_DEBUG("RRTPlanner: subOctomap");
-  map_ = octomap_msgs::binaryMsgToMap(octomap_msg);
+  ROS_INFO("RRTPlanner: subOctomap");
+  octomap::AbstractOcTree* abstract_map = octomap_msgs::binaryMsgToMap(octomap_msg);
+  if(abstract_map)
+  {
+    map_ = dynamic_cast<octomap::OcTree*>(abstract_map);
+    received_map_ = true;
+  } 
+  else 
+  {
+    ROS_ERROR("RRTPlanner: Error creating octree from received message");
+  }
 }
 
 // Utility functions
@@ -145,4 +180,22 @@ void RRTPlanner::visualizeTree()
     }
   }
   pub_viz_tree_.publish(tree_marker);
+}
+
+void RRTPlanner::visualizeCollisionTree()
+{
+  visualization_msgs::Marker tree_marker;
+  tree_marker.header.frame_id = planner_world_frame_;
+  tree_marker.header.stamp = ros::Time::now();
+  tree_marker.id = 0;
+  tree_marker.type = visualization_msgs::Marker::LINE_LIST;
+  tree_marker.action = visualization_msgs::Marker::ADD;
+  tree_marker.pose.orientation.w = 1.0;
+  tree_marker.scale.x = 0.04;
+  tree_marker.color.a = 0.8;
+  tree_marker.color.r = 1.0;
+  tree_marker.color.g = 0.0;
+  tree_marker.color.b = 0.0;
+  tree_marker.points = collision_tree_;
+  pub_viz_collision_tree_.publish(tree_marker);
 }

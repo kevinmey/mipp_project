@@ -44,15 +44,19 @@ public:
   *  Visualization functions
   */
   void visualizeTree();
+  void visualizeCollisionTree();
 
 private:
   ros::Publisher pub_random_point_;
   ros::Publisher pub_viz_tree_;
+  ros::Publisher pub_viz_collision_tree_;
   ros::Subscriber sub_octomap_;
   // Planner variables
   Node root_;
   std::list<Node> tree_;
-  octomap::AbstractOcTree* map_;
+  std::vector<geometry_msgs::Point> collision_tree_;
+  octomap::OcTree* map_;
+  bool received_map_;
   // Random nr. generator and distributions
   std::default_random_engine generator_;
   std::uniform_real_distribution<double> x_distribution_;
