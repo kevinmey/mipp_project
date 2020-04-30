@@ -14,6 +14,8 @@ find_package(
     std_msgs
     roscpp
     cmake_modules
+    octomap_ros
+    octomap_msgs
     tf2
     tf2_ros
     tf2_geometry_msgs

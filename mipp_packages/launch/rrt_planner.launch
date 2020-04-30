@@ -8,21 +8,31 @@
 
   <node pkg="mipp_packages" type="rrt_planner_node" name="rrt_planner_node" output="screen">
     <!-- Parameters -->
-    <param name="planner_world_frame"   value="world"/>
+    <param name="planner_world_frame"   value="map"/>
     <param name="root_x"                value="0.0"/>
     <param name="root_y"                value="0.0"/>
-    <param name="root_z"                value="0.0"/>
+    <param name="root_z"                value="0.5"/>
     <param name="x_range_min"           value="-10.0"/>
     <param name="x_range_max"           value="10.0"/>
     <param name="y_range_min"           value="-10.0"/>
     <param name="y_range_max"           value="10.0"/>
     <param name="z_range_min"           value="0.0"/>
-    <param name="z_range_max"           value="0.5"/>
+    <param name="z_range_max"           value="1.0"/>
     <param name="max_ray_distance"      value="3.0"/>
 
     <!-- Remap topics -->
     <!-- Published topics -->
     <remap from="rrt_planner/random_point" to="rrt_planner/random_point"/>
   </node>
+
+  <node pkg="octomap_server" type="octomap_server_node" name="octomap_server_node" output="screen" args="$(find mipp_packages)/rviz/playpen_octomap.bt">
+    <!-- Parameters -->
+  </node>
+
+  <!--- 
+    Run Rviz 
+  -->
+  <node name="rviz" pkg="rviz" type="rviz" output="screen" args="-d $(find mipp_packages)/rviz/rrt_planner.rviz"/>
+
 </launch>
 

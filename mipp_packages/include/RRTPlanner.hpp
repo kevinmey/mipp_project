@@ -1,10 +1,13 @@
 #include <ros/ros.h>
+#include "octomap/octomap.h"
 
 #include <Node.hpp>
 #include <utils.hpp>
 
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <octomap_msgs/Octomap.h>
+#include "octomap_msgs/conversions.h"
 #include <visualization_msgs/Marker.h>
 
 #include <string>
@@ -17,6 +20,8 @@ public:
   RRTPlanner(ros::NodeHandle n, ros::NodeHandle np);
   // Destructor
   ~RRTPlanner();
+
+  void subOctomap(const octomap_msgs::Octomap& octomap_msg);
   
   /* 
   *  Utility functions
@@ -43,8 +48,11 @@ public:
 private:
   ros::Publisher pub_random_point_;
   ros::Publisher pub_viz_tree_;
+  ros::Subscriber sub_octomap_;
+  // Planner variables
   Node root_;
   std::list<Node> tree_;
+  octomap::AbstractOcTree* map_;
   // Random nr. generator and distributions
   std::default_random_engine generator_;
   std::uniform_real_distribution<double> x_distribution_;

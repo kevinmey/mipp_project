@@ -14,8 +14,10 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
 
   getParams(np);
 
-  pub_random_point_ = n.advertise<geometry_msgs::Point>("rrt_planner/random_point", 10);
-  pub_viz_tree_ = n.advertise<visualization_msgs::Marker>("rrt_planner/viz_tree", 10);
+  pub_random_point_ = n.advertise<geometry_msgs::Point>("rrt_planner/random_point", 1);
+  pub_viz_tree_ = n.advertise<visualization_msgs::Marker>("rrt_planner/viz_tree", 1);
+
+  sub_octomap_ = n.subscribe("octomap_binary", 1, &RRTPlanner::subOctomap, this);
 
   // Init. random number generator distributions
   x_distribution_ = std::uniform_real_distribution<double>(x_range_min_, x_range_max_);
@@ -26,6 +28,10 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   root_ = Node(root_x_, root_y_, root_z_, 0.0, 0.0, 0.0, 0, NULL);
   tree_.push_back(root_);
 
+  /*
+  * TEMPORARY
+  * Testing the RRT functionality by running it in a while loop
+  */
   ros::Rate rate(20.0);
   while(ros::ok)
   {
@@ -55,6 +61,8 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
                                              new_point_direction, 
                                              std::min(nearest_neighbor_distance, max_ray_distance_));
 
+    // Attempt to cast OctoMap ray
+
     int node_id = tree_.size();
     Node new_node(new_point.x, new_point.y, new_point.z, 0.0, 0.0, 0.0, node_id, nearest_neighbor);
     tree_.push_back(new_node);
@@ -71,6 +79,12 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
 RRTPlanner::~RRTPlanner()
 {
   ROS_INFO("RRTPlanner object is being deleted.");
+}
+
+void RRTPlanner::subOctomap(const octomap_msgs::Octomap& octomap_msg)
+{
+  ROS_DEBUG("RRTPlanner: subOctomap");
+  map_ = octomap_msgs::binaryMsgToMap(octomap_msg);
 }
 
 // Utility functions
