@@ -41,6 +41,20 @@ public:
   geometry_msgs::Point generateRandomPoint(bool publish_point);
 
   /**
+  * @brief Generates a random point from generators set in constrcutor
+  * @param publish_point Bool whether to publish point or not
+  * @return random 3d point 
+  */
+  void extendTreeRRTstar(geometry_msgs::Point candidate_point);
+
+  /**
+  * @brief Generates a random point from generators set in constrcutor
+  * @param publish_point Bool whether to publish point or not
+  * @return random 3d point 
+  */
+  void extendTreeRRT(geometry_msgs::Point candidate_point, Node* nearest_neighbor);
+
+  /**
   * @brief Checks if two points and the path between is collision free
   * @param point_a Origin point
   * @param point_b Destination point
@@ -90,4 +104,5 @@ private:
   double z_range_max_;
   double planning_rate_;
   double max_ray_distance_;
+  int planner_algorithm_;
 };

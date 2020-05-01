@@ -39,6 +39,13 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   ros::Rate rate(planning_rate_);
   while(ros::ok)
   {
+    while(!received_map_)
+    {
+      ROS_WARN("RRTPlanner: No map received yet, waiting...");
+      ros::spinOnce();
+      rate.sleep();
+    }
+    
     // Sample a random point within the (x,y,z)_distribution bounds
     geometry_msgs::Point sample_point = generateRandomPoint(false);
 
@@ -74,64 +81,22 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
                                              new_point_ray_direction, 
                                              std::min(nearest_neighbor_distance, max_ray_distance_));
 
-    std::map<double, Node*> neighbor_list;
-    for(std::list<Node>::iterator tree_node_itr = tree_.begin();
-        tree_node_itr != tree_.end(); tree_node_itr++)
+    switch(planner_algorithm_)
     {
-      // Get distance to tree node
-      double distance_to_node = getDistanceBetweenPoints(new_point, tree_node_itr->position_);
-      ROS_DEBUG("Sampled point distance to node %d: %f", tree_node_itr->id_, distance_to_node);
-
-      // Add tree node to neighborhood if it is within range
-      // Inserted into map with combined cost (tree node cost + distance to node) as key
-      if(distance_to_node < max_ray_distance_+0.01) 
-      {
-        ROS_DEBUG("Node %d is within neighborhood", tree_node_itr->id_);
-        double neighbor_cost = tree_node_itr->cost_;
-        double combined_cost = neighbor_cost + distance_to_node;
-        neighbor_list.insert(std::pair<double, Node*>(combined_cost, &*tree_node_itr));
-      }
-    }
-    ROS_DEBUG("Neighborhood size: %d", (int)neighbor_list.size());
-    
-    std::map<double, Node*>::iterator neighbor_itr;
-    ROS_DEBUG("\tNODE\tCOST"); 
-    for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) { 
-      ROS_DEBUG("\t%d\t%f", neighbor_itr->second->id_, neighbor_itr->first);
-    }
-
-    while(!received_map_)
-    {
-      ROS_WARN("RRTPlanner: No map received yet, waiting...");
-      ros::spinOnce();
-      rate.sleep();
-    }
-
-    // Add the new node if it is collision free
-    std::vector<geometry_msgs::Point> collision_tree;
-    for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) 
-    { 
-      bool pathIsCollisionFree = isPathCollisionFree(neighbor_itr->second->position_, new_point);
-      if(pathIsCollisionFree)
-      {
-        int node_id = tree_.size();
-        int node_rank = neighbor_itr->second->rank_ + 1;
-        float node_cost = neighbor_itr->second->cost_ + getDistanceBetweenPoints(new_point, neighbor_itr->second->position_);
-        Node new_node(new_point.x, new_point.y, new_point.z, 0.0, node_cost, 0.0, node_id, neighbor_itr->second, node_rank);
-        tree_.push_back(new_node);
-        ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+      case 1:
+        // RRTstar algorithm
+        extendTreeRRTstar(new_point);
         break;
-      }
-      else
-      {
-        ROS_DEBUG("I hit something");
-        collision_tree.push_back(neighbor_itr->second->position_);
-        collision_tree.push_back(new_point);
-      }
+      case 2:
+        // RRT algorithm
+        extendTreeRRT(new_point, nearest_neighbor);
+        break;
+      default:
+        // RRTstar algorithm as default
+        extendTreeRRTstar(new_point);
     }
 
     visualizeTree();
-    visualizeCollisionTree(collision_tree);
 
     ros::spinOnce();
     rate.sleep();
@@ -177,6 +142,7 @@ void RRTPlanner::getParams(ros::NodeHandle np)
   np.param<double>("z_range_max", z_range_max_,  1.0);
   np.param<double>("planning_rate", planning_rate_, 10.0);
   np.param<double>("max_ray_distance", max_ray_distance_, 3.0);
+  np.param<int>("planner_algorithm", planner_algorithm_, 1);
 }
 
 geometry_msgs::Point RRTPlanner::generateRandomPoint(bool publish_point)
@@ -193,12 +159,96 @@ geometry_msgs::Point RRTPlanner::generateRandomPoint(bool publish_point)
   return sample_point;
 }
 
+void RRTPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
+{
+  ROS_DEBUG("RRTPlanner: extendTreeRRTstar");
+
+  // Make a neighbor list of nodes close enough to the candidate point
+  // Store combined cost and Node pointer in map
+  std::map<double, Node*> neighbor_list;
+  for(std::list<Node>::iterator tree_node_itr = tree_.begin();
+      tree_node_itr != tree_.end(); tree_node_itr++)
+  {
+    // Get distance to tree node
+    double distance_to_node = getDistanceBetweenPoints(candidate_point, tree_node_itr->position_);
+    ROS_DEBUG("Sampled point distance to node %d: %f", tree_node_itr->id_, distance_to_node);
+
+    // Add tree node to neighborhood if it is within range
+    // Inserted into map with combined cost (tree node cost + distance to node) as key
+    if(distance_to_node < max_ray_distance_+0.01) 
+    {
+      ROS_DEBUG("Node %d is within neighborhood", tree_node_itr->id_);
+      double neighbor_cost = tree_node_itr->cost_;
+      double combined_cost = neighbor_cost + distance_to_node;
+      neighbor_list.insert(std::pair<double, Node*>(combined_cost, &*tree_node_itr));
+    }
+  }
+  ROS_DEBUG("Neighborhood size: %d", (int)neighbor_list.size());
+  
+  std::map<double, Node*>::iterator neighbor_itr;
+  ROS_DEBUG("\tNODE\tCOST"); 
+  for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) { 
+    ROS_DEBUG("\t%d\t%f", neighbor_itr->second->id_, neighbor_itr->first);
+  }
+
+  // Add the new node if it is collision free
+  std::vector<geometry_msgs::Point> collision_tree;
+  for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) 
+  { 
+    bool pathIsCollisionFree = isPathCollisionFree(neighbor_itr->second->position_, candidate_point);
+    if(pathIsCollisionFree)
+    {
+      int node_id = tree_.size();
+      int node_rank = neighbor_itr->second->rank_ + 1;
+      float node_cost = neighbor_itr->second->cost_ + getDistanceBetweenPoints(candidate_point, neighbor_itr->second->position_);
+      Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, 0.0, node_cost, 0.0, node_id, neighbor_itr->second, node_rank);
+      tree_.push_back(new_node);
+      ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+      break;
+    }
+    else
+    {
+      ROS_DEBUG("I hit something");
+      collision_tree.push_back(neighbor_itr->second->position_);
+      collision_tree.push_back(candidate_point);
+    }
+  } 
+
+  visualizeCollisionTree(collision_tree);
+}
+
+void RRTPlanner::extendTreeRRT(geometry_msgs::Point candidate_point, Node* nearest_neighbor)
+{
+  ROS_DEBUG("RRTPlanner: extendTreeRRT");
+
+  // Add the new node if it is collision free
+  bool pathIsCollisionFree = isPathCollisionFree(nearest_neighbor->position_, candidate_point);
+  if(pathIsCollisionFree)
+  {
+    int node_id = tree_.size();
+    int node_rank = nearest_neighbor->rank_ + 1;
+    float node_cost = nearest_neighbor->cost_ + getDistanceBetweenPoints(candidate_point, nearest_neighbor->position_);
+    Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, 0.0, node_cost, 0.0, node_id, nearest_neighbor, node_rank);
+    tree_.push_back(new_node);
+    ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, nearest_neighbor->id_, node_rank, node_cost);
+
+  }
+  else
+  {
+    ROS_DEBUG("I hit something");
+    collision_tree_.push_back(nearest_neighbor->position_);
+    collision_tree_.push_back(candidate_point);   
+  }
+  
+  visualizeCollisionTree(collision_tree_);
+}
+
 bool RRTPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b, 
                                      geometry_msgs::Vector3 direction_ab, double distance)
 {
   ROS_DEBUG("RRTPlanner: isPathCollisionFree");
   // Check if optional arguments are set (default/initialized values aren't valid)
-  if(direction_ab.x == 0 and direction_ab.y == 0 and direction_ab.z == 0)
+  if((int)direction_ab.x == 0 and (int)direction_ab.y == 0 and (int)direction_ab.z == 0)
   {
     direction_ab = getDirection(point_a, point_b);
   }
