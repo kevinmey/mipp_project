@@ -27,14 +27,14 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   z_distribution_ = std::uniform_real_distribution<double>(z_range_min_, z_range_max_);
 
   // Init. tree with root node
-  root_ = Node(root_x_, root_y_, root_z_, 0.0, 0.0, 0.0, 0, NULL);
+  root_ = Node(root_x_, root_y_, root_z_, 0.0, 0.0, 0.0, 0, NULL, 0);
   tree_.push_back(root_);
 
   /*
   * TEMPORARY
   * Testing the RRT functionality by running it in a while loop
   */
-  ros::Rate rate(20.0);
+  ros::Rate rate(0.5);
   while(ros::ok)
   {
     geometry_msgs::Point sample_point = generateRandomPoint(false);
@@ -81,15 +81,18 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
     bool hit_occupied_from = map_->castRay(om_ray_end, om_ray_return_direction, om_ray_return_cell, false, om_ray_distance);
     if(hit_occupied_to or hit_occupied_from)
     {
-      ROS_INFO("I hit something");
+      ROS_DEBUG("I hit something");
       collision_tree_.push_back(new_point_origin);
       collision_tree_.push_back(new_point);
     }
     else
     {
       int node_id = tree_.size();
-      Node new_node(new_point.x, new_point.y, new_point.z, 0.0, 0.0, 0.0, node_id, nearest_neighbor);
+      int node_rank = nearest_neighbor->rank_ + 1;
+      float node_cost = nearest_neighbor->cost_ + distanceBetweenPoints(new_point, nearest_neighbor->position_);
+      Node new_node(new_point.x, new_point.y, new_point.z, 0.0, node_cost, 0.0, node_id, nearest_neighbor, node_rank);
       tree_.push_back(new_node);
+      ROS_DEBUG("New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, nearest_neighbor->id_, node_rank, node_cost);
     }
 
     visualizeTree();

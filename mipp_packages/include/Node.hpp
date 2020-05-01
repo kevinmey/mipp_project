@@ -22,18 +22,19 @@
 
 /**
 * @brief Node class
-* @param position (x,y,z) coordinate of point
-* @param y_ Y value
-* @param z_ Y value
+* @param position_ (x,y,z) coordinate of point
+* @param yaw_ Yaw value
 * @param cost_ Cost to get to this node
 * @param id_ Node's id
 * @param parent_id_ Node's parent's id
+* @param rank_ Nr. of nodes away from root
 */
 class Node{
 // Variables used here are constantly accessed and checked; leaving public for now.
 private:
   /** \brief Node's parent */
   Node* parent_;
+  
   /**
   * @brief Prints the position vector
   * @return void
@@ -50,6 +51,8 @@ public:
   double gain_;
   /** \brief Node's id */
   int id_;
+  /** \brief Node rank, nr. of nodes away from root */
+  int rank_;
 
   /**
   * @brief Constructor for Node class
@@ -60,8 +63,9 @@ public:
   * @param cost Cost to get to this node (usually distance to root)
   * @param id Node's id
   * @param parent_ Node's parent
+  * @param rank_ Nr. of nodes away from root
   */
-  Node(double x = 0, double y = 0, double z = 0, double yaw = 0, double cost = 0, double gain = 0, int id = 0, Node* parent = NULL);
+  Node(double x = 0, double y = 0, double z = 0, double yaw = 0, double cost = 0, double gain = 0, int id = 0, Node* parent = NULL, int rank = 0);
 
   /**
   * @brief Prints the nodes id and parent id

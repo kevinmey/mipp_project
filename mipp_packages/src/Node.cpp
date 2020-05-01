@@ -6,7 +6,7 @@
 
 #include "Node.hpp"
 
-Node::Node(double x, double y, double z, double yaw, double cost, double gain, int id, Node* parent) {
+Node::Node(double x, double y, double z, double yaw, double cost, double gain, int id, Node* parent, int rank) {
   this->position_.x = x;
   this->position_.y = y;
   this->position_.z = z;
@@ -15,6 +15,7 @@ Node::Node(double x, double y, double z, double yaw, double cost, double gain, i
   this->gain_ = gain;
   this->id_ = id;
   this->parent_ = parent;
+  this->rank_ = rank;
 }
 
 std::string Node::printStatus(){
@@ -85,6 +86,7 @@ void Node::operator=(Node p){
   this->gain_ = p.gain_;
   this->id_ = p.id_;
   this->parent_ = p.parent_;
+  this->rank_ = p.rank_;
 }
 
 bool Node::operator==(Node p){
