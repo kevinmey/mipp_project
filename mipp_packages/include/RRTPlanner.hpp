@@ -54,8 +54,10 @@ public:
   
   /* 
   *  Visualization functions
+  *  Defined in RRTPlannerVisualization.cpp
   */
   void visualizeTree();
+  void visualizeTreeColored();
   void visualizeCollisionTree();
   void visualizeCollisionTree(std::vector<geometry_msgs::Point> collision_tree);
 

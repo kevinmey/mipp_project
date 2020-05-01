@@ -58,6 +58,7 @@ add_executable(
     rrt_planner_node
     src/rrt_planner_node.cpp
     src/RRTPlanner.cpp
+    src/RRTPlannerVisualization.cpp
     src/Node.cpp
     src/utils.cpp
 )
