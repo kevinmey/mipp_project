@@ -74,15 +74,18 @@ public:
   void visualizeTreeColored();
   void visualizeCollisionTree();
   void visualizeCollisionTree(std::vector<geometry_msgs::Point> collision_tree);
+  void visualizePathToGoal();
 
 private:
   ros::Publisher pub_random_point_;
   ros::Publisher pub_viz_tree_;
   ros::Publisher pub_viz_collision_tree_;
+  ros::Publisher pub_viz_path_to_goal_;
   ros::Subscriber sub_octomap_;
   // Planner variables
   Node root_;
   std::list<Node> tree_;
+  std::map<double, Node> goal_nodes_;
   std::vector<geometry_msgs::Point> collision_tree_;
   octomap::OcTree* map_;
   bool received_map_;
@@ -91,11 +94,17 @@ private:
   std::uniform_real_distribution<double> x_distribution_;
   std::uniform_real_distribution<double> y_distribution_;
   std::uniform_real_distribution<double> z_distribution_;
+  std::uniform_real_distribution<double> goal_sample_distribution_;
   // Parameters
   std::string planner_world_frame_;
   double root_x_;
   double root_y_;
   double root_z_;
+  double goal_x_;
+  double goal_y_;
+  double goal_z_;
+  double goal_sample_probability_;
+  double goal_radius_;
   double x_range_min_;
   double x_range_max_;
   double y_range_min_;

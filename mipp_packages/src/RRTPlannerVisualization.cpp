@@ -69,7 +69,7 @@ void RRTPlanner::visualizeCollisionTree()
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
   tree_marker.scale.x = 0.04;
-  tree_marker.color.a = 0.8;
+  tree_marker.color.a = 0.5;
   tree_marker.color.r = 1.0;
   tree_marker.color.g = 0.0;
   tree_marker.color.b = 0.0;
@@ -86,11 +86,37 @@ void RRTPlanner::visualizeCollisionTree(std::vector<geometry_msgs::Point> collis
   tree_marker.type = visualization_msgs::Marker::LINE_LIST;
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
-  tree_marker.scale.x = 0.04;
-  tree_marker.color.a = 0.8;
+  tree_marker.scale.x = 0.02;
+  tree_marker.color.a = 0.5;
   tree_marker.color.r = 1.0;
   tree_marker.color.g = 0.0;
   tree_marker.color.b = 0.0;
   tree_marker.points = collision_tree;
   pub_viz_collision_tree_.publish(tree_marker);
+}
+
+void RRTPlanner::visualizePathToGoal()
+{
+  visualization_msgs::Marker tree_marker;
+  tree_marker.header.frame_id = planner_world_frame_;
+  tree_marker.header.stamp = ros::Time::now();
+  tree_marker.id = 0;
+  tree_marker.type = visualization_msgs::Marker::LINE_LIST;
+  tree_marker.action = visualization_msgs::Marker::ADD;
+  tree_marker.pose.orientation.w = 1.0;
+  tree_marker.scale.x = 0.05;
+  tree_marker.color.a = 1.0;
+  tree_marker.color.r = 0.1;
+  tree_marker.color.g = 1.0;
+  tree_marker.color.b = 0.1;
+
+  Node node_on_goal_path = goal_nodes_.begin()->second;
+  while(node_on_goal_path.id_ != 0)
+  {
+    tree_marker.points.push_back(node_on_goal_path.position_);
+    tree_marker.points.push_back(node_on_goal_path.getParent()->position_);
+    node_on_goal_path = *node_on_goal_path.getParent();
+  }
+  
+  pub_viz_path_to_goal_.publish(tree_marker);
 }

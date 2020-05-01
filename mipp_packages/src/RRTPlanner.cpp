@@ -17,6 +17,7 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   pub_random_point_ = n.advertise<geometry_msgs::Point>("rrt_planner/random_point", 1);
   pub_viz_tree_ = n.advertise<visualization_msgs::Marker>("rrt_planner/viz_tree", 1);
   pub_viz_collision_tree_ = n.advertise<visualization_msgs::Marker>("rrt_planner/viz_collision_tree", 1);
+  pub_viz_path_to_goal_ = n.advertise<visualization_msgs::Marker>("rrt_planner/path_to_goal", 1);
 
   received_map_ = false;
   sub_octomap_ = n.subscribe("octomap_binary", 1, &RRTPlanner::subOctomap, this);
@@ -27,6 +28,7 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   x_distribution_ = std::uniform_real_distribution<double>(x_range_min_, x_range_max_);
   y_distribution_ = std::uniform_real_distribution<double>(y_range_min_, y_range_max_);
   z_distribution_ = std::uniform_real_distribution<double>(z_range_min_, z_range_max_);
+  goal_sample_distribution_ = std::uniform_real_distribution<double>(0.0, 1.0);
 
   // Init. tree with root node
   root_ = Node(root_x_, root_y_, root_z_, 0.0, 0.0, 0.0, 0, NULL, 0);
@@ -46,8 +48,18 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
       rate.sleep();
     }
     
-    // Sample a random point within the (x,y,z)_distribution bounds
-    geometry_msgs::Point sample_point = generateRandomPoint(false);
+    geometry_msgs::Point sample_point;
+    if(goal_sample_distribution_(generator_) < goal_sample_probability_)
+    {
+      sample_point.x = goal_x_;
+      sample_point.y = goal_y_;
+      sample_point.z = goal_z_;
+    }
+    else
+    {
+      // Sample a random point within the (x,y,z)_distribution bounds
+      sample_point = generateRandomPoint(false);
+    }
 
     // Start finding nearest node in the tree to the sampled point (init. as root)
     Node* nearest_neighbor = &root_;
@@ -97,6 +109,7 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
     }
 
     visualizeTree();
+    visualizePathToGoal();
 
     ros::spinOnce();
     rate.sleep();
@@ -125,7 +138,9 @@ void RRTPlanner::subOctomap(const octomap_msgs::Octomap& octomap_msg)
   }
 }
 
-// Utility functions
+/* 
+*  Utility functions
+*/
 
 void RRTPlanner::getParams(ros::NodeHandle np)
 {
@@ -134,6 +149,11 @@ void RRTPlanner::getParams(ros::NodeHandle np)
   np.param<double>("root_x", root_x_, 0.0);
   np.param<double>("root_y", root_y_, 0.0);
   np.param<double>("root_z", root_z_, 0.0);
+  np.param<double>("goal_x", goal_x_, 0.0);
+  np.param<double>("goal_y", goal_y_, 0.0);
+  np.param<double>("goal_z", goal_z_, 2.0);
+  np.param<double>("goal_sample_probability", goal_sample_probability_, 0.1);
+  np.param<double>("goal_radius", goal_radius_, 0.01);
   np.param<double>("x_range_min", x_range_min_, -1.0);
   np.param<double>("x_range_max", x_range_max_,  1.0);
   np.param<double>("y_range_min", y_range_min_, -1.0);
@@ -142,7 +162,7 @@ void RRTPlanner::getParams(ros::NodeHandle np)
   np.param<double>("z_range_max", z_range_max_,  1.0);
   np.param<double>("planner_rate", planner_rate_, 10.0);
   np.param<int>("planner_algorithm", planner_algorithm_, 1);
-  np.param<int>("planner_tree_max_nodes", planner_max_tree_nodes_, 1000);
+  np.param<int>("planner_max_tree_nodes", planner_max_tree_nodes_, 1000);
   np.param<double>("max_ray_distance", max_ray_distance_, 3.0);
 }
 
@@ -186,6 +206,7 @@ void RRTPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
   }
   ROS_DEBUG("Neighborhood size: %d", (int)neighbor_list.size());
   
+  // Function to print neighbors
   std::map<double, Node*>::iterator neighbor_itr;
   ROS_DEBUG("\tNODE\tCOST"); 
   for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) { 
@@ -202,9 +223,19 @@ void RRTPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
       int node_id = tree_.size();
       int node_rank = neighbor_itr->second->rank_ + 1;
       float node_cost = neighbor_itr->second->cost_ + getDistanceBetweenPoints(candidate_point, neighbor_itr->second->position_);
-      Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, 0.0, node_cost, 0.0, node_id, neighbor_itr->second, node_rank);
-      tree_.push_back(new_node);
-      ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+      bool node_is_goal = (getDistanceBetweenPoints(candidate_point, makePoint(goal_x_, goal_y_, goal_z_)) < goal_radius_);
+      Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, 0.0, node_cost, 0.0, node_id, neighbor_itr->second, node_rank, node_is_goal);
+      if(node_is_goal)
+      {
+        goal_nodes_.insert(std::pair<double, Node>(node_cost, new_node));
+        ROS_DEBUG("RRTPlanner: New goal node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+      }
+      else
+      {
+        tree_.push_back(new_node);
+        ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+      }
+      
       break;
     }
     else
@@ -213,7 +244,7 @@ void RRTPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
       collision_tree.push_back(neighbor_itr->second->position_);
       collision_tree.push_back(candidate_point);
     }
-  } 
+  }
 
   visualizeCollisionTree(collision_tree);
 }

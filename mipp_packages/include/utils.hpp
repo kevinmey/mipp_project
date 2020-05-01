@@ -27,3 +27,5 @@ geometry_msgs::Point normalize(geometry_msgs::Point const point);
 geometry_msgs::Vector3 normalize(geometry_msgs::Vector3 const vector);
 
 geometry_msgs::Vector3 makeVector3(double x, double y, double z);
+
+geometry_msgs::Point makePoint(double x, double y, double z);

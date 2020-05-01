@@ -62,6 +62,15 @@ geometry_msgs::Vector3 normalize(geometry_msgs::Vector3 const vector)
   return ret_vector;
 }
 
+geometry_msgs::Point makePoint(double x, double y, double z)
+{
+  geometry_msgs::Point point;
+  point.x = x;
+  point.y = y;
+  point.z = z;
+  return point;
+}
+
 geometry_msgs::Vector3 makeVector3(double x, double y, double z)
 {
   geometry_msgs::Vector3 vector;
