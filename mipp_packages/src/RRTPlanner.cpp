@@ -22,6 +22,8 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   sub_octomap_ = n.subscribe("octomap_binary", 1, &RRTPlanner::subOctomap, this);
 
   // Init. random number generator distributions
+  std::random_device rd;  // Non-deterministic random nr. to seed generator
+  generator_ = std::default_random_engine(rd());
   x_distribution_ = std::uniform_real_distribution<double>(x_range_min_, x_range_max_);
   y_distribution_ = std::uniform_real_distribution<double>(y_range_min_, y_range_max_);
   z_distribution_ = std::uniform_real_distribution<double>(z_range_min_, z_range_max_);
@@ -34,7 +36,7 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   * TEMPORARY
   * Testing the RRT functionality by running it in a while loop
   */
-  ros::Rate rate(0.5);
+  ros::Rate rate(1.0);
   while(ros::ok)
   {
     geometry_msgs::Point sample_point = generateRandomPoint(false);
@@ -57,12 +59,12 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
       }
     }
 
-    geometry_msgs::Point new_point_origin = nearest_neighbor->position_;
-    geometry_msgs::Vector3 new_point_direction = getDirection(new_point_origin, sample_point);
+    geometry_msgs::Point new_point_ray_origin = nearest_neighbor->position_;
+    geometry_msgs::Vector3 new_point_ray_direction = getDirection(new_point_ray_origin, sample_point);
     geometry_msgs::Point new_point = castRay(nearest_neighbor->position_, 
-                                             new_point_direction, 
+                                             new_point_ray_direction, 
                                              std::min(nearest_neighbor_distance, max_ray_distance_));
-    geometry_msgs::Vector3 new_point_return_direction = getDirection(new_point, new_point_origin);
+    geometry_msgs::Vector3 new_point_return_direction = getDirection(new_point, new_point_ray_origin);
 
     while(!received_map_)
     {
@@ -70,8 +72,8 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
       rate.sleep();
     }
     // Attempt to cast OctoMap ray
-    octomap::point3d om_ray_origin = octomap::point3d(new_point_origin.x, new_point_origin.y, new_point_origin.z);
-    octomap::point3d om_ray_direction = octomap::point3d(new_point_direction.x, new_point_direction.y, new_point_direction.z);
+    octomap::point3d om_ray_origin = octomap::point3d(new_point_ray_origin.x, new_point_ray_origin.y, new_point_ray_origin.z);
+    octomap::point3d om_ray_direction = octomap::point3d(new_point_ray_direction.x, new_point_ray_direction.y, new_point_ray_direction.z);
     octomap::point3d om_ray_end = octomap::point3d(new_point.x, new_point.y, new_point.z);
     octomap::point3d om_ray_return_direction = octomap::point3d(new_point_return_direction.x, new_point_return_direction.y, new_point_return_direction.z);
     octomap::point3d om_ray_end_cell;
@@ -82,7 +84,7 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
     if(hit_occupied_to or hit_occupied_from)
     {
       ROS_DEBUG("I hit something");
-      collision_tree_.push_back(new_point_origin);
+      collision_tree_.push_back(new_point_ray_origin);
       collision_tree_.push_back(new_point);
     }
     else
