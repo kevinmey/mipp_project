@@ -36,18 +36,18 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   * TEMPORARY
   * Testing the RRT functionality by running it in a while loop
   */
-  ros::Rate rate(1.0);
+  ros::Rate rate(planning_rate_);
   while(ros::ok)
   {
     geometry_msgs::Point sample_point = generateRandomPoint(false);
 
     Node* nearest_neighbor = &root_;
-    double nearest_neighbor_distance = distanceBetweenPoints(sample_point, root_.position_);
+    double nearest_neighbor_distance = getDistanceBetweenPoints(sample_point, root_.position_);
 
     for(std::list<Node>::iterator tree_node_it = tree_.begin();
         tree_node_it != tree_.end(); tree_node_it++)
     {
-      double distance_to_node = distanceBetweenPoints(sample_point, tree_node_it->position_);
+      double distance_to_node = getDistanceBetweenPoints(sample_point, tree_node_it->position_);
       ROS_DEBUG("Sampled node distance to node %d: %f", tree_node_it->id_, distance_to_node);
 
       if(distance_to_node < nearest_neighbor_distance) 
@@ -68,33 +68,28 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
 
     while(!received_map_)
     {
+      ROS_WARN("RRTPlanner: No map received yet, waiting...");
       ros::spinOnce();
       rate.sleep();
     }
-    // Attempt to cast OctoMap ray
-    octomap::point3d om_ray_origin = octomap::point3d(new_point_ray_origin.x, new_point_ray_origin.y, new_point_ray_origin.z);
-    octomap::point3d om_ray_direction = octomap::point3d(new_point_ray_direction.x, new_point_ray_direction.y, new_point_ray_direction.z);
-    octomap::point3d om_ray_end = octomap::point3d(new_point.x, new_point.y, new_point.z);
-    octomap::point3d om_ray_return_direction = octomap::point3d(new_point_return_direction.x, new_point_return_direction.y, new_point_return_direction.z);
-    octomap::point3d om_ray_end_cell;
-    octomap::point3d om_ray_return_cell;
-    double om_ray_distance = std::min(nearest_neighbor_distance, max_ray_distance_);
-    bool hit_occupied_to = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, om_ray_distance);
-    bool hit_occupied_from = map_->castRay(om_ray_end, om_ray_return_direction, om_ray_return_cell, false, om_ray_distance);
-    if(hit_occupied_to or hit_occupied_from)
+
+    bool pathIsCollisionFree = isPathCollisionFree(new_point_ray_origin, new_point, new_point_ray_direction);
+
+    if(pathIsCollisionFree)
+    {
+      int node_id = tree_.size();
+      int node_rank = nearest_neighbor->rank_ + 1;
+      float node_cost = nearest_neighbor->cost_ + getDistanceBetweenPoints(new_point, nearest_neighbor->position_);
+      Node new_node(new_point.x, new_point.y, new_point.z, 0.0, node_cost, 0.0, node_id, nearest_neighbor, node_rank);
+      tree_.push_back(new_node);
+      ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, nearest_neighbor->id_, node_rank, node_cost);
+
+    }
+    else
     {
       ROS_DEBUG("I hit something");
       collision_tree_.push_back(new_point_ray_origin);
       collision_tree_.push_back(new_point);
-    }
-    else
-    {
-      int node_id = tree_.size();
-      int node_rank = nearest_neighbor->rank_ + 1;
-      float node_cost = nearest_neighbor->cost_ + distanceBetweenPoints(new_point, nearest_neighbor->position_);
-      Node new_node(new_point.x, new_point.y, new_point.z, 0.0, node_cost, 0.0, node_id, nearest_neighbor, node_rank);
-      tree_.push_back(new_node);
-      ROS_DEBUG("New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, nearest_neighbor->id_, node_rank, node_cost);
     }
 
     visualizeTree();
@@ -142,6 +137,7 @@ void RRTPlanner::getParams(ros::NodeHandle np)
   np.param<double>("y_range_max", y_range_max_,  1.0);
   np.param<double>("z_range_min", z_range_min_,  0.0);
   np.param<double>("z_range_max", z_range_max_,  1.0);
+  np.param<double>("planning_rate", planning_rate_, 10.0);
   np.param<double>("max_ray_distance", max_ray_distance_, 3.0);
 }
 
@@ -157,6 +153,35 @@ geometry_msgs::Point RRTPlanner::generateRandomPoint(bool publish_point)
     pub_random_point_.publish(sample_point);
   }
   return sample_point;
+}
+
+bool RRTPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b, 
+                                     geometry_msgs::Vector3 direction_ab, double distance)
+{
+  ROS_DEBUG("RRTPlanner: isPathCollisionFree");
+  // Check if optional arguments are set (default/initialized values aren't valid)
+  if(direction_ab.x == 0 and direction_ab.y == 0 and direction_ab.z == 0)
+  {
+    direction_ab = getDirection(point_a, point_b);
+  }
+  if(distance == -1.0)
+  {
+    distance = getDistanceBetweenPoints(point_a, point_b);
+  }
+
+  // Attempt to cast OctoMap ray
+  octomap::point3d om_ray_origin = octomap::point3d(point_a.x, point_a.y, point_a.z);
+  octomap::point3d om_ray_direction = octomap::point3d(direction_ab.x, direction_ab.y, direction_ab.z);
+  octomap::point3d om_ray_end = octomap::point3d(point_b.x, point_b.y, point_b.z);
+  octomap::point3d om_ray_return_direction = octomap::point3d(-direction_ab.x, -direction_ab.y, -direction_ab.z);
+  octomap::point3d om_ray_end_cell;
+  octomap::point3d om_ray_return_cell;
+  double om_ray_distance = std::min(distance, max_ray_distance_);
+  bool hit_occupied_to = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, om_ray_distance);
+  bool hit_occupied_from = map_->castRay(om_ray_end, om_ray_return_direction, om_ray_return_cell, false, om_ray_distance);
+
+  // Return whether there was a collision or not
+  return !(hit_occupied_to or hit_occupied_from);
 }
 
 /* 

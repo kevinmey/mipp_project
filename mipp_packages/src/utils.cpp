@@ -6,7 +6,7 @@
 
 #include "utils.hpp"
 
-double distanceBetweenPoints(geometry_msgs::Point p1, geometry_msgs::Point p2)
+double getDistanceBetweenPoints(geometry_msgs::Point p1, geometry_msgs::Point p2)
 {
 	return sqrt( pow(p1.x - p2.x, 2.0) 
              + pow(p1.y - p2.y, 2.0)

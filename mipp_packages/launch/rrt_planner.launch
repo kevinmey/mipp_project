@@ -18,6 +18,7 @@
     <param name="y_range_max"           value="10.0"/>
     <param name="z_range_min"           value="0.0"/>
     <param name="z_range_max"           value="1.0"/>
+    <param name="planning_rate"         value="10.0"/>
     <param name="max_ray_distance"      value="3.0"/>
 
     <!-- Remap topics -->

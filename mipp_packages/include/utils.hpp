@@ -14,7 +14,7 @@
 #include <string>
 #include <math.h> /* sqrt, pow */
 
-double distanceBetweenPoints(geometry_msgs::Point p1, geometry_msgs::Point p2);
+double getDistanceBetweenPoints(geometry_msgs::Point p1, geometry_msgs::Point p2);
 
 geometry_msgs::Point castRay(geometry_msgs::Point const origin, geometry_msgs::Point const direction, double distance);
 

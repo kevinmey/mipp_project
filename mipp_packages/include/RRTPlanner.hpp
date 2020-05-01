@@ -39,6 +39,17 @@ public:
   * @return random 3d point 
   */
   geometry_msgs::Point generateRandomPoint(bool publish_point);
+
+  /**
+  * @brief Checks if two points and the path between is collision free
+  * @param point_a Origin point
+  * @param point_b Destination point
+  * @param direction_ab Direction vector from a to b (optional)
+  * @param distance Distance between points (optional)
+  * @return True if path is collision free
+  */
+  bool isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b, 
+                           geometry_msgs::Vector3 direction_ab, double distance = -1.0);
   
   /* 
   *  Visualization functions
@@ -73,5 +84,6 @@ private:
   double y_range_max_;
   double z_range_min_;
   double z_range_max_;
+  double planning_rate_;
   double max_ray_distance_;
 };
