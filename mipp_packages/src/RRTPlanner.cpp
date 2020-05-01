@@ -37,6 +37,15 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   // Init. goal node with big cost, don't include it in tree (shouldn't have children)
   goal_ = Node(goal_x_, goal_y_, goal_z_, 0.0, 100000.0, 0.0, 0, NULL, 0);
 
+  // Wait for map
+  ros::Rate rate_wait_map(1.0);
+  while(!received_map_)
+  {
+    ROS_WARN("RRTPlanner: No map received yet, waiting...");
+    ros::spinOnce();
+    rate_wait_map.sleep();
+  }
+
   /*
   * TEMPORARY
   * Testing the RRT functionality by running it in a while loop
@@ -44,12 +53,6 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   ros::Rate rate(planner_rate_);
   while(tree_.size() < planner_max_tree_nodes_)
   {
-    while(!received_map_)
-    {
-      ROS_WARN("RRTPlanner: No map received yet, waiting...");
-      ros::spinOnce();
-      rate.sleep();
-    }
     
     geometry_msgs::Point sample_point;
     if(goal_sample_distribution_(generator_) < goal_sample_probability_)
