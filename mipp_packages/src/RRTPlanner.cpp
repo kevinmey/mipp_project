@@ -42,15 +42,19 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
     // Sample a random point within the (x,y,z)_distribution bounds
     geometry_msgs::Point sample_point = generateRandomPoint(false);
 
+    // Start finding nearest node in the tree to the sampled point (init. as root)
     Node* nearest_neighbor = &root_;
     double nearest_neighbor_distance = getDistanceBetweenPoints(sample_point, root_.position_);
 
+    // Iterate through tree nodes, checking distance to sampled point
     for(std::list<Node>::iterator tree_node_it = tree_.begin();
         tree_node_it != tree_.end(); tree_node_it++)
     {
+      // Get distance to tree node
       double distance_to_node = getDistanceBetweenPoints(sample_point, tree_node_it->position_);
       ROS_DEBUG("Sampled node distance to node %d: %f", tree_node_it->id_, distance_to_node);
 
+      // Make tree node new nearest neighbor if it is closer than current nearest neighbor
       if(distance_to_node < nearest_neighbor_distance) 
       {
         ROS_DEBUG("Sampled node is closer to node %d: %f", tree_node_it->id_, distance_to_node);
@@ -59,12 +63,42 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
       }
     }
 
+    /* Get the coordinates of the new point
+    * Cast a ray from the nearest neighbor in the direction of the sampled point.
+    * If nearest neighbor is within max_ray_distance of sampled point, sampled point is new point.
+    * Else the endpoint of the ray (with length max_ray_distance) is new point
+    */
     geometry_msgs::Point new_point_ray_origin = nearest_neighbor->position_;
     geometry_msgs::Vector3 new_point_ray_direction = getDirection(new_point_ray_origin, sample_point);
     geometry_msgs::Point new_point = castRay(nearest_neighbor->position_, 
                                              new_point_ray_direction, 
                                              std::min(nearest_neighbor_distance, max_ray_distance_));
-    geometry_msgs::Vector3 new_point_return_direction = getDirection(new_point, new_point_ray_origin);
+
+    std::map<double, Node*> neighbor_list;
+    for(std::list<Node>::iterator tree_node_it = tree_.begin();
+        tree_node_it != tree_.end(); tree_node_it++)
+    {
+      // Get distance to tree node
+      double distance_to_node = getDistanceBetweenPoints(new_point, tree_node_it->position_);
+      ROS_DEBUG("Sampled point distance to node %d: %f", tree_node_it->id_, distance_to_node);
+
+      // Add tree node to neighborhood if it is within range
+      // Inserted into map with combined cost (tree node cost + distance to node) as key
+      if(distance_to_node < max_ray_distance_+0.01) 
+      {
+        ROS_INFO("Node %d is within neighborhood", tree_node_it->id_);
+        double neighbor_cost = tree_node_it->cost_;
+        double combined_cost = neighbor_cost + distance_to_node;
+        neighbor_list.insert(std::pair<double, Node*>(combined_cost, &*tree_node_it));
+      }
+    }
+    ROS_DEBUG("Neighborhood size: %d", (int)neighbor_list.size());
+    
+    std::map<double, Node*>::iterator print_it;
+    ROS_INFO("\tNODE\tCOST"); 
+    for (print_it = neighbor_list.begin(); print_it != neighbor_list.end(); ++print_it) { 
+      ROS_INFO("\t%d\t%f", print_it->second->id_, print_it->first);
+    }
 
     while(!received_map_)
     {
@@ -73,8 +107,8 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
       rate.sleep();
     }
 
+    // Add the new node if it is collision free
     bool pathIsCollisionFree = isPathCollisionFree(new_point_ray_origin, new_point, new_point_ray_direction);
-
     if(pathIsCollisionFree)
     {
       int node_id = tree_.size();
