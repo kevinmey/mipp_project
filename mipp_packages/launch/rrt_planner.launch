@@ -12,8 +12,8 @@
     <param name="root_x"                    value="-7.0"/>
     <param name="root_y"                    value="-7.0"/>
     <param name="root_z"                    value="0.5"/>
-    <param name="goal_x"                    value="5.0"/>
-    <param name="goal_y"                    value="5.0"/>
+    <param name="goal_x"                    value="6.0"/>
+    <param name="goal_y"                    value="2.0"/>
     <param name="goal_z"                    value="0.5"/>
     <param name="goal_sample_probability"   value="0.1"/>
     <param name="goal_radius"               value="0.01"/>
@@ -23,9 +23,9 @@
     <param name="y_range_max"               value="10.0"/>
     <param name="z_range_min"               value="0.5"/>
     <param name="z_range_max"               value="0.5"/>
-    <param name="planner_rate"              value="50.0"/>
+    <param name="planner_rate"              value="100.0"/>
     <param name="planner_algorithm"         value="1"/> <!-- 1:RRTstar, 2:RRT -->
-    <param name="planner_max_tree_nodes"    value="1000"/> 
+    <param name="planner_max_tree_nodes"    value="500"/> 
     <param name="max_ray_distance"          value="5.0"/>
 
     <!-- Remap topics -->

@@ -84,8 +84,8 @@ private:
   ros::Subscriber sub_octomap_;
   // Planner variables
   Node root_;
+  Node goal_;
   std::list<Node> tree_;
-  std::map<double, Node> goal_nodes_;
   std::vector<geometry_msgs::Point> collision_tree_;
   octomap::OcTree* map_;
   bool received_map_;

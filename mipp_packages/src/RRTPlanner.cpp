@@ -34,6 +34,9 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   root_ = Node(root_x_, root_y_, root_z_, 0.0, 0.0, 0.0, 0, NULL, 0);
   tree_.push_back(root_);
 
+  // Init. goal node with big cost, don't include it in tree (shouldn't have children)
+  goal_ = Node(goal_x_, goal_y_, goal_z_, 0.0, 100000.0, 0.0, 0, NULL, 0);
+
   /*
   * TEMPORARY
   * Testing the RRT functionality by running it in a while loop
@@ -51,9 +54,8 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
     geometry_msgs::Point sample_point;
     if(goal_sample_distribution_(generator_) < goal_sample_probability_)
     {
-      sample_point.x = goal_x_;
-      sample_point.y = goal_y_;
-      sample_point.z = goal_z_;
+      ROS_DEBUG("RRTPlanner: Sampling goal point");
+      sample_point = goal_.position_;
     }
     else
     {
@@ -225,12 +227,12 @@ void RRTPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
       float node_cost = neighbor_itr->second->cost_ + getDistanceBetweenPoints(candidate_point, neighbor_itr->second->position_);
       bool node_is_goal = (getDistanceBetweenPoints(candidate_point, makePoint(goal_x_, goal_y_, goal_z_)) < goal_radius_);
       Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, 0.0, node_cost, 0.0, node_id, neighbor_itr->second, node_rank, node_is_goal);
-      if(node_is_goal)
+      if(node_is_goal and (new_node.cost_ < goal_.cost_))
       {
-        goal_nodes_.insert(std::pair<double, Node>(node_cost, new_node));
-        ROS_DEBUG("RRTPlanner: New goal node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+        goal_ = new_node;
+        ROS_DEBUG("RRTPlanner: New goal node. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       }
-      else
+      else if(!node_is_goal)
       {
         tree_.push_back(new_node);
         ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
@@ -260,9 +262,18 @@ void RRTPlanner::extendTreeRRT(geometry_msgs::Point candidate_point, Node* neare
     int node_id = tree_.size();
     int node_rank = nearest_neighbor->rank_ + 1;
     float node_cost = nearest_neighbor->cost_ + getDistanceBetweenPoints(candidate_point, nearest_neighbor->position_);
-    Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, 0.0, node_cost, 0.0, node_id, nearest_neighbor, node_rank);
-    tree_.push_back(new_node);
-    ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, nearest_neighbor->id_, node_rank, node_cost);
+    bool node_is_goal = (getDistanceBetweenPoints(candidate_point, goal_.position_) < goal_radius_);
+    Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, 0.0, node_cost, 0.0, node_id, nearest_neighbor, node_rank, node_is_goal);
+    if(node_is_goal and (new_node.cost_ < goal_.cost_))
+    {
+      goal_ = new_node;
+      ROS_DEBUG("RRTPlanner: New goal node. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, nearest_neighbor->id_, node_rank, node_cost);
+    }
+    else if(!node_is_goal)
+    {
+      tree_.push_back(new_node);
+      ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, nearest_neighbor->id_, node_rank, node_cost);
+    } 
 
   }
   else
@@ -280,7 +291,7 @@ bool RRTPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs
 {
   ROS_DEBUG("RRTPlanner: isPathCollisionFree");
   // Check if optional arguments are set (default/initialized values aren't valid)
-  if((int)direction_ab.x == 0 and (int)direction_ab.y == 0 and (int)direction_ab.z == 0)
+  if(direction_ab.x == 0.0 and direction_ab.y == 0.0 and direction_ab.z == 0.0)
   {
     direction_ab = getDirection(point_a, point_b);
   }
@@ -296,10 +307,24 @@ bool RRTPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs
   octomap::point3d om_ray_return_direction = octomap::point3d(-direction_ab.x, -direction_ab.y, -direction_ab.z);
   octomap::point3d om_ray_end_cell;
   octomap::point3d om_ray_return_cell;
-  double om_ray_distance = std::min(distance, max_ray_distance_);
-  bool hit_occupied_to = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, om_ray_distance);
-  bool hit_occupied_from = map_->castRay(om_ray_end, om_ray_return_direction, om_ray_return_cell, false, om_ray_distance);
 
-  // Return whether there was a collision or not
-  return !(hit_occupied_to or hit_occupied_from);
+  // Check if direction is valid
+  if(direction_ab.x == 0.0 and direction_ab.y == 0.0 and direction_ab.z == 0.0)
+  {
+    ROS_WARN("RRTPlanner: Got request to cast ray in illegal direction.");
+    ROS_WARN("            Origin (x,y,z) = (%f,%f,%f)",point_a.x,point_a.y,point_a.z);
+    ROS_WARN("            End    (x,y,z) = (%f,%f,%f)",point_b.x,point_b.y,point_b.z);
+
+    // Count illegal ray cast as collision
+    return false;
+  }
+  else
+  {
+    double om_ray_distance = std::min(distance, max_ray_distance_);
+    bool hit_occupied_to = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, om_ray_distance);
+    bool hit_occupied_from = map_->castRay(om_ray_end, om_ray_return_direction, om_ray_return_cell, false, om_ray_distance);
+
+    // Return whether there was a collision or not
+    return !(hit_occupied_to or hit_occupied_from);
+  }
 }
