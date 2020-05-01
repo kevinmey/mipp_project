@@ -36,8 +36,8 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   * TEMPORARY
   * Testing the RRT functionality by running it in a while loop
   */
-  ros::Rate rate(planning_rate_);
-  while(ros::ok)
+  ros::Rate rate(planner_rate_);
+  while(tree_.size() < planner_max_tree_nodes_)
   {
     while(!received_map_)
     {
@@ -140,9 +140,10 @@ void RRTPlanner::getParams(ros::NodeHandle np)
   np.param<double>("y_range_max", y_range_max_,  1.0);
   np.param<double>("z_range_min", z_range_min_,  0.0);
   np.param<double>("z_range_max", z_range_max_,  1.0);
-  np.param<double>("planning_rate", planning_rate_, 10.0);
-  np.param<double>("max_ray_distance", max_ray_distance_, 3.0);
+  np.param<double>("planner_rate", planner_rate_, 10.0);
   np.param<int>("planner_algorithm", planner_algorithm_, 1);
+  np.param<int>("planner_tree_max_nodes", planner_max_tree_nodes_, 1000);
+  np.param<double>("max_ray_distance", max_ray_distance_, 3.0);
 }
 
 geometry_msgs::Point RRTPlanner::generateRandomPoint(bool publish_point)
