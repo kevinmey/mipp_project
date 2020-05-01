@@ -39,6 +39,7 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   ros::Rate rate(planning_rate_);
   while(ros::ok)
   {
+    // Sample a random point within the (x,y,z)_distribution bounds
     geometry_msgs::Point sample_point = generateRandomPoint(false);
 
     Node* nearest_neighbor = &root_;
@@ -54,7 +55,6 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
       {
         ROS_DEBUG("Sampled node is closer to node %d: %f", tree_node_it->id_, distance_to_node);
         nearest_neighbor = &*tree_node_it;
-        ROS_DEBUG("New nearest neighbor: %d.", nearest_neighbor->id_);
         nearest_neighbor_distance = distance_to_node;
       }
     }
