@@ -61,3 +61,12 @@ geometry_msgs::Vector3 normalize(geometry_msgs::Vector3 const vector)
   ret_vector.z = vector.z/norm;
   return ret_vector;
 }
+
+geometry_msgs::Vector3 makeVector3(double x, double y, double z)
+{
+  geometry_msgs::Vector3 vector;
+  vector.x = x;
+  vector.y = y;
+  vector.z = z;
+  return vector;
+}

@@ -49,13 +49,15 @@ public:
   * @return True if path is collision free
   */
   bool isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b, 
-                           geometry_msgs::Vector3 direction_ab, double distance = -1.0);
+                           geometry_msgs::Vector3 direction_ab = makeVector3(0.0,0.0,0.0), 
+                           double distance = -1.0);
   
   /* 
   *  Visualization functions
   */
   void visualizeTree();
   void visualizeCollisionTree();
+  void visualizeCollisionTree(std::vector<geometry_msgs::Point> collision_tree);
 
 private:
   ros::Publisher pub_random_point_;

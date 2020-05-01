@@ -47,18 +47,18 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
     double nearest_neighbor_distance = getDistanceBetweenPoints(sample_point, root_.position_);
 
     // Iterate through tree nodes, checking distance to sampled point
-    for(std::list<Node>::iterator tree_node_it = tree_.begin();
-        tree_node_it != tree_.end(); tree_node_it++)
+    for(std::list<Node>::iterator tree_node_itr = tree_.begin();
+        tree_node_itr != tree_.end(); tree_node_itr++)
     {
       // Get distance to tree node
-      double distance_to_node = getDistanceBetweenPoints(sample_point, tree_node_it->position_);
-      ROS_DEBUG("Sampled node distance to node %d: %f", tree_node_it->id_, distance_to_node);
+      double distance_to_node = getDistanceBetweenPoints(sample_point, tree_node_itr->position_);
+      ROS_DEBUG("Sampled node distance to node %d: %f", tree_node_itr->id_, distance_to_node);
 
       // Make tree node new nearest neighbor if it is closer than current nearest neighbor
       if(distance_to_node < nearest_neighbor_distance) 
       {
-        ROS_DEBUG("Sampled node is closer to node %d: %f", tree_node_it->id_, distance_to_node);
-        nearest_neighbor = &*tree_node_it;
+        ROS_DEBUG("Sampled node is closer to node %d: %f", tree_node_itr->id_, distance_to_node);
+        nearest_neighbor = &*tree_node_itr;
         nearest_neighbor_distance = distance_to_node;
       }
     }
@@ -75,29 +75,29 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
                                              std::min(nearest_neighbor_distance, max_ray_distance_));
 
     std::map<double, Node*> neighbor_list;
-    for(std::list<Node>::iterator tree_node_it = tree_.begin();
-        tree_node_it != tree_.end(); tree_node_it++)
+    for(std::list<Node>::iterator tree_node_itr = tree_.begin();
+        tree_node_itr != tree_.end(); tree_node_itr++)
     {
       // Get distance to tree node
-      double distance_to_node = getDistanceBetweenPoints(new_point, tree_node_it->position_);
-      ROS_DEBUG("Sampled point distance to node %d: %f", tree_node_it->id_, distance_to_node);
+      double distance_to_node = getDistanceBetweenPoints(new_point, tree_node_itr->position_);
+      ROS_DEBUG("Sampled point distance to node %d: %f", tree_node_itr->id_, distance_to_node);
 
       // Add tree node to neighborhood if it is within range
       // Inserted into map with combined cost (tree node cost + distance to node) as key
       if(distance_to_node < max_ray_distance_+0.01) 
       {
-        ROS_INFO("Node %d is within neighborhood", tree_node_it->id_);
-        double neighbor_cost = tree_node_it->cost_;
+        ROS_DEBUG("Node %d is within neighborhood", tree_node_itr->id_);
+        double neighbor_cost = tree_node_itr->cost_;
         double combined_cost = neighbor_cost + distance_to_node;
-        neighbor_list.insert(std::pair<double, Node*>(combined_cost, &*tree_node_it));
+        neighbor_list.insert(std::pair<double, Node*>(combined_cost, &*tree_node_itr));
       }
     }
     ROS_DEBUG("Neighborhood size: %d", (int)neighbor_list.size());
     
-    std::map<double, Node*>::iterator print_it;
-    ROS_INFO("\tNODE\tCOST"); 
-    for (print_it = neighbor_list.begin(); print_it != neighbor_list.end(); ++print_it) { 
-      ROS_INFO("\t%d\t%f", print_it->second->id_, print_it->first);
+    std::map<double, Node*>::iterator neighbor_itr;
+    ROS_DEBUG("\tNODE\tCOST"); 
+    for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) { 
+      ROS_DEBUG("\t%d\t%f", neighbor_itr->second->id_, neighbor_itr->first);
     }
 
     while(!received_map_)
@@ -108,26 +108,30 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
     }
 
     // Add the new node if it is collision free
-    bool pathIsCollisionFree = isPathCollisionFree(new_point_ray_origin, new_point, new_point_ray_direction);
-    if(pathIsCollisionFree)
-    {
-      int node_id = tree_.size();
-      int node_rank = nearest_neighbor->rank_ + 1;
-      float node_cost = nearest_neighbor->cost_ + getDistanceBetweenPoints(new_point, nearest_neighbor->position_);
-      Node new_node(new_point.x, new_point.y, new_point.z, 0.0, node_cost, 0.0, node_id, nearest_neighbor, node_rank);
-      tree_.push_back(new_node);
-      ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, nearest_neighbor->id_, node_rank, node_cost);
-
-    }
-    else
-    {
-      ROS_DEBUG("I hit something");
-      collision_tree_.push_back(new_point_ray_origin);
-      collision_tree_.push_back(new_point);
+    std::vector<geometry_msgs::Point> collision_tree;
+    for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) 
+    { 
+      bool pathIsCollisionFree = isPathCollisionFree(neighbor_itr->second->position_, new_point);
+      if(pathIsCollisionFree)
+      {
+        int node_id = tree_.size();
+        int node_rank = neighbor_itr->second->rank_ + 1;
+        float node_cost = neighbor_itr->second->cost_ + getDistanceBetweenPoints(new_point, neighbor_itr->second->position_);
+        Node new_node(new_point.x, new_point.y, new_point.z, 0.0, node_cost, 0.0, node_id, neighbor_itr->second, node_rank);
+        tree_.push_back(new_node);
+        ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+        break;
+      }
+      else
+      {
+        ROS_DEBUG("I hit something");
+        collision_tree.push_back(neighbor_itr->second->position_);
+        collision_tree.push_back(new_point);
+      }
     }
 
     visualizeTree();
-    visualizeCollisionTree();
+    visualizeCollisionTree(collision_tree);
 
     ros::spinOnce();
     rate.sleep();
@@ -261,5 +265,23 @@ void RRTPlanner::visualizeCollisionTree()
   tree_marker.color.g = 0.0;
   tree_marker.color.b = 0.0;
   tree_marker.points = collision_tree_;
+  pub_viz_collision_tree_.publish(tree_marker);
+}
+
+void RRTPlanner::visualizeCollisionTree(std::vector<geometry_msgs::Point> collision_tree)
+{
+  visualization_msgs::Marker tree_marker;
+  tree_marker.header.frame_id = planner_world_frame_;
+  tree_marker.header.stamp = ros::Time::now();
+  tree_marker.id = 0;
+  tree_marker.type = visualization_msgs::Marker::LINE_LIST;
+  tree_marker.action = visualization_msgs::Marker::ADD;
+  tree_marker.pose.orientation.w = 1.0;
+  tree_marker.scale.x = 0.04;
+  tree_marker.color.a = 0.8;
+  tree_marker.color.r = 1.0;
+  tree_marker.color.g = 0.0;
+  tree_marker.color.b = 0.0;
+  tree_marker.points = collision_tree;
   pub_viz_collision_tree_.publish(tree_marker);
 }
