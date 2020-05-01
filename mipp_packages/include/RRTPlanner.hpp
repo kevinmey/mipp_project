@@ -102,7 +102,8 @@ private:
   double y_range_max_;
   double z_range_min_;
   double z_range_max_;
-  double planning_rate_;
-  double max_ray_distance_;
+  double planner_rate_;
   int planner_algorithm_;
+  int planner_max_tree_nodes_;
+  double max_ray_distance_;
 };
