@@ -9,6 +9,7 @@
 #include <octomap_msgs/Octomap.h>
 #include "octomap_msgs/conversions.h"
 #include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include <string>
 #include <math.h> /* sqrt, pow */
@@ -39,6 +40,13 @@ public:
   * @return random 3d point 
   */
   geometry_msgs::Point generateRandomPoint(bool publish_point);
+
+  /**
+  * @brief Generates a random point in an ellipse (for Informed RRT*)
+  * @param publish_point Bool whether to publish point or not
+  * @return random 3d point 
+  */
+  geometry_msgs::Point generateRandomInformedPoint();
 
   /**
   * @brief Generates a random point from generators set in constrcutor
@@ -75,12 +83,16 @@ public:
   void visualizeCollisionTree();
   void visualizeCollisionTree(std::vector<geometry_msgs::Point> collision_tree);
   void visualizePathToGoal();
+  void visualizeRoot(geometry_msgs::Point point, double red, double green, double blue);
+  void visualizeGoal(geometry_msgs::Point point, double red, double green, double blue);
 
 private:
   ros::Publisher pub_random_point_;
   ros::Publisher pub_viz_tree_;
   ros::Publisher pub_viz_collision_tree_;
   ros::Publisher pub_viz_path_to_goal_;
+  ros::Publisher pub_viz_root_node_;
+  ros::Publisher pub_viz_goal_node_;
   ros::Subscriber sub_octomap_;
   // Planner variables
   Node root_;
@@ -89,12 +101,17 @@ private:
   std::vector<geometry_msgs::Point> collision_tree_;
   octomap::OcTree* map_;
   bool received_map_;
+  // Informed RRT*
+  double goal_euclidean_distance_;
+  double goal_path_distance_;
+  double goal_root_rotation_[2][2];
+  geometry_msgs::Point goal_root_midpoint_;
   // Random nr. generator and distributions
   std::default_random_engine generator_;
   std::uniform_real_distribution<double> x_distribution_;
   std::uniform_real_distribution<double> y_distribution_;
   std::uniform_real_distribution<double> z_distribution_;
-  std::uniform_real_distribution<double> goal_sample_distribution_;
+  std::uniform_real_distribution<double> unit_distribution_;
   // Parameters
   std::string planner_world_frame_;
   double root_x_;
