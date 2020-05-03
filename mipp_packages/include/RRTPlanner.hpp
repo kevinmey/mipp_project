@@ -60,7 +60,7 @@ public:
   * @param publish_point Bool whether to publish point or not
   * @return random 3d point 
   */
-  void extendTreeRRT(geometry_msgs::Point candidate_point, Node* nearest_neighbor);
+  void extendTreeRRT(geometry_msgs::Point candidate_point, std::shared_ptr<Node> nearest_neighbor);
 
   /**
   * @brief Checks if two points and the path between is collision free
@@ -95,9 +95,9 @@ private:
   ros::Publisher pub_viz_goal_node_;
   ros::Subscriber sub_octomap_;
   // Planner variables
-  Node root_;
-  Node goal_;
-  std::list<Node> tree_;
+  std::shared_ptr<Node> root_;
+  std::shared_ptr<Node> goal_;
+  std::vector<std::shared_ptr<Node>> tree_;
   std::vector<geometry_msgs::Point> collision_tree_;
   octomap::OcTree* map_;
   bool received_map_;

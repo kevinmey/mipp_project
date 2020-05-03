@@ -20,27 +20,27 @@
 #include <unordered_set>
 #include <random>
 
+#include <utils.hpp>
+
 /**
 * @brief Node class
 * @param position_ (x,y,z) coordinate of point
 * @param yaw_ Yaw value
 * @param cost_ Cost to get to this node
 * @param id_ Node's id
-* @param parent_id_ Node's parent's id
+* @param parent_ Node's parent
+* @param children_ Node's children
 * @param rank_ Nr. of nodes away from root
-* @param is_goal_ Nr. of nodes away from root
 */
 class Node{
 // Variables used here are constantly accessed and checked; leaving public for now.
 private:
   /** \brief Node's parent */
-  Node* parent_;
+  std::shared_ptr<Node> parent_;
+  
+  /** \brief Node's children */
+  std::vector<std::shared_ptr<Node>> children_;
 
-  /**
-  * @brief Prints the position vector
-  * @return void
-  */
-  std::stringstream stringPosVec(std::vector<double> vec);
 public:
   /** \brief Point coordinate */
   geometry_msgs::Point position_;
@@ -54,8 +54,6 @@ public:
   int id_;
   /** \brief Node rank, nr. of nodes away from root */
   int rank_;
-  /** \brief Designates node as a goal node (no children) */
-  bool is_goal_;
 
   /**
   * @brief Constructor for Node class
@@ -66,52 +64,65 @@ public:
   * @param cost Cost to get to this node (usually distance to root)
   * @param id Node's id
   * @param parent_ Node's parent
+  * @param children_ Node's children
   * @param rank_ Nr. of nodes away from root
-  * @param is_goal_ Nr. of nodes away from root
   */
-  Node(double x = 0, double y = 0, double z = 0, double yaw = 0, double cost = 0, double gain = 0, int id = 0, Node* parent = NULL, int rank = 0, bool is_goal = false);
+  Node(double x = 0, double y = 0, double z = 0, double yaw = 0, double cost = 0, double gain = 0, int id = 0, 
+       std::shared_ptr<Node> parent = NULL, std::vector<std::shared_ptr<Node>> children = {}, int rank = 0);
 
   /**
-  * @brief Prints the nodes id and parent id
-  * @return void
+  * @brief Constructor for Node class
+  * @param position Position value
+  * @param yaw  Yaw value
+  * @param cost Cost to get to this node (usually distance to root)
+  * @param id Node's id
+  * @param parent_ Node's parent
+  * @param rank_ Nr. of nodes away from root
   */
-  std::string printStatus();
-
-  /**
-  * @brief Prints the position vector
-  * @param node the node to find the distance to
-  * @return double distance between nodes
-  */
-  double findDistance(Node const &node);
-
-  /**
-  * @brief Prints the position vector
-  * @param node the node to find the distance to
-  * @return double distance between nodes
-  */
-  Node* getParent();
+  Node(geometry_msgs::Point position = makePoint(0,0,0), double yaw = 0, double cost = 0, double gain = 0, int id = 0, 
+       std::shared_ptr<Node> parent = NULL, std::vector<std::shared_ptr<Node>> children = {}, int rank = 0);
 
   /**
   * @brief Prints the position vector
   * @param node the node to find the distance to
   * @return double distance between nodes
   */
-  void setParent(Node* node);
-
-
-  /**
-  * @brief Overloading operator + for Node class
-  * @param p node
-  * @return Node with current node's and input node p's values added
-  */
-  Node operator+(Node p);
+  double getDistanceToNode(Node const &node);
 
   /**
-  * @brief Overloading operator - for Node class
-  * @param p node
-  * @return Node with current node's and input node p's values subtracted
+  * @brief Prints the position vector
+  * @param node the node to find the distance to
+  * @return double distance between nodes
   */
-  Node operator-(Node p);
+  std::shared_ptr<Node> getParent();
+
+  /**
+  * @brief Prints the position vector
+  * @param node the node to find the distance to
+  * @return double distance between nodes
+  */
+  void setParent(std::shared_ptr<Node> node);
+
+  /**
+  * @brief Prints the position vector
+  * @param node the node to find the distance to
+  * @return double distance between nodes
+  */
+  std::vector<std::shared_ptr<Node>> getChildren();
+
+  /**
+  * @brief Prints the position vector
+  * @param node the node to find the distance to
+  * @return double distance between nodes
+  */
+  void setChildren(std::vector<std::shared_ptr<Node>> nodes);
+
+  /**
+  * @brief Prints the position vector
+  * @param node the node to find the distance to
+  * @return double distance between nodes
+  */
+  void addChild(std::shared_ptr<Node> node);
 
   /**
   * @brief Overloading operator = for Node class

@@ -24,9 +24,6 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   received_map_ = false;
   sub_octomap_ = n.subscribe("octomap_binary", 1, &RRTPlanner::subOctomap, this);
 
-  for(planner_algorithm_ = 1; planner_algorithm_ < 4; planner_algorithm_++)
-  {
-
   ros::Duration algorithm_time(0.0);
   int algorithm_iterations = 0;
 
@@ -39,23 +36,24 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   unit_distribution_ = std::uniform_real_distribution<double>(0.0, 1.0);
 
   // Init. tree with root node
-  root_ = Node(root_x_, root_y_, root_z_, 0.0, 0.0, 0.0, 0, NULL, 0);
+  root_ = std::make_shared<Node>(root_x_, root_y_, root_z_, 0.0, 0.0, 0.0, 0, NULL, 0);
   tree_.clear();
   tree_.push_back(root_);
 
   // Init. goal node with big cost, don't include it in tree (shouldn't have children)
-  goal_euclidean_distance_ = getDistanceBetweenPoints(root_.position_, goal_.position_);
   goal_path_distance_ = 1000000;
+  
+  goal_ = std::make_shared<Node>(goal_x_, goal_y_, goal_z_, 0.0, goal_path_distance_, 0.0, 0, NULL, 0);
+  goal_euclidean_distance_ = getDistanceBetweenPoints(root_->position_, goal_->position_);
   goal_root_midpoint_ = makePoint((goal_x_+root_x_)/2.0, (goal_y_+root_y_)/2.0, (goal_z_+root_z_)/2.0);
   double goal_root_angle = atan2(goal_y_-root_y_, goal_x_-root_x_);
   goal_root_rotation_[0][0] = cos(goal_root_angle);
   goal_root_rotation_[0][1] = -sin(goal_root_angle);
   goal_root_rotation_[1][0] = sin(goal_root_angle);
   goal_root_rotation_[1][1] = cos(goal_root_angle);
-  goal_ = Node(goal_x_, goal_y_, goal_z_, 0.0, goal_path_distance_, 0.0, 0, NULL, 0);
 
   // Wait for map
-  ros::Rate rate_wait_map(1.0);
+  ros::Rate rate_wait_map(5.0);
   while(!received_map_)
   {
     ROS_WARN("RRTPlanner: No map received yet, waiting...");
@@ -70,7 +68,8 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   ros::Rate rate(planner_rate_);
   //while(tree_.size() < planner_max_tree_nodes_)
   ros::Time algorithm_start = ros::Time::now();
-  while((ros::Time::now() - algorithm_start).toSec() < 5.0)
+  //while((ros::Time::now() - algorithm_start).toSec() < 10.0)
+  while(tree_.size() < planner_max_tree_nodes_)
   {
     ros::Time begin = ros::Time::now();
 
@@ -84,21 +83,13 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
     }
     else
     {
-      if(goal_.cost_ < 10000 and planner_algorithm_ == 3)
-      {
-        sample_point = generateRandomInformedPoint();
-        ROS_DEBUG("RRTPlanner: Sampled informed point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
-      }
-      else
-      {
-        // Sample a random point within the (x,y,z)_distribution bounds
-        sample_point = generateRandomPoint(false);
-        ROS_DEBUG("RRTPlanner: Sampled random point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
-      }
+      // Sample a random point within the (x,y,z)_distribution bounds
+      sample_point = generateRandomPoint(false);
+      ROS_DEBUG("RRTPlanner: Sampled random point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
     }
 
     // Start finding nearest node in the tree to the sampled point (init. as root)
-    Node* nearest_neighbor = &root_;
+    std::shared_ptr<Node> nearest_neighbor = std::shared_ptr<Node>(&root_);
     double nearest_neighbor_distance = getDistanceBetweenPoints(sample_point, root_.position_);
 
     // Iterate through tree nodes, checking distance to sampled point
@@ -122,10 +113,11 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
       if(distance_to_node < nearest_neighbor_distance) 
       {
         ROS_DEBUG("Sampled node is closer to node %d: %f", tree_node_itr->id_, distance_to_node);
-        nearest_neighbor = &*tree_node_itr;
+        nearest_neighbor = std::shared_ptr<Node>(&*tree_node_itr);
         nearest_neighbor_distance = distance_to_node;
       }
     }
+    
 
     if(!sample_is_too_close)
     {
@@ -172,7 +164,6 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   ROS_INFO("Finished planning for planner %d. Final goal cost: %f", planner_algorithm_, goal_.cost_);
   ROS_INFO("Average iteration time was: %f second", algorithm_time.toSec()/(double)algorithm_iterations);
 
-  }
 }
 
 // Destructor
@@ -275,76 +266,7 @@ geometry_msgs::Point RRTPlanner::generateRandomInformedPoint()
   return sample_point;
 }
 
-void RRTPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
-{
-  ROS_DEBUG("RRTPlanner: extendTreeRRTstar");
-
-  // Make a neighbor list of nodes close enough to the candidate point
-  // Store combined cost and Node pointer in map
-  std::map<double, Node*> neighbor_list;
-  for(std::list<Node>::iterator tree_node_itr = tree_.begin();
-      tree_node_itr != tree_.end(); tree_node_itr++)
-  {
-    // Get distance to tree node
-    double distance_to_node = getDistanceBetweenPoints(candidate_point, tree_node_itr->position_);
-    ROS_DEBUG("Sampled point distance to node %d: %f", tree_node_itr->id_, distance_to_node);
-
-    // Add tree node to neighborhood if it is within range
-    // Inserted into map with combined cost (tree node cost + distance to node) as key
-    if(distance_to_node < max_ray_distance_+0.01) 
-    {
-      ROS_DEBUG("Node %d is within neighborhood", tree_node_itr->id_);
-      double neighbor_cost = tree_node_itr->cost_;
-      double combined_cost = neighbor_cost + distance_to_node;
-      neighbor_list.insert(std::pair<double, Node*>(combined_cost, &*tree_node_itr));
-    }
-  }
-  ROS_DEBUG("Neighborhood size: %d", (int)neighbor_list.size());
-  
-  // Function to print neighbors
-  std::map<double, Node*>::iterator neighbor_itr;
-  ROS_DEBUG("\tNODE\tCOST"); 
-  for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) { 
-    ROS_DEBUG("\t%d\t%f", neighbor_itr->second->id_, neighbor_itr->first);
-  }
-
-  // Add the new node if it is collision free
-  std::vector<geometry_msgs::Point> collision_tree;
-  for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) 
-  { 
-    bool pathIsCollisionFree = isPathCollisionFree(neighbor_itr->second->position_, candidate_point);
-    if(pathIsCollisionFree)
-    {
-      int node_id = tree_.size();
-      int node_rank = neighbor_itr->second->rank_ + 1;
-      float node_cost = neighbor_itr->second->cost_ + getDistanceBetweenPoints(candidate_point, neighbor_itr->second->position_);
-      bool node_is_goal = (getDistanceBetweenPoints(candidate_point, makePoint(goal_x_, goal_y_, goal_z_)) < goal_radius_);
-      Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, 0.0, node_cost, 0.0, node_id, neighbor_itr->second, node_rank, node_is_goal);
-      if(node_is_goal and (new_node.cost_ < goal_.cost_))
-      {
-        goal_ = new_node;
-        ROS_DEBUG("RRTPlanner: New goal node. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
-      }
-      else if(!node_is_goal)
-      {
-        tree_.push_back(new_node);
-        ROS_DEBUG("RRTPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
-      }
-      
-      break;
-    }
-    else
-    {
-      ROS_DEBUG("I hit something");
-      collision_tree.push_back(neighbor_itr->second->position_);
-      collision_tree.push_back(candidate_point);
-    }
-  }
-
-  visualizeCollisionTree(collision_tree);
-}
-
-void RRTPlanner::extendTreeRRT(geometry_msgs::Point candidate_point, Node* nearest_neighbor)
+void RRTPlanner::extendTreeRRT(geometry_msgs::Point candidate_point, std::shared_ptr<Node> nearest_neighbor)
 {
   ROS_DEBUG("RRTPlanner: extendTreeRRT");
 

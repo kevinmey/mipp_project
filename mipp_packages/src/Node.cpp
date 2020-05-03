@@ -6,7 +6,7 @@
 
 #include "Node.hpp"
 
-Node::Node(double x, double y, double z, double yaw, double cost, double gain, int id, Node* parent, int rank, bool is_goal) {
+Node::Node(double x, double y, double z, double yaw, double cost, double gain, int id, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Node>> children, int rank) {
   this->position_.x = x;
   this->position_.y = y;
   this->position_.z = z;
@@ -16,67 +16,64 @@ Node::Node(double x, double y, double z, double yaw, double cost, double gain, i
   this->id_ = id;
   this->parent_ = parent;
   this->rank_ = rank;
-  this->is_goal_ = is_goal;
+
 }
 
-std::string Node::printStatus(){
-  std::stringstream ss;
-  ss << "--------------" << std::endl;
-  ss << "Node ID: " << id_ << std::endl;
-  ss << "Gain:    " << gain_ << std::endl;
-  ss << "Parent:  " << parent_->id_ << std::endl;
-  ss << "--------------" << std::endl;
-  return ss.str();
+Node::Node(geometry_msgs::Point position, double yaw, double cost, double gain, int id, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Node>> children, int rank) {
+  this->position_ = position;
+  this->yaw_ = yaw;
+  this->cost_ = cost;
+  this->gain_ = gain;
+  this->id_ = id;
+  this->parent_ = parent;
+  this->rank_ = rank;
+
 }
 
-std::stringstream Node::stringPosVec(std::vector<double> vec) {
-  std::stringstream ss;
-  if (!vec.empty()) {
-    ss << "(" << vec[0] << ", " << vec[1] << ", " << vec[2] << "; " << vec[3] << ")" << std::endl;
-  }
-  else {
-    ss << std::endl;
-  }
-  return ss;
+Node::~Node()
+{
+  ROS_INFO("Node %d is being destroyed.", id_);
 }
 
-double Node::findDistance(Node const &node) {
+double Node::getDistanceToNode(Node const &node) 
+{
 	double distance = (double)sqrt( pow(position_.x - node.position_.x, 2.0)
 																+ pow(position_.y - node.position_.y, 2.0)
 																+ pow(position_.z - node.position_.z, 2.0));
 	return distance;
 }
 
-Node* Node::getParent()
+std::shared_ptr<Node> Node::getParent()
 {
   return this->parent_;
 }
 
-void Node::setParent(Node* node)
+void Node::setParent(std::shared_ptr<Node> node)
 {
   this->parent_ = node;
 }
 
-Node Node::operator+(Node p){
-  Node tmp;
-  tmp.position_.x = this->position_.x + p.position_.x;
-  tmp.position_.y = this->position_.y + p.position_.y;
-  tmp.position_.z = this->position_.z + p.position_.z;
-  tmp.yaw_ = this->yaw_ + p.yaw_;
-  tmp.cost_ = this->cost_ + p.cost_;
-  return tmp;
+std::vector<std::shared_ptr<Node>> Node::getChildren()
+{
+  return children_;
 }
 
-Node Node::operator-(Node p){
-  Node tmp;
-  tmp.position_.x = this->position_.x - p.position_.x;
-  tmp.position_.y = this->position_.y - p.position_.y;
-  tmp.position_.z = this->position_.z - p.position_.z;
-  tmp.yaw_ = this->yaw_ - p.yaw_;
-  tmp.cost_ = this->cost_ - p.cost_;
-  tmp.gain_ = this->gain_ - p.gain_;
-  return tmp;
+void Node::setChildren(std::vector<std::shared_ptr<Node>> nodes)
+{
+  children_.clear();
+  for(std::vector<std::shared_ptr<Node>>::iterator nodes_itr = nodes.begin();
+      nodes_itr != nodes.end(); nodes_itr++){
+    
+    children_.push_back(*nodes_itr);
+  }
 }
+
+void Node::addChild(std::shared_ptr<Node> node)
+{
+
+}
+
+
 
 void Node::operator=(Node p){
   this->position_.x = p.position_.x;
@@ -88,7 +85,6 @@ void Node::operator=(Node p){
   this->id_ = p.id_;
   this->parent_ = p.parent_;
   this->rank_ = p.rank_;
-  this->is_goal_ = p.is_goal_;
 }
 
 bool Node::operator==(Node p){
