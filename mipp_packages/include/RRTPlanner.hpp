@@ -106,6 +106,9 @@ private:
   double goal_path_distance_;
   double goal_root_rotation_[2][2];
   geometry_msgs::Point goal_root_midpoint_;
+  // Smarter Nearest Neighbor
+  std::map<double, Node*> x_map_;
+  std::map<double, Node*> y_map_;
   // Random nr. generator and distributions
   std::default_random_engine generator_;
   std::uniform_real_distribution<double> x_distribution_;
