@@ -5,8 +5,8 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /UAV01/Image1
-        - /OccupancyGrid1
+        - /UAV01/Local pointcloud1
+        - /UAV11/Local pointcloud1
       Splitter Ratio: 0.5
     Tree Height: 565
   - Class: rviz/Selection
@@ -424,10 +424,10 @@ Visualization Manager:
           Min Intensity: 0
           Name: Local pointcloud
           Position Transformer: XYZ
-          Queue Size: 10
+          Queue Size: 0
           Selectable: true
           Size (Pixels): 3
-          Size (m): 0.10000000149011612
+          Size (m): 0.03999999910593033
           Style: Flat Squares
           Topic: /uav0/local_planner_manager/local_pointcloud
           Unreliable: false
@@ -451,7 +451,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/complete_tree
           Name: Tree
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -459,7 +459,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/tree_path
           Name: TreePath
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -539,7 +539,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/goal_position
           Name: Goal
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -547,7 +547,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/path_waypoint
           Name: path_waypoint
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -555,7 +555,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/path_actual
           Name: path_actual
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -563,7 +563,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/drone
           Name: Drone
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -590,10 +590,10 @@ Visualization Manager:
           Min Intensity: 0
           Name: Local pointcloud
           Position Transformer: XYZ
-          Queue Size: 10
+          Queue Size: 0
           Selectable: true
           Size (Pixels): 3
-          Size (m): 0.10000000149011612
+          Size (m): 0.03999999910593033
           Style: Flat Squares
           Topic: /uav1/local_planner_manager/local_pointcloud
           Unreliable: false
@@ -617,7 +617,7 @@ Visualization Manager:
           Marker Topic: /uav1/local_planner_manager/complete_tree
           Name: Tree
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -625,7 +625,7 @@ Visualization Manager:
           Marker Topic: /uav1/local_planner_manager/tree_path
           Name: TreePath
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -705,7 +705,7 @@ Visualization Manager:
           Marker Topic: /uav1/local_planner_manager/goal_position
           Name: Goal
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -713,7 +713,7 @@ Visualization Manager:
           Marker Topic: /uav1/local_planner_manager/path_waypoint
           Name: path_waypoint
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -721,7 +721,7 @@ Visualization Manager:
           Marker Topic: /uav1/local_planner_manager/path_actual
           Name: path_actual
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -729,7 +729,7 @@ Visualization Manager:
           Marker Topic: /uav1/local_planner_manager/drone
           Name: Drone
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -814,25 +814,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 11.487137794494629
+      Distance: 17.305572509765625
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.06489261239767075
-        Y: -0.08465191721916199
-        Z: 0
+        X: -4.030786991119385
+        Y: -1.8495886325836182
+        Z: 3.591375161704491e-6
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.764796793460846
+      Pitch: 0.5397970080375671
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.8161139488220215
+      Yaw: 3.6411163806915283
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10

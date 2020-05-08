@@ -6,7 +6,10 @@
 
 #include "Node.hpp"
 
-Node::Node(double x, double y, double z, double yaw, double cost, double gain, int id, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Node>> children, int rank) {
+Node::Node(std::weak_ptr<Node> parent, std::vector<std::shared_ptr<Node>> children, 
+       double x = 0, double y = 0, double z = 0, double yaw = 0, 
+       double cost = 0, double gain = 0, int id = 0, int rank = 0) 
+{
   this->position_.x = x;
   this->position_.y = y;
   this->position_.z = z;
@@ -19,7 +22,10 @@ Node::Node(double x, double y, double z, double yaw, double cost, double gain, i
 
 }
 
-Node::Node(geometry_msgs::Point position, double yaw, double cost, double gain, int id, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Node>> children, int rank) {
+Node::Node(std::weak_ptr<Node> parent, std::vector<std::shared_ptr<Node>> children, 
+       geometry_msgs::Point position = makePoint(0,0,0), double yaw = 0, 
+       double cost = 0, double gain = 0, int id = 0, int rank = 0)
+{
   this->position_ = position;
   this->yaw_ = yaw;
   this->cost_ = cost;
@@ -32,7 +38,16 @@ Node::Node(geometry_msgs::Point position, double yaw, double cost, double gain, 
 
 Node::~Node()
 {
-  ROS_INFO("Node %d is being destroyed.", id_);
+  ROS_INFO("Destructing node %d.", id_);
+  if(parent_){
+    ROS_INFO("Node %d has no parent, probably root.", id_);
+  } else {
+    ROS_INFO("Node %d parent: %d", id_, parent_->id_);
+  }
+  for(std::vector<std::shared_ptr<Node>>::iterator child_itr = children_.begin();
+      child_itr != children_.end(); child_itr++){
+    ROS_INFO("Node %d child: %d", id_, (*child_itr)->id_);
+  }
 }
 
 double Node::getDistanceToNode(Node const &node) 
@@ -43,12 +58,12 @@ double Node::getDistanceToNode(Node const &node)
 	return distance;
 }
 
-std::shared_ptr<Node> Node::getParent()
+std::weak_ptr<Node> Node::getParent()
 {
   return this->parent_;
 }
 
-void Node::setParent(std::shared_ptr<Node> node)
+void Node::setParent(std::weak_ptr<Node> node)
 {
   this->parent_ = node;
 }

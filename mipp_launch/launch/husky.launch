@@ -114,6 +114,6 @@
   </node>
 
   <!-- Relay/republish pointcloud to common cloud for OctoMap -->
-  <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="husky/velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
+  <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="/gazebo/velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
 
 </launch>

@@ -36,7 +36,7 @@ class Node{
 // Variables used here are constantly accessed and checked; leaving public for now.
 private:
   /** \brief Node's parent */
-  std::shared_ptr<Node> parent_;
+  std::weak_ptr<Node> parent_;
   
   /** \brief Node's children */
   std::vector<std::shared_ptr<Node>> children_;
@@ -67,8 +67,9 @@ public:
   * @param children_ Node's children
   * @param rank_ Nr. of nodes away from root
   */
-  Node(double x = 0, double y = 0, double z = 0, double yaw = 0, double cost = 0, double gain = 0, int id = 0, 
-       std::shared_ptr<Node> parent = NULL, std::vector<std::shared_ptr<Node>> children = {}, int rank = 0);
+  Node(std::weak_ptr<Node> parent, std::vector<std::shared_ptr<Node>> children, 
+       double x = 0, double y = 0, double z = 0, double yaw = 0, 
+       double cost = 0, double gain = 0, int id = 0, int rank = 0);
 
   /**
   * @brief Constructor for Node class
@@ -77,10 +78,12 @@ public:
   * @param cost Cost to get to this node (usually distance to root)
   * @param id Node's id
   * @param parent_ Node's parent
+  * @param children_ Node's children
   * @param rank_ Nr. of nodes away from root
   */
-  Node(geometry_msgs::Point position = makePoint(0,0,0), double yaw = 0, double cost = 0, double gain = 0, int id = 0, 
-       std::shared_ptr<Node> parent = NULL, std::vector<std::shared_ptr<Node>> children = {}, int rank = 0);
+  Node(std::weak_ptr<Node> parent, std::vector<std::shared_ptr<Node>> children, 
+       geometry_msgs::Point position = makePoint(0,0,0), double yaw = 0, 
+       double cost = 0, double gain = 0, int id = 0, int rank = 0);
 
   /**
   * @brief Prints the position vector
@@ -94,14 +97,14 @@ public:
   * @param node the node to find the distance to
   * @return double distance between nodes
   */
-  std::shared_ptr<Node> getParent();
+  std::weak_ptr<Node> getParent();
 
   /**
   * @brief Prints the position vector
   * @param node the node to find the distance to
   * @return double distance between nodes
   */
-  void setParent(std::shared_ptr<Node> node);
+  void setParent(std::weak_ptr<Node> node);
 
   /**
   * @brief Prints the position vector

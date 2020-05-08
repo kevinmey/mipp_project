@@ -1,5 +1,4 @@
 <?xml version="1.0"?>
-<!-- src: http://wiki.ros.org/octomap_server.  -->
 <launch>
   <!-- Resolution in meter for the map when starting with an empty map.
         Otherwise the loaded file's resolution is used. -->
@@ -40,19 +39,21 @@
        both UGV and UAVs) to be published to. -->
   <arg name="octomap_cloud_topic"     default="/octomap/points"/>
 
-	<node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
-		<param name="resolution"                      value="$(arg resolution)"/>
+  <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+    <param name="resolution"                      value="$(arg resolution)"/>
     <param name="frame_id"          type="string" value="$(arg frame_id)"/>
-		<param name="base_frame_id"     type="string" value="$(arg base_frame_id)"/>
-		<param name="sensor_model/max_range"          value="$(arg sensor_model/max_range)"/>
-  	<param name="latch"             type="bool"   value="$(arg latch)"/>
-		<param name="filter_ground"     type="bool"   value="$(arg filter_ground)"/>
-		<param name="pointcloud_min_z"  type="double" value="$(arg pointcloud_min_z)"/>
-		<param name="pointcloud_max_z"  type="double" value="$(arg pointcloud_max_z)"/>
-	  <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
-	</node>
+    <param name="base_frame_id"     type="string" value="$(arg base_frame_id)"/>
+    <param name="sensor_model/max_range"          value="$(arg sensor_model/max_range)"/>
+    <param name="latch"             type="bool"   value="$(arg latch)"/>
+    <param name="filter_ground"     type="bool"   value="$(arg filter_ground)"/>
+    <param name="pointcloud_min_z"  type="double" value="$(arg pointcloud_min_z)"/>
+    <param name="pointcloud_max_z"  type="double" value="$(arg pointcloud_max_z)"/>
+    <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
+  </node>
 <!--
-	<node pkg="tf" type="static_transform_publisher" name="tf_pub"
+  <node pkg="tf" type="static_transform_publisher" name="tf_pub"
           args="0 0 0 0 0 0 1 map camera_color_optical_frame 10"/>-->
 </launch>
 
+
+<!-- src: http://wiki.ros.org/octomap_server.  -->
