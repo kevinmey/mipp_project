@@ -50,7 +50,7 @@ void RRTPlanner::visualizeTreeColored()
   tree_marker.color.b = 0.9;
   for(Node tree_node : tree_)
   {
-    if(tree_node.getParent() != NULL) 
+    if(tree_node.getParent() != NULL)
     {
       tree_marker.points.push_back(tree_node.position_);
       tree_marker.points.push_back(tree_node.getParent()->position_);
