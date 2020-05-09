@@ -3,11 +3,11 @@
   <arg name="run_gazebo"  default="true"/>
   <arg name="world_file_name"   default="playpen" />
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
-  <arg name="gui"         default="true"/>
+  <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
-  <arg name="run_husky"   default="false"/>
+  <arg name="run_husky"   default="true"/>
   <arg name="run_husky_explore" default="false"/>
-  <arg name="run_uav0"    default="true"/>
+  <arg name="run_uav0"    default="false"/>
   <arg name="run_uav1"    default="false"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
 
@@ -19,14 +19,14 @@
     Run OctoMap
   -->
   <include file="$(find mipp_launch)/launch/octomap_mapping.launch">
-    <param name="resolution"                      value="0.25"/>
-    <param name="frame_id"          type="string" value="world"/>
-		<param name="base_frame_id"     type="string" value="base_footprint"/>
-		<param name="sensor_model/max_range"          value="5.0"/>
-  	<param name="latch"             type="bool"   value="false"/>
-		<param name="filter_ground"     type="bool"   value="true"/>
-		<param name="pointcloud_min_z"  type="double" value="0.0"/>
-		<param name="pointcloud_max_z"  type="double" value="5.0"/>
+    <arg name="resolution"                      value="0.20"/>
+    <arg name="frame_id"                        value="world"/>
+		<arg name="base_frame_id"                   value="base_footprint"/>
+		<arg name="sensor_model/max_range"          value="7.5"/>
+  	<arg name="latch"                           value="false"/>
+		<arg name="filter_ground"                   value="false"/>
+		<arg name="pointcloud_min_z"                value="0.2"/>
+		<arg name="pointcloud_max_z"                value="5.0"/>
 	  <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
   </include>
 

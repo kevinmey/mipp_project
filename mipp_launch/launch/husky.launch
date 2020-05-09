@@ -89,7 +89,7 @@
   <!---
     Run Move Base Demo 
   -->
-  <arg name="no_static_map" default="true"/> <!-- K: Changed to true (mapless) -->
+  <arg name="no_static_map" default="false"/> <!-- K: Changed to false (external map from octomap) -->
   <arg name="base_global_planner" default="navfn/NavfnROS"/>
   <arg name="base_local_planner" default="dwa_local_planner/DWAPlannerROS"/>
   <!-- <arg name="base_local_planner" default="base_local_planner/TrajectoryPlannerROS"/> -->
@@ -97,16 +97,16 @@
   <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
     <param name="base_global_planner" value="$(arg base_global_planner)"/>
     <param name="base_local_planner" value="$(arg base_local_planner)"/>
-    <rosparam file="$(find husky_navigation)/config/planner.yaml" command="load"/>
+    <rosparam file="$(find mipp_description)/config/husky_planner.yaml" command="load"/>
     <!-- observation sources located in costmap_common.yaml -->
-    <rosparam file="$(find husky_navigation)/config/costmap_common.yaml" command="load" ns="global_costmap" />
-    <rosparam file="$(find husky_navigation)/config/costmap_common.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find mipp_description)/config/husky_costmap_common.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find mipp_description)/config/husky_costmap_common.yaml" command="load" ns="local_costmap" />
     <!-- local costmap, needs size -->
-    <rosparam file="$(find husky_navigation)/config/costmap_local.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find mipp_description)/config/husky_costmap_local.yaml" command="load" ns="local_costmap" />
     <param name="local_costmap/width" value="10.0"/>
     <param name="local_costmap/height" value="10.0"/>
     <!-- static global costmap, static map provides size -->
-    <rosparam file="$(find husky_navigation)/config/costmap_global_static.yaml" command="load" ns="global_costmap" unless="$(arg no_static_map)"/>
+    <rosparam file="$(find mipp_description)/config/husky_costmap_global.yaml" command="load" ns="global_costmap" unless="$(arg no_static_map)"/>
     <!-- global costmap with laser, for odom_navigation_demo -->
     <rosparam file="$(find husky_navigation)/config/costmap_global_laser.yaml" command="load" ns="global_costmap" if="$(arg no_static_map)"/>
     <param name="global_costmap/width" value="100.0" if="$(arg no_static_map)"/>
@@ -114,6 +114,6 @@
   </node>
 
   <!-- Relay/republish pointcloud to common cloud for OctoMap -->
-  <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="husky/velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
+  <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="gazebo/velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
 
 </launch>
