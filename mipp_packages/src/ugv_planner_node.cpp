@@ -14,7 +14,7 @@ int main(int argc, char **argv)
     ros::NodeHandle n;
     ros::NodeHandle np("~");
 
-    UGVPlanner UGVPlanner(n, np);
+    //UGVPlanner UGVPlanner(n, np);
 
     ros::spin();
     return 0;

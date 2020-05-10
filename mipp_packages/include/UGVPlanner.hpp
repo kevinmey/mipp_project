@@ -1,40 +1,59 @@
+#pragma once
+
 #include <ros/ros.h>
 #include "octomap/octomap.h"
 
 #include <Node.hpp>
 #include <utils.hpp>
 
+#include <costmap_2d/costmap_2d_ros.h>
+#include <costmap_2d/costmap_2d.h>
+#include <nav_core/base_global_planner.h>
+#include <base_local_planner/world_model.h>
+#include <base_local_planner/costmap_model.h>
+#include <pluginlib/class_list_macros.h>
+
+#include <tf2/convert.h>
+#include <tf2/utils.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <octomap_msgs/Octomap.h>
-#include "octomap_msgs/conversions.h"
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+
+#include <tf/transform_listener.h>
 
 #include <string>
 #include <cmath> /* sqrt, pow */
 #include <random>
- 
-class UGVPlanner
+
+namespace ugv_planner {
+
+class UGVPlanner : public nav_core::BaseGlobalPlanner 
 {
 public:
   // Constructor
-  UGVPlanner(ros::NodeHandle n, ros::NodeHandle np);
+  UGVPlanner();
+  UGVPlanner(std::string name, costmap_2d::Costmap2DROS* costmap_ros);
   // Destructor
   ~UGVPlanner();
+  // Init.
+  // overriden classes from interface nav_core::BaseGlobalPlanner:
+  void initialize(std::string name, costmap_2d::Costmap2DROS* costmap_ros);
   
   /* 
   *  Subscriber callbacks
   */
-  void subOctomap(const octomap_msgs::Octomap& octomap_msg);
-  void subRoot(const geometry_msgs::PoseWithCovarianceStamped& goal_msg);
-  void subGoal(const geometry_msgs::PoseStamped& goal_msg);
   
   /* 
   *  Planner callbacks
   */
-  void planPathToGoal();
+  // overriden classes from interface nav_core::BaseGlobalPlanner:
+  bool makePlan(const geometry_msgs::PoseStamped& start,
+                const geometry_msgs::PoseStamped& goal,
+                std::vector<geometry_msgs::PoseStamped>& plan);
   geometry_msgs::Point generateRandomPoint();
   geometry_msgs::Point generateRandomInformedPoint();
   void extendTreeRRTstar(geometry_msgs::Point candidate_point);
@@ -46,6 +65,7 @@ public:
   *  Utility functions
   */
   void getParams(ros::NodeHandle np);
+  geometry_msgs::PoseStamped nodeToPose(Node node);
   
   /* 
   *  Visualization functions
@@ -66,15 +86,23 @@ private:
   ros::Publisher pub_viz_root_node_;
   ros::Publisher pub_viz_goal_node_;
   ros::Subscriber sub_octomap_;
+  ros::Subscriber sub_global_costmap_;
   ros::Subscriber sub_root_;
   ros::Subscriber sub_goal_;
+  tf::TransformListener tf_listener_;
   // Planner variables
   Node root_;
   Node goal_;
   std::list<Node> tree_;
   std::vector<geometry_msgs::Point> collision_tree_;
-  octomap::OcTree* map_;
-  bool received_map_;
+  // For global_planner plugin:
+  bool initialized_;
+  costmap_2d::Costmap2DROS* costmap_ros_;
+  costmap_2d::Costmap2D* costmap_;
+  base_local_planner::WorldModel* world_model_;
+  double step_size_;
+  double min_dist_from_robot_;
+  double footprintCost(double x_i, double y_i, double theta_i);
   // Informed RRT*
   double goal_euclidean_distance_;
   double goal_path_distance_;
@@ -104,4 +132,6 @@ private:
   int planner_max_tree_nodes_;
   double planner_max_time_;
   double max_ray_distance_;
+};
+
 };

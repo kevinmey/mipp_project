@@ -19,12 +19,15 @@ find_package(
     tf2
     tf2_ros
     tf2_geometry_msgs
+    nav_core
+    base_local_planner
 )
 ## Includes headers in include folder
 catkin_package(
     INCLUDE_DIRS include
     CATKIN_DEPENDS roscpp
     DEPENDS
+    LIBRARIES base_local_planner
 )
 ## Includes headers in include folder
 include_directories(
@@ -83,21 +86,14 @@ target_link_libraries(
 
 # ugv_planner_node
 
-add_executable(
-    ugv_planner_node
-    src/ugv_planner_node.cpp
+add_library(
+    ugv_planner_lib
     src/UGVPlanner.cpp
     src/UGVPlannerVisualization.cpp
 )
 
-add_dependencies(
-    ugv_planner_node 
-    ${ugv_planner_node_EXPORTED_TARGETS} 
-    ${catkin_EXPORTED_TARGETS}
-)
-
 target_link_libraries(
-    ugv_planner_node
+    ugv_planner_lib
     common_libs
     ${catkin_LIBRARIES}
 )

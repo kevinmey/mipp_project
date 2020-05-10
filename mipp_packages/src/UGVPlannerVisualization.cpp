@@ -6,6 +6,8 @@
 
 #include <UGVPlanner.hpp>
 
+namespace ugv_planner {
+
 /* 
 *  Visualization functions
 */
@@ -20,7 +22,7 @@ void UGVPlanner::visualizeTree()
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
   tree_marker.scale.x = 0.02;
-  tree_marker.color.a = 0.4;
+  tree_marker.color.a = 0.5;
   tree_marker.color.r = 0.4;
   tree_marker.color.g = 0.4;
   tree_marker.color.b = 0.9;
@@ -46,7 +48,7 @@ void UGVPlanner::visualizeTreeColored()
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
   tree_marker.scale.x = 0.02;
-  tree_marker.color.a = 0.4;
+  tree_marker.color.a = 0.5;
   tree_marker.color.r = 0.4;
   tree_marker.color.g = 0.4;
   tree_marker.color.b = 0.9;
@@ -72,7 +74,7 @@ void UGVPlanner::visualizeCollisionTree()
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
   tree_marker.scale.x = 0.04;
-  tree_marker.color.a = 0.4;
+  tree_marker.color.a = 0.5;
   tree_marker.color.r = 1.0;
   tree_marker.color.g = 0.0;
   tree_marker.color.b = 0.0;
@@ -91,7 +93,7 @@ void UGVPlanner::visualizeCollisionTree(std::vector<geometry_msgs::Point> collis
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
   tree_marker.scale.x = 0.04;
-  tree_marker.color.a = 0.4;
+  tree_marker.color.a = 1.0;
   tree_marker.color.r = 1.0;
   tree_marker.color.g = 0.0;
   tree_marker.color.b = 0.0;
@@ -179,3 +181,5 @@ void UGVPlanner::visualizeGoal(geometry_msgs::Point point, double red, double gr
   
   pub_viz_goal_node_.publish(marker_point);
 }
+
+};

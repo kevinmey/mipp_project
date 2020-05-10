@@ -1,0 +1,7 @@
+<library path="lib/libugv_planner_lib">
+  <class name="ugv_planner/UGVPlanner" type="ugv_planner::UGVPlanner" base_class_type="nav_core::BaseGlobalPlanner">
+    <description>
+      RRT
+    </description>
+  </class>
+</library>

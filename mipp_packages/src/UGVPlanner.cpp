@@ -6,11 +6,45 @@
 
 #include <UGVPlanner.hpp>
 
+namespace ugv_planner {
+
+//register this planner as a BaseGlobalPlanner plugin
+PLUGINLIB_EXPORT_CLASS(ugv_planner::UGVPlanner, nav_core::BaseGlobalPlanner)
+
 // Constructor
-  
-UGVPlanner::UGVPlanner(ros::NodeHandle n, ros::NodeHandle np)
+
+UGVPlanner::UGVPlanner() : costmap_ros_(NULL), initialized_(false){}
+
+UGVPlanner::UGVPlanner(std::string name, costmap_2d::Costmap2DROS* costmap_ros)
 {
+  initialize(name, costmap_ros);
+}
+
+// Destructor
+  
+UGVPlanner::~UGVPlanner()
+{
+  ROS_INFO("UGVPlanner object is being deleted.");
+}
+
+// Init.
+
+void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_ros)
+{
+  if(initialized_)
+  {
+    ROS_WARN("This planner has already been initialized... doing nothing");
+    return;
+  }
+  
   ROS_INFO("UGVPlanner object is being created.");
+
+  ros::NodeHandle n("/" + name);
+  ros::NodeHandle np("~/" + name);
+
+  costmap_ros_ = costmap_ros; //initialize the costmap_ros_ attribute to the parameter.
+  costmap_ = costmap_ros_->getCostmap(); //get the costmap_ from costmap_ros_
+  world_model_ = new base_local_planner::CostmapModel(*costmap_);
 
   getParams(np);
 
@@ -19,11 +53,6 @@ UGVPlanner::UGVPlanner(ros::NodeHandle n, ros::NodeHandle np)
   pub_viz_path_to_goal_ = n.advertise<visualization_msgs::Marker>("rrt_planner/path_to_goal", 1);
   pub_viz_root_node_ = n.advertise<visualization_msgs::MarkerArray>("rrt_planner/root_node", 1);
   pub_viz_goal_node_ = n.advertise<visualization_msgs::MarkerArray>("rrt_planner/goal_node", 1);
-
-  received_map_ = false;
-  sub_octomap_ = n.subscribe("octomap_binary", 1, &UGVPlanner::subOctomap, this);
-  sub_root_ = n.subscribe("/initialpose", 1, &UGVPlanner::subRoot, this);
-  sub_goal_ = n.subscribe("/move_base_simple/goal", 1, &UGVPlanner::subGoal, this);
 
   // Init. random number generator distributions
   std::random_device rd;  // Non-deterministic random nr. to seed generator
@@ -37,108 +66,58 @@ UGVPlanner::UGVPlanner(ros::NodeHandle n, ros::NodeHandle np)
   root_ = Node(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1, nullptr, 0, false);
   goal_ = Node(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1, nullptr, 0, false);
 
-  // Init. collision box
-  double ugv_size_x_ = 0.5;
-  double ugv_size_y_ = 0.5;
-  double ugv_size_z_ = 0.0;
-  double resolution = 0.5;
-  for(double x = -ugv_size_x_/2.0; x <= ugv_size_x_/2.0; x += resolution){
-    for(double y = -ugv_size_y_/2.0; y <= ugv_size_y_/2.0; y += resolution){
-      for(double z = -ugv_size_z_/2.0; z <= ugv_size_z_/2.0; z += resolution){
-        if(((abs(x) == ugv_size_x_/2.0) or 
-            (abs(y) == ugv_size_y_/2.0) or
-            (abs(z) == ugv_size_z_/2.0))){
-          ROS_INFO("UGVPlanner: Collision box point(x,y,z) = (%f,%f,%f)", x, y, z);
-          collision_points_.push_back(makePoint(x,y,z));
-        }
-      }
-    }
-  }
-  ROS_INFO("UGVPlanner: Collision box size: %d", (int)collision_points_.size());
-
-  // Wait for map
-  ros::Rate rate_wait_map(1.0);
-  while(!received_map_)
-  {
-    ROS_WARN("UGVPlanner: No map received yet, waiting...");
-    ros::spinOnce();
-    rate_wait_map.sleep();
-  }
-
-  ROS_INFO("UGVPlanner: Initialization done. Waiting for goal.");
-}
-
-// Destructor
-  
-UGVPlanner::~UGVPlanner()
-{
-  ROS_INFO("UGVPlanner object is being deleted.");
+  ROS_INFO("UGVPlanner: Initialization done. Waiting for path.");
+  initialized_ = true;
 }
 
 /* 
 *  Subscriber callbacks
 */
 
-void UGVPlanner::subOctomap(const octomap_msgs::Octomap& octomap_msg)
-{
-  ROS_INFO("UGVPlanner: subOctomap");
-  octomap::AbstractOcTree* abstract_map = octomap_msgs::binaryMsgToMap(octomap_msg);
-  if(abstract_map)
-  {
-    map_ = dynamic_cast<octomap::OcTree*>(abstract_map);
-    received_map_ = true;
-  } 
-  else 
-  {
-    ROS_ERROR("UGVPlanner: Error creating octree from received message");
-  }
-}
-
-void UGVPlanner::subRoot(const geometry_msgs::PoseWithCovarianceStamped& root_msg)
-{
-  // Init. root node with 0 cost
-  //root_ = Node(root_msg.pose.pose.position.x, root_msg.pose.pose.position.y, root_msg.pose.pose.position.z, 0.0, 0.0, 0.0, 0, nullptr, 0);
-  root_ = Node(root_msg.pose.pose.position.x, root_msg.pose.pose.position.y, ugv_midpoint_z_, 0.0, 0.0, 0.0, 0, nullptr, 0);
-  
-  // Clear tree and insert root
-  tree_.clear();
-  tree_.push_back(root_);
-  
-  // Create plan if goal is initialized
-  if(goal_.id_ != -1){
-    goal_path_distance_ = INFINITY;
-    goal_.cost_ = goal_path_distance_;
-    goal_.setParent(nullptr);
-    planPathToGoal();
-  }
-}
-
-void UGVPlanner::subGoal(const geometry_msgs::PoseStamped& goal_msg)
-{
-  // Init. goal node with big cost, don't include it in tree (shouldn't have children)
-  goal_path_distance_ = INFINITY;
-  goal_ = Node(goal_msg.pose.position.x, goal_msg.pose.position.y, ugv_midpoint_z_, 0.0, goal_path_distance_, 0.0, 0, nullptr, 0);
-
-  // Create plan if root is initialized
-  if(root_.id_ != -1){
-    // Clear tree and insert root
-    tree_.clear();
-    tree_.push_back(root_);
-    planPathToGoal();
-  }
-}
-
 /* 
 *  Planner functions
 */
 
-void UGVPlanner::planPathToGoal()
+bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
+                const geometry_msgs::PoseStamped& goal,
+                std::vector<geometry_msgs::PoseStamped>& plan)
 {
   ROS_DEBUG("UGVPlanner: planPathToGoal");
+
+  // From global_planner plugin:
+  if(!initialized_){
+    ROS_ERROR("The planner has not been initialized, please call initialize() to use the planner");
+    return false;
+  }
+
+  ROS_DEBUG("Got a start: %.2f, %.2f, and a goal: %.2f, %.2f", start.pose.position.x, start.pose.position.y, goal.pose.position.x, goal.pose.position.y);
+
+  plan.clear();
+  costmap_ = costmap_ros_->getCostmap();
+
+  //if(goal.header.frame_id != costmap_ros_->getGlobalFrameID()){
+  //  ROS_ERROR("This planner as configured will only accept goals in the %s frame, but a goal was sent in the %s frame.", 
+  //      costmap_ros_->getGlobalFrameID().c_str(), goal.header.frame_id.c_str());
+  //  return false;
+  //}
+
+  tree_.clear();
+
+  double start_x = start.pose.position.x;
+  double start_y = start.pose.position.y;
+  const double start_yaw = tf2::getYaw(start.pose.orientation);
+  root_ = Node(start_x, start_y, 0.0, start_yaw, 0.0, 0.0, 0, nullptr, false);
+  tree_.push_back(root_);
+
+  double goal_x = goal.pose.position.x;
+  double goal_y = goal.pose.position.y;
+  const double goal_yaw = tf2::getYaw(goal.pose.orientation);
+  goal_ = Node(goal_x, goal_y, 0.0, goal_yaw, INFINITY, 0.0, -1, nullptr, true);
 
   // Init. values for informed RRT*
   goal_euclidean_distance_ = getDistanceBetweenPoints(root_.position_,goal_.position_);
   goal_grow_distance_ = 1.5*goal_euclidean_distance_;
+  goal_path_distance_ = goal_.cost_;
   goal_root_midpoint_ = makePoint((goal_.position_.x + root_.position_.x)/2.0, (goal_.position_.y + root_.position_.y)/2.0, (goal_.position_.z + root_.position_.z)/2.0);
   double goal_root_angle = atan2(goal_.position_.y - root_.position_.y, goal_.position_.x - root_.position_.x);
   goal_root_rotation_[0][0] = cos(goal_root_angle);
@@ -239,6 +218,15 @@ void UGVPlanner::planPathToGoal()
   }
 
   ROS_INFO("Finished planning. Final goal cost: %f",  goal_.cost_);
+
+  // Iterate through path from goal
+  Node node_on_goal_path = goal_;
+  plan.insert(plan.begin(), nodeToPose(node_on_goal_path));
+  while(node_on_goal_path.id_ != 0)
+  {
+    node_on_goal_path = *node_on_goal_path.getParent();
+    plan.insert(plan.begin(), nodeToPose(node_on_goal_path));
+  }
 }
 
 geometry_msgs::Point UGVPlanner::generateRandomPoint()
@@ -340,11 +328,13 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
     {
       int node_id = tree_.size();
       int node_rank = neighbor_itr->second->rank_ + 1;
+      float node_yaw = atan2(candidate_point.y - neighbor_itr->second->position_.y, candidate_point.x - neighbor_itr->second->position_.x);
       float node_cost = neighbor_itr->second->cost_ + getDistanceBetweenPoints(candidate_point, neighbor_itr->second->position_);
       bool node_is_goal = (getDistanceBetweenPoints(candidate_point, makePoint(goal_.position_.x, goal_.position_.y, goal_.position_.z)) < goal_radius_);
-      Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, 0.0, node_cost, 0.0, node_id, neighbor_itr->second, node_rank, node_is_goal);
+      Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, node_yaw, node_cost, 0.0, node_id, neighbor_itr->second, node_rank, node_is_goal);
       if(node_is_goal and (new_node.cost_ < goal_.cost_))
       {
+        new_node.yaw_ = goal_.yaw_;
         goal_ = new_node;
         ROS_DEBUG("UGVPlanner: New goal node. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       }
@@ -359,13 +349,11 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
     else
     {
       ROS_DEBUG("UGVPlanner: Collision detected when trying to add node at (x,y,z) = (%f,%f,%f)",candidate_point.x,candidate_point.y,candidate_point.z);
-
       if(goal_path_distance_ == INFINITY)
       {
         goal_grow_distance_ = std::min(1.01*goal_grow_distance_, 10*goal_euclidean_distance_);
         ROS_DEBUG("UGVPlanner: Growing goal_grow_distance_, new size: %f",goal_grow_distance_);
       }
-
       collision_tree.push_back(neighbor_itr->second->position_);
       collision_tree.push_back(candidate_point);
     }
@@ -375,84 +363,38 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
 }
 
 bool UGVPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b, 
-                                     geometry_msgs::Vector3 direction_ab, double distance)
+                                     geometry_msgs::Vector3 direction_ab, double distance_ab)
 {
   ROS_DEBUG("UGVPlanner: isPathCollisionFree");
 
-  // Check if point_b is collision free
-  for(auto point_itr : collision_points_)
-  {
-    octomap::point3d om_ray_origin = octomap::point3d(point_b.x, point_b.y, point_b.z);
-    octomap::point3d om_ray_direction = octomap::point3d(point_itr.x, point_itr.y, point_itr.z);
-    double om_ray_distance = getDistanceBetweenPoints(makePoint(0,0,0), point_itr);
-    octomap::point3d om_ray_end_cell;
-    bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, om_ray_distance);
-    if(hit_occupied)
-    {
-      ROS_DEBUG("UGVPlanner: Ray cast return occupied from point (%f,%f,%f) in direction (%f,%f,%f), distance %f.",
-                point_b.x, point_b.y, point_b.z,
-                point_itr.x, point_itr.y, point_itr.z,
-                om_ray_distance);
-      return false;
-    }
-  }
-  
   // Check if optional arguments are set (default/initialized values aren't valid)
-  if(direction_ab.x == 0.0 and direction_ab.y == 0.0 and direction_ab.z == 0.0)
-  {
+  if(direction_ab.x == 0.0 and direction_ab.y == 0.0 and direction_ab.z == 0.0){
     direction_ab = getDirection(point_a, point_b);
   }
-  if(distance == -1.0)
-  {
-    distance = getDistanceBetweenPoints(point_a, point_b);
+  if(distance_ab == -1.0){
+    distance_ab = getDistanceBetweenPoints(point_a, point_b);
   }
 
-  // Attempt to cast OctoMap ray
-  octomap::point3d om_ray_origin = octomap::point3d(point_a.x, point_a.y, point_a.z);
-  octomap::point3d om_ray_direction = octomap::point3d(direction_ab.x, direction_ab.y, direction_ab.z);
-  octomap::point3d om_ray_end = octomap::point3d(point_b.x, point_b.y, point_b.z);
-  octomap::point3d om_ray_return_direction = octomap::point3d(-direction_ab.x, -direction_ab.y, -direction_ab.z);
-  octomap::point3d om_ray_end_cell;
-
-  // Check if direction is valid
-  if(direction_ab.x == 0.0 and direction_ab.y == 0.0 and direction_ab.z == 0.0)
-  {
-    ROS_WARN("UGVPlanner: Got request to cast ray in illegal direction.");
-    ROS_WARN("            Origin (x,y,z) = (%f,%f,%f)",point_a.x,point_a.y,point_a.z);
-    ROS_WARN("            End    (x,y,z) = (%f,%f,%f)",point_b.x,point_b.y,point_b.z);
-
-    // Count illegal ray cast as collision
+  double angle_ab = atan2(point_b.y - point_a.y, point_b.x - point_a.x);
+  
+  // Check first if point_b is collision free configuration
+  if(footprintCost(point_b.x, point_b.y, angle_ab) == -1.0){
     return false;
   }
-  else
-  {
-    double om_ray_distance = distance;
 
-    // Try first to cast ray from point_a to point_b
-    bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, om_ray_distance);
-    if(hit_occupied)
-    {
+  double distance_on_line = 0.0;
+  geometry_msgs::Point point_on_line = point_a;
+  while(distance_on_line < distance_ab){
+    if(footprintCost(point_on_line.x, point_on_line.y, angle_ab) == -1.0){
       return false;
     }
 
-    // Cast rays from collision box in direction (collision cylinder)
-      for(auto point_itr : collision_points_)
-    {
-      om_ray_origin = octomap::point3d(point_itr.x, point_itr.y, point_itr.z);
-      bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, om_ray_distance);
-      if(hit_occupied)
-      {
-        ROS_DEBUG("UGVPlanner: Ray cast return occupied from point (%f,%f,%f) in direction (%f,%f,%f), distance %f.",
-                  point_b.x, point_b.y, point_b.z,
-                  point_itr.x, point_itr.y, point_itr.z,
-                  om_ray_distance);
-        return false;
-      }
-    }
-
-    // Return whether there was a collision or not
-    return true;
+    distance_on_line += step_size_;
+    point_on_line.x = point_on_line.x + step_size_*direction_ab.x;
+    point_on_line.y = point_on_line.y + step_size_*direction_ab.y;
   }
+
+  return true;
 }
 
 /* 
@@ -466,14 +408,52 @@ void UGVPlanner::getParams(ros::NodeHandle np)
   np.param<double>("goal_sample_probability", goal_sample_probability_, 0.1);
   np.param<double>("goal_radius", goal_radius_, 0.01);
   np.param<double>("ugv_midpoint_z", ugv_midpoint_z_, 0.35);
-  np.param<double>("x_range_min", x_range_min_, -1.0);
-  np.param<double>("x_range_max", x_range_max_,  1.0);
-  np.param<double>("y_range_min", y_range_min_, -1.0);
-  np.param<double>("y_range_max", y_range_max_,  1.0);
+  np.param<double>("x_range_min", x_range_min_, -10.0);
+  np.param<double>("x_range_max", x_range_max_,  10.0);
+  np.param<double>("y_range_min", y_range_min_, -10.0);
+  np.param<double>("y_range_max", y_range_max_,  10.0);
   np.param<double>("z_range_min", z_range_min_,  0.0);
-  np.param<double>("z_range_max", z_range_max_,  1.0);
-  np.param<double>("planner_rate", planner_rate_, 10.0);
+  np.param<double>("z_range_max", z_range_max_,  0.0);
+  np.param<double>("planner_rate", planner_rate_, 200.0);
   np.param<int>("planner_max_tree_nodes", planner_max_tree_nodes_, 1000);
-  np.param<double>("planner_max_time", planner_max_time_, 3.0);
-  np.param<double>("max_ray_distance", max_ray_distance_, 3.0);
+  np.param<double>("planner_max_time", planner_max_time_, 5.0);
+  np.param<double>("max_ray_distance", max_ray_distance_, 2.0);
+  np.param("step_size", step_size_, costmap_->getResolution());
+  np.param("min_dist_from_robot", min_dist_from_robot_, 0.10);
 }
+
+//we need to take the footprint of the robot into account when we calculate cost to obstacles
+double UGVPlanner::footprintCost(double x_i, double y_i, double theta_i){
+  if(!initialized_){
+    ROS_ERROR("The planner has not been initialized, please call initialize() to use the planner");
+    return -1.0;
+  }
+
+  std::vector<geometry_msgs::Point> footprint = costmap_ros_->getRobotFootprint();
+  //if we have no footprint... do nothing
+  if(footprint.size() < 3)
+    return -1.0;
+
+  //check if the footprint is legal
+  double footprint_cost = world_model_->footprintCost(x_i, y_i, theta_i, footprint);
+  return footprint_cost;
+}
+
+geometry_msgs::PoseStamped UGVPlanner::nodeToPose(Node node)
+{
+  ROS_DEBUG("UGVPlanner: nodeToPose");
+  ROS_INFO("Finished planning. Final goal cost: %f",  goal_.cost_);
+  geometry_msgs::PoseStamped pose;
+  pose.header.frame_id = planner_world_frame_;
+  pose.header.stamp = ros::Time::now();
+  pose.pose.position = node.position_;
+  tf2::Quaternion pose_quat;
+  pose_quat.setRPY(0, 0, node.yaw_);
+  pose.pose.orientation.x = pose_quat.x();
+  pose.pose.orientation.y = pose_quat.y();
+  pose.pose.orientation.z = pose_quat.z();
+  pose.pose.orientation.w = pose_quat.w();
+  return pose;
+}
+
+};

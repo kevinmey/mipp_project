@@ -90,7 +90,7 @@
     Run Move Base Demo 
   -->
   <arg name="no_static_map" default="false"/> <!-- K: Changed to false (external map from octomap) -->
-  <arg name="base_global_planner" default="navfn/NavfnROS"/>
+  <arg name="base_global_planner" default="ugv_planner/UGVPlanner"/>
   <arg name="base_local_planner" default="teb_local_planner/TebLocalPlannerROS"/>
   <!-- <arg name="base_local_planner" default="dwa_local_planner/DWAPlannerROS"/> -->
   <!-- <arg name="base_local_planner" default="base_local_planner/TrajectoryPlannerROS"/> -->
