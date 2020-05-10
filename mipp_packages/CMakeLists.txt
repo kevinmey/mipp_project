@@ -32,13 +32,20 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
 )
 
+## common
+
+add_library(
+    common_libs
+    src/Node.cpp
+    src/utils.cpp
+)
+
 ## uav_server_node
 
 add_executable(
     uav_server_node
     src/uav_server_node.cpp
     src/UAVServer.cpp
-    src/utils.cpp
 )
 
 add_dependencies(
@@ -49,6 +56,7 @@ add_dependencies(
 
 target_link_libraries(
     uav_server_node
+    common_libs
     ${catkin_LIBRARIES}
 )
 
@@ -59,8 +67,6 @@ add_executable(
     src/rrt_planner_node.cpp
     src/RRTPlanner.cpp
     src/RRTPlannerVisualization.cpp
-    src/Node.cpp
-    src/utils.cpp
 )
 
 add_dependencies(
@@ -71,5 +77,27 @@ add_dependencies(
 
 target_link_libraries(
     rrt_planner_node
+    common_libs
+    ${catkin_LIBRARIES}
+)
+
+# ugv_planner_node
+
+add_executable(
+    ugv_planner_node
+    src/ugv_planner_node.cpp
+    src/UGVPlanner.cpp
+    src/UGVPlannerVisualization.cpp
+)
+
+add_dependencies(
+    ugv_planner_node 
+    ${ugv_planner_node_EXPORTED_TARGETS} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    ugv_planner_node
+    common_libs
     ${catkin_LIBRARIES}
 )

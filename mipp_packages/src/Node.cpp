@@ -19,34 +19,6 @@ Node::Node(double x, double y, double z, double yaw, double cost, double gain, i
   this->is_goal_ = is_goal;
 }
 
-std::string Node::printStatus(){
-  std::stringstream ss;
-  ss << "--------------" << std::endl;
-  ss << "Node ID: " << id_ << std::endl;
-  ss << "Gain:    " << gain_ << std::endl;
-  ss << "Parent:  " << parent_->id_ << std::endl;
-  ss << "--------------" << std::endl;
-  return ss.str();
-}
-
-std::stringstream Node::stringPosVec(std::vector<double> vec) {
-  std::stringstream ss;
-  if (!vec.empty()) {
-    ss << "(" << vec[0] << ", " << vec[1] << ", " << vec[2] << "; " << vec[3] << ")" << std::endl;
-  }
-  else {
-    ss << std::endl;
-  }
-  return ss;
-}
-
-double Node::findDistance(Node const &node) {
-	double distance = (double)sqrt( pow(position_.x - node.position_.x, 2.0)
-																+ pow(position_.y - node.position_.y, 2.0)
-																+ pow(position_.z - node.position_.z, 2.0));
-	return distance;
-}
-
 Node* Node::getParent()
 {
   return this->parent_;
@@ -57,31 +29,8 @@ void Node::setParent(Node* node)
   this->parent_ = node;
 }
 
-Node Node::operator+(Node p){
-  Node tmp;
-  tmp.position_.x = this->position_.x + p.position_.x;
-  tmp.position_.y = this->position_.y + p.position_.y;
-  tmp.position_.z = this->position_.z + p.position_.z;
-  tmp.yaw_ = this->yaw_ + p.yaw_;
-  tmp.cost_ = this->cost_ + p.cost_;
-  return tmp;
-}
-
-Node Node::operator-(Node p){
-  Node tmp;
-  tmp.position_.x = this->position_.x - p.position_.x;
-  tmp.position_.y = this->position_.y - p.position_.y;
-  tmp.position_.z = this->position_.z - p.position_.z;
-  tmp.yaw_ = this->yaw_ - p.yaw_;
-  tmp.cost_ = this->cost_ - p.cost_;
-  tmp.gain_ = this->gain_ - p.gain_;
-  return tmp;
-}
-
 void Node::operator=(Node p){
-  this->position_.x = p.position_.x;
-  this->position_.y = p.position_.y;
-  this->position_.z = p.position_.z;
+  this->position_ = p.position_;
   this->yaw_ = p.yaw_;
   this->cost_ = p.cost_;
   this->gain_ = p.gain_;
@@ -91,16 +40,17 @@ void Node::operator=(Node p){
   this->is_goal_ = p.is_goal_;
 }
 
-bool Node::operator==(Node p){
-    if (this->id_ == p.id_) return true;
-    return false;
+bool Node::operator==(Node p)
+{
+    return (this->id_ == p.id_);
 }
 
-bool Node::operator!=(Node p){
-    if (this->id_ != p.id_) return true;
-    return false;
+bool Node::operator!=(Node p)
+{
+    return (this->id_ != p.id_);
 }
 
-bool Node::operator<(Node p){
+bool Node::operator<(Node p)
+{
     return (this->cost_ < p.cost_);
 }

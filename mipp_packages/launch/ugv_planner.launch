@@ -1,31 +1,22 @@
 <?xml version="1.0"?>
 <launch>
-  <!-- Resolution in meter for the map when starting with an empty map.
-        Otherwise the loaded file's resolution is used.
-  <arg name="uav_id"          default="0"/>
-  <arg name="uav_name"        default="uav$(arg uav_id)"/>
-  <arg name="uav_takeoff_z"   default="2.0"/> -->
 
-  <node pkg="mipp_packages" type="rrt_planner_node" name="rrt_planner_node" output="screen">
+  <node pkg="mipp_packages" type="ugv_planner_node" name="rrt_planner_node" output="screen">
     <!-- Parameters -->
     <param name="planner_world_frame"       value="map"/>
-    <param name="root_x"                    value="-7.0"/>
-    <param name="root_y"                    value="-7.0"/>
-    <param name="root_z"                    value="0.5"/>
-    <param name="goal_x"                    value="6.0"/>
-    <param name="goal_y"                    value="2.0"/>
-    <param name="goal_z"                    value="0.5"/>
     <param name="goal_sample_probability"   value="0.2"/>
     <param name="goal_radius"               value="0.01"/>
+    <param name="ugv_midpoint_z"            value="0.35"/>
     <param name="x_range_min"               value="-10.0"/>
     <param name="x_range_max"               value="10.0"/>
     <param name="y_range_min"               value="-10.0"/>
     <param name="y_range_max"               value="10.0"/>
-    <param name="z_range_min"               value="0.5"/>
-    <param name="z_range_max"               value="1.0"/>
-    <param name="planner_rate"              value="500.0"/>
+    <param name="z_range_min"               value="0.35"/>
+    <param name="z_range_max"               value="0.35"/>
+    <param name="planner_rate"              value="100.0"/>
     <param name="planner_algorithm"         value="1"/> <!-- 1:RRT, 2:RRTstar, 3:Informed RRTstar -->
     <param name="planner_max_tree_nodes"    value="2000"/> 
+    <param name="planner_max_time"          value="10.0"/> 
     <param name="max_ray_distance"          value="2.5"/>
 
     <!-- Remap topics -->
