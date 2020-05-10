@@ -40,7 +40,7 @@ UGVPlanner::UGVPlanner(ros::NodeHandle n, ros::NodeHandle np)
   // Init. collision box
   double ugv_size_x_ = 0.5;
   double ugv_size_y_ = 0.5;
-  double ugv_size_z_ = 0.5;
+  double ugv_size_z_ = 0.0;
   double resolution = 0.5;
   for(double x = -ugv_size_x_/2.0; x <= ugv_size_x_/2.0; x += resolution){
     for(double y = -ugv_size_y_/2.0; y <= ugv_size_y_/2.0; y += resolution){
@@ -138,6 +138,7 @@ void UGVPlanner::planPathToGoal()
 
   // Init. values for informed RRT*
   goal_euclidean_distance_ = getDistanceBetweenPoints(root_.position_,goal_.position_);
+  goal_grow_distance_ = 1.5*goal_euclidean_distance_;
   goal_root_midpoint_ = makePoint((goal_.position_.x + root_.position_.x)/2.0, (goal_.position_.y + root_.position_.y)/2.0, (goal_.position_.z + root_.position_.z)/2.0);
   double goal_root_angle = atan2(goal_.position_.y - root_.position_.y, goal_.position_.x - root_.position_.x);
   goal_root_rotation_[0][0] = cos(goal_root_angle);
@@ -149,7 +150,7 @@ void UGVPlanner::planPathToGoal()
   ros::Time start_time = ros::Time::now();
   ros::Time last_check_time = ros::Time::now();
   double last_check_cost = goal_.cost_;
-  double check_interval = 2.5;
+  double check_interval = 0.5;
   while((ros::Time::now() - start_time).toSec() < planner_max_time_)
   {
     ros::Time begin = ros::Time::now();
@@ -164,17 +165,8 @@ void UGVPlanner::planPathToGoal()
     }
     else
     {
-      if(goal_.cost_ < INFINITY)
-      {
-        sample_point = generateRandomInformedPoint();
-        ROS_DEBUG("UGVPlanner: Sampled informed point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
-      }
-      else
-      {
-        // Sample a random point within the (x,y,z)_distribution bounds
-        sample_point = generateRandomPoint();
-        ROS_DEBUG("UGVPlanner: Sampled random point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
-      }
+      sample_point = generateRandomInformedPoint();
+      ROS_DEBUG("UGVPlanner: Sampled informed point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
     }
 
     // Start finding nearest node in the tree to the sampled point (init. as root)
@@ -275,8 +267,19 @@ geometry_msgs::Point UGVPlanner::generateRandomInformedPoint()
   ROS_DEBUG("Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
 
   // Define ellipse dimensions according to root, goal and minimum found goal path length
-  double r1 = goal_path_distance_/2.0;
-  double r2 = sqrt(pow(goal_path_distance_,2.0) - pow(goal_euclidean_distance_,2.0))/2.0;
+  double path_distance;
+  if(goal_path_distance_ < INFINITY)
+  {
+    path_distance = goal_path_distance_;
+  }
+  else
+  {
+    path_distance = goal_grow_distance_;
+  }
+  
+
+  double r1 = path_distance/2.0;
+  double r2 = sqrt(pow(path_distance,2.0) - pow(goal_euclidean_distance_,2.0))/2.0;
   ROS_DEBUG("Ellipse dimensions (r1,r2) = (%f,%f)",r1,r2);
 
   // Scale, rotate and translate the unit circle point to rotated ellipse point with center between
@@ -355,7 +358,14 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
     }
     else
     {
-      ROS_DEBUG("I hit something");
+      ROS_DEBUG("UGVPlanner: Collision detected when trying to add node at (x,y,z) = (%f,%f,%f)",candidate_point.x,candidate_point.y,candidate_point.z);
+
+      if(goal_path_distance_ == INFINITY)
+      {
+        goal_grow_distance_ = std::min(1.01*goal_grow_distance_, 10*goal_euclidean_distance_);
+        ROS_DEBUG("UGVPlanner: Growing goal_grow_distance_, new size: %f",goal_grow_distance_);
+      }
+
       collision_tree.push_back(neighbor_itr->second->position_);
       collision_tree.push_back(candidate_point);
     }
