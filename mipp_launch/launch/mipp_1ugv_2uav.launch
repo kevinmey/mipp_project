@@ -7,8 +7,8 @@
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_husky_explore" default="false"/>
-  <arg name="run_uav0"    default="false"/>
-  <arg name="run_uav1"    default="false"/>
+  <arg name="run_uav0"    default="true"/>
+  <arg name="run_uav1"    default="true"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
 
   <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  10"/>
@@ -35,8 +35,8 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(arg run_uav0)">
     <arg name="uav_id"        value="0"/>
-    <arg name="initial_x"     value="-3"/>
-    <arg name="initial_y"     value="0"/>
+    <arg name="initial_x"     value="-1"/>
+    <arg name="initial_y"     value="-1"/>
     <arg name="octomap_cloud_topic"    value="$(arg octomap_cloud_topic)"/>
   </include>
 
@@ -45,8 +45,8 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(arg run_uav1)">
     <arg name="uav_id"        value="1"/>
-    <arg name="initial_x"     value="0"/>
-    <arg name="initial_y"     value="3"/>
+    <arg name="initial_x"     value="-1"/>
+    <arg name="initial_y"     value="1"/>
     <arg name="octomap_cloud_topic"    value="$(arg octomap_cloud_topic)"/>
   -->
   </include>
