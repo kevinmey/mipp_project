@@ -125,13 +125,13 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
   <xacro:husky_wheel wheel_prefix="front_left" mu1="1.0" mu2="1.0">
     <origin xyz="${wheelbase/2} ${track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
   </xacro:husky_wheel>
-  <xacro:husky_wheel wheel_prefix="front_right" mu1="0.5" mu2="0.5">
+  <xacro:husky_wheel wheel_prefix="front_right" mu1="1.0" mu2="1.0">
     <origin xyz="${wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
   </xacro:husky_wheel>
   <xacro:husky_wheel wheel_prefix="rear_left" mu1="1.0" mu2="1.0">
     <origin xyz="${-wheelbase/2} ${track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
   </xacro:husky_wheel>
-  <xacro:husky_wheel wheel_prefix="rear_right" mu1="0.5" mu2="0.5">
+  <xacro:husky_wheel wheel_prefix="rear_right" mu1="1.0" mu2="1.0">
     <origin xyz="${-wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
   </xacro:husky_wheel>
 

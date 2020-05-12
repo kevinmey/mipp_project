@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="run_gazebo"  default="true"/>
-  <arg name="world_file_name"   default="playpen" />
+  <arg name="world_file_name"   default="maze_60x60" />
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
   <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_husky_explore" default="false"/>
-  <arg name="run_uav0"    default="true"/>
-  <arg name="run_uav1"    default="true"/>
+  <arg name="run_uav0"    default="false"/>
+  <arg name="run_uav1"    default="false"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
 
   <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  10"/>
@@ -60,9 +60,9 @@
   <!--- 
     Run Gazebo 
   -->
-  <include file="$(find gazebo_ros)/launch/empty_world.launch" if="$(arg run_gazebo)">
+  <include file="$(find mipp_gazebo)/launch/mipp_gazebo.launch" if="$(arg run_gazebo)">
       <arg name="gui" value="$(arg gui)"/>
-      <arg name="world_name" value="$(arg world_path)" />
+      <arg name="world_path" value="$(arg world_path)" />
   </include>
 
   <!--- 
