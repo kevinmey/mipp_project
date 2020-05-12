@@ -31,7 +31,7 @@
   <!--- 
     Run Rviz 
   -->
-  <node name="rviz" pkg="rviz" type="rviz" output="screen" args="-d $(find mipp_packages)/rviz/rrt_planner.rviz"/>
+  <node name="rviz" pkg="rviz" type="rviz" output="screen" args="-d $(find mipp_packages)/rviz/ugv_planner.rviz"/>
 
   <!--- 
     Run rosbag publisher

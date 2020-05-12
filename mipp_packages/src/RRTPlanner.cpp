@@ -70,7 +70,7 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   ros::Rate rate(planner_rate_);
   //while(tree_.size() < planner_max_tree_nodes_)
   ros::Time algorithm_start = ros::Time::now();
-  while((ros::Time::now() - algorithm_start).toSec() < 1.0)
+  while((ros::Time::now() - algorithm_start).toSec() < 5.0)
   {
     ros::Time begin = ros::Time::now();
 
