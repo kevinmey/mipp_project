@@ -95,6 +95,22 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   plan.clear();
   costmap_ = costmap_ros_->getCostmap();
 
+  if(use_dynamic_range_){
+    ROS_DEBUG("UGVPlanner: Changing point-sampling bounds to costmap bounds + padding.");
+    // Costmap origin is in lower left corner
+    double costmap_x_min = costmap_->getOriginX();
+    double costmap_x_max = costmap_->getOriginX() + costmap_->getSizeInMetersX();
+    double costmap_y_min = costmap_->getOriginY();
+    double costmap_y_max = costmap_->getOriginY() + costmap_->getSizeInMetersY();
+    ROS_DEBUG("Costmap origin (%f,%f), size (%f,%f).", costmap_->getOriginX(), costmap_->getOriginY(), costmap_->getSizeInMetersX(), costmap_->getSizeInMetersY());
+    ROS_DEBUG("Costmap bounds X: (%f,%f), Y: (%f,%f).", costmap_x_min, costmap_x_max, costmap_y_min, costmap_y_max);
+    x_range_min_ = costmap_x_min - dynamic_range_padding_;
+    x_range_max_ = costmap_x_max + dynamic_range_padding_;
+    y_range_min_ = costmap_y_min - dynamic_range_padding_;
+    y_range_max_ = costmap_y_max + dynamic_range_padding_;
+    ROS_DEBUG("Sampling bounds X: (%f,%f), Y: (%f,%f).", x_range_min_, x_range_max_, y_range_min_, y_range_max_);
+  }
+
   //if(goal.header.frame_id != costmap_ros_->getGlobalFrameID()){
   //  ROS_ERROR("This planner as configured will only accept goals in the %s frame, but a goal was sent in the %s frame.", 
   //      costmap_ros_->getGlobalFrameID().c_str(), goal.header.frame_id.c_str());
@@ -116,7 +132,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 
   // Init. values for informed RRT*
   goal_euclidean_distance_ = getDistanceBetweenPoints(root_.position_,goal_.position_);
-  goal_grow_distance_ = 1.5*goal_euclidean_distance_;
+  goal_grow_distance_ = 1.1*goal_euclidean_distance_;
   goal_path_distance_ = goal_.cost_;
   goal_root_midpoint_ = makePoint((goal_.position_.x + root_.position_.x)/2.0, (goal_.position_.y + root_.position_.y)/2.0, (goal_.position_.z + root_.position_.z)/2.0);
   double goal_root_angle = atan2(goal_.position_.y - root_.position_.y, goal_.position_.x - root_.position_.x);
@@ -182,14 +198,14 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     {
       /* Get the coordinates of the new point
       * Cast a ray from the nearest neighbor in the direction of the sampled point.
-      * If nearest neighbor is within max_ray_distance of sampled point, sampled point is new point.
-      * Else the endpoint of the ray (with length max_ray_distance) is new point
+      * If nearest neighbor is within planner_max_ray_distance_ of sampled point, sampled point is new point.
+      * Else the endpoint of the ray (with length planner_max_ray_distance_) is new point
       */
       geometry_msgs::Point new_point_ray_origin = nearest_neighbor->position_;
       geometry_msgs::Vector3 new_point_ray_direction = getDirection(new_point_ray_origin, sample_point);
       geometry_msgs::Point new_point = castRay(nearest_neighbor->position_, 
                                                 new_point_ray_direction, 
-                                                std::min(nearest_neighbor_distance, max_ray_distance_));
+                                                std::min(nearest_neighbor_distance, planner_max_ray_distance_));
 
       // RRTstar algorithm
       extendTreeRRTstar(new_point);
@@ -204,7 +220,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     // Check if goal has improved much from last check time
     if((ros::Time::now() - last_check_time).toSec() > check_interval){
       if(last_check_cost - goal_.cost_ < 1.0){
-        ROS_INFO("Finishing plan early (%f/%f s), no improvement.", (ros::Time::now() - start_time).toSec(), planner_max_time_);
+        ROS_DEBUG("UGVPlanner: Finishing plan early (%f/%f s), no improvement.", (ros::Time::now() - start_time).toSec(), planner_max_time_);
         break;
       } 
       else{
@@ -217,7 +233,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     rate.sleep();
   }
 
-  ROS_INFO("Finished planning. Final goal cost: %f",  goal_.cost_);
+  ROS_DEBUG("UGVPlanner: Finished planning. Final goal cost: %f",  goal_.cost_);
 
   // Iterate through path from goal
   Node node_on_goal_path = goal_;
@@ -252,7 +268,7 @@ geometry_msgs::Point UGVPlanner::generateRandomInformedPoint()
   double theta = unit_distribution_(generator_)*2.0*M_PI;
   double unit_circle_x = radius*cos(theta);
   double unit_circle_y = radius*sin(theta);
-  ROS_DEBUG("Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
+  ROS_DEBUG("UGVPlanner: Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
 
   // Define ellipse dimensions according to root, goal and minimum found goal path length
   double path_distance;
@@ -268,11 +284,11 @@ geometry_msgs::Point UGVPlanner::generateRandomInformedPoint()
 
   double r1 = path_distance/2.0;
   double r2 = sqrt(pow(path_distance,2.0) - pow(goal_euclidean_distance_,2.0))/2.0;
-  ROS_DEBUG("Ellipse dimensions (r1,r2) = (%f,%f)",r1,r2);
+  ROS_DEBUG("UGVPlanner: Ellipse dimensions (r1,r2) = (%f,%f)",r1,r2);
 
   // Scale, rotate and translate the unit circle point to rotated ellipse point with center between
   // goal and root
-  ROS_DEBUG("Ellipse point (x,y) = (%f,%f)",r1*unit_circle_x,r2*unit_circle_y);
+  ROS_DEBUG("UGVPlanner: Ellipse point (x,y) = (%f,%f)",r1*unit_circle_x,r2*unit_circle_y);
   sample_point.x = goal_root_rotation_[0][0]*r1*unit_circle_x + goal_root_rotation_[0][1]*r2*unit_circle_y + goal_root_midpoint_.x;
   sample_point.y = goal_root_rotation_[1][0]*r1*unit_circle_x + goal_root_rotation_[1][1]*r2*unit_circle_y + goal_root_midpoint_.y;
 
@@ -302,7 +318,7 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
 
     // Add tree node to neighborhood if it is within range
     // Inserted into map with combined cost (tree node cost + distance to node) as key
-    if(distance_to_node < max_ray_distance_+0.01) 
+    if(distance_to_node < planner_max_ray_distance_+0.01) 
     {
       ROS_DEBUG("Node %d is within neighborhood", tree_node_itr->id_);
       double neighbor_cost = tree_node_itr->cost_;
@@ -408,6 +424,8 @@ void UGVPlanner::getParams(ros::NodeHandle np)
   np.param<double>("goal_sample_probability", goal_sample_probability_, 0.1);
   np.param<double>("goal_radius", goal_radius_, 0.01);
   np.param<double>("ugv_midpoint_z", ugv_midpoint_z_, 0.35);
+  np.param<bool>("use_dynamic_range", use_dynamic_range_, true);
+  np.param<double>("dynamic_range_padding", dynamic_range_padding_, 2.0);
   np.param<double>("x_range_min", x_range_min_, -10.0);
   np.param<double>("x_range_max", x_range_max_,  10.0);
   np.param<double>("y_range_min", y_range_min_, -10.0);
@@ -417,7 +435,7 @@ void UGVPlanner::getParams(ros::NodeHandle np)
   np.param<double>("planner_rate", planner_rate_, 200.0);
   np.param<int>("planner_max_tree_nodes", planner_max_tree_nodes_, 1000);
   np.param<double>("planner_max_time", planner_max_time_, 5.0);
-  np.param<double>("max_ray_distance", max_ray_distance_, 2.0);
+  np.param<double>("planner_max_ray_distance_", planner_max_ray_distance_, 2.0);
   np.param("step_size", step_size_, costmap_->getResolution());
   np.param("min_dist_from_robot", min_dist_from_robot_, 0.10);
 }

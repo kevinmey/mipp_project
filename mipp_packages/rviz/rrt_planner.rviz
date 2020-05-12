@@ -6,9 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /OccupancyGrid1
         - /Marker2
-        - /Global Map1
-        - /Local Map1
       Splitter Ratio: 0.5
     Tree Height: 1272
   - Class: rviz/Selection
@@ -60,7 +59,7 @@ Visualization Manager:
       Marker Topic: /rrt_planner/viz_tree
       Name: Marker
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: octomap_rviz_plugin/OccupancyGrid
@@ -80,7 +79,7 @@ Visualization Manager:
       Marker Topic: /rrt_planner/viz_collision_tree
       Name: Marker
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Axes
@@ -95,7 +94,7 @@ Visualization Manager:
       Marker Topic: /rrt_planner/path_to_goal
       Name: Marker
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -103,7 +102,7 @@ Visualization Manager:
       Marker Topic: /rrt_planner/goal_node
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -111,34 +110,14 @@ Visualization Manager:
       Marker Topic: /rrt_planner/root_node
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
-      Value: true
-    - Alpha: 0.20000000298023224
-      Class: rviz/Map
-      Color Scheme: costmap
-      Draw Behind: false
-      Enabled: true
-      Name: Global Map
-      Topic: /move_base/global_costmap/costmap
-      Unreliable: false
-      Use Timestamp: false
-      Value: true
-    - Alpha: 0.699999988079071
-      Class: rviz/Map
-      Color Scheme: costmap
-      Draw Behind: false
-      Enabled: true
-      Name: Local Map
-      Topic: /move_base/local_costmap/costmap
-      Unreliable: false
-      Use Timestamp: false
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: world
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -162,25 +141,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 23.449878692626953
+      Distance: 24.49280548095703
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.6301493644714355
-        Y: -6.259726524353027
-        Z: -1.042029857635498
+        X: -1.434244990348816
+        Y: -1.8500480651855469
+        Z: -1.1482564210891724
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5847975015640259
+      Pitch: 0.6547974348068237
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.4522892236709595
+      Yaw: 5.265453338623047
     Saved: ~
 Window Geometry:
   Displays:
@@ -199,4 +178,4 @@ Window Geometry:
     collapsed: true
   Width: 2829
   X: 486
-  Y: 27
+  Y: 61

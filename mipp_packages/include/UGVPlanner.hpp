@@ -122,6 +122,8 @@ private:
   double goal_sample_probability_;
   double goal_radius_;
   double ugv_midpoint_z_;
+  bool use_dynamic_range_;
+  double dynamic_range_padding_;
   double x_range_min_;
   double x_range_max_;
   double y_range_min_;
@@ -131,7 +133,7 @@ private:
   double planner_rate_;
   int planner_max_tree_nodes_;
   double planner_max_time_;
-  double max_ray_distance_;
+  double planner_max_ray_distance_;
 };
 
 };
