@@ -48,11 +48,14 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
 
   getParams(np);
 
-  pub_viz_tree_ = n.advertise<visualization_msgs::Marker>("rrt_planner/viz_tree", 1);
-  pub_viz_collision_tree_ = n.advertise<visualization_msgs::Marker>("rrt_planner/viz_collision_tree", 1);
-  pub_viz_path_to_goal_ = n.advertise<visualization_msgs::Marker>("rrt_planner/path_to_goal", 1);
-  pub_viz_root_node_ = n.advertise<visualization_msgs::MarkerArray>("rrt_planner/root_node", 1);
-  pub_viz_goal_node_ = n.advertise<visualization_msgs::MarkerArray>("rrt_planner/goal_node", 1);
+  pub_viz_tree_ = n.advertise<visualization_msgs::Marker>("viz_tree", 1);
+  pub_viz_collision_tree_ = n.advertise<visualization_msgs::Marker>("viz_collision_tree", 1);
+  pub_viz_path_to_goal_ = n.advertise<visualization_msgs::Marker>("path_to_goal", 1);
+  pub_viz_root_node_ = n.advertise<visualization_msgs::MarkerArray>("root_node", 1);
+  pub_viz_goal_node_ = n.advertise<visualization_msgs::MarkerArray>("goal_node", 1);
+  pub_viz_subgoal_node_ = n.advertise<visualization_msgs::MarkerArray>("subgoal_node", 1);
+
+  sub_odometry_ = n.subscribe("/odometry/filtered", 1, &UGVPlanner::subOdometry, this);
 
   // Init. random number generator distributions
   std::random_device rd;  // Non-deterministic random nr. to seed generator
@@ -74,6 +77,18 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
 *  Subscriber callbacks
 */
 
+void UGVPlanner::subOdometry(const nav_msgs::Odometry& odometry_msg)
+{
+  ROS_DEBUG("RRTPlanner: subOdometry");
+  if(path_.size() != 0){
+    if(getDistanceBetweenPoints(odometry_msg.pose.pose.position, *path_.begin()) < 3.0){
+      ROS_DEBUG("RRTPlanner: Getting new subgoal");
+      path_.pop_front();
+    }
+    visualizeSubgoal(*path_.begin(), 1.0, 1.0, 0.0);
+  }
+}
+
 /* 
 *  Planner functions
 */
@@ -93,6 +108,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   ROS_DEBUG("Got a start: %.2f, %.2f, and a goal: %.2f, %.2f", start.pose.position.x, start.pose.position.y, goal.pose.position.x, goal.pose.position.y);
 
   plan.clear();
+  path_.clear();
   costmap_ = costmap_ros_->getCostmap();
 
   if(use_dynamic_range_){
@@ -130,6 +146,48 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   const double goal_yaw = tf2::getYaw(goal.pose.orientation);
   goal_ = Node(goal_x, goal_y, 0.0, goal_yaw, INFINITY, 0.0, -1, nullptr, true);
 
+  // Check first if goal can be reached with straight line
+  if(isPathCollisionFree(root_.position_, goal_.position_)){
+    ROS_INFO("No collision between root and goal detected. Returning straight line plan.");
+    // Create "tree" of interpolated nodes on straight line between root and goal
+    plan.push_back(nodeToPose(root_));
+    path_.push_back(root_.position_);
+    geometry_msgs::Point point_on_path = root_.position_;
+    Node node_on_path = root_;
+    geometry_msgs::Vector3 path_direction = getDirection(root_.position_, goal_.position_);
+    while(getDistanceBetweenPoints(point_on_path, goal_.position_) > planner_max_ray_distance_){
+      point_on_path.x += planner_max_ray_distance_*path_direction.x;
+      point_on_path.y += planner_max_ray_distance_*path_direction.y;
+      point_on_path.z += planner_max_ray_distance_*path_direction.z;
+
+      int node_id = tree_.size();
+      int node_rank = node_on_path.rank_ + 1;
+      float node_yaw = atan2(point_on_path.y - node_on_path.position_.y, point_on_path.x - node_on_path.position_.x);
+      float node_cost = node_on_path.cost_ + getDistanceBetweenPoints(point_on_path, node_on_path.position_);
+      bool node_is_goal = false;
+      Node new_node(point_on_path.x, point_on_path.y, point_on_path.z, node_yaw, node_cost, 0.0, node_id, &(tree_.back()), node_rank, node_is_goal);
+      
+      tree_.push_back(new_node);
+      path_.push_back(new_node.position_);
+      plan.push_back(nodeToPose(new_node));
+
+      ROS_INFO("UGVPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, new_node.getParent()->id_, node_rank, node_cost);
+      node_on_path = new_node;
+    }
+    goal_.setParent(&(tree_.back()));
+    goal_.id_ = tree_.size();
+    goal_.cost_ = node_on_path.cost_ + getDistanceBetweenPoints(node_on_path.position_, goal_.position_);
+    plan.push_back(nodeToPose(goal_));
+    path_.push_back(goal_.position_);
+
+    visualizeTree();
+    visualizePathToGoal();
+    visualizeRoot(root_.position_, 0.0, 1.0, 0.0);
+    visualizeGoal(goal_.position_, 1.0, 0.0, 0.0);
+
+    return true;
+  }
+
   // Init. values for informed RRT*
   goal_euclidean_distance_ = getDistanceBetweenPoints(root_.position_,goal_.position_);
   goal_grow_distance_ = 1.1*goal_euclidean_distance_;
@@ -146,20 +204,16 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   ros::Time last_check_time = ros::Time::now();
   double last_check_cost = goal_.cost_;
   double check_interval = 0.5;
-  while((ros::Time::now() - start_time).toSec() < planner_max_time_)
-  {
+  while((ros::Time::now() - start_time).toSec() < planner_max_time_){
     ros::Time begin = ros::Time::now();
-
+    
     geometry_msgs::Point sample_point;
     bool sample_is_goal = false;
-    if(unit_distribution_(generator_) < goal_sample_probability_)
-    {
+    if(unit_distribution_(generator_) < goal_sample_probability_){
       ROS_DEBUG("UGVPlanner: Sampling goal point");
       sample_point = goal_.position_;
       sample_is_goal = true;
-    }
-    else
-    {
+    } else {
       sample_point = generateRandomInformedPoint();
       ROS_DEBUG("UGVPlanner: Sampled informed point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
     }
@@ -194,8 +248,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
       }
     }
 
-    if(!sample_is_too_close)
-    {
+    if(!sample_is_too_close){
       /* Get the coordinates of the new point
       * Cast a ray from the nearest neighbor in the direction of the sampled point.
       * If nearest neighbor is within planner_max_ray_distance_ of sampled point, sampled point is new point.
@@ -233,16 +286,25 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     rate.sleep();
   }
 
+  if(goal_.getParent() == nullptr){
+    ROS_WARN("UGVPlanner: Could not find a global path to goal. Returning start-node as plan.");
+    plan.insert(plan.begin(), nodeToPose(root_));
+    return true;
+  }
+
   ROS_DEBUG("UGVPlanner: Finished planning. Final goal cost: %f",  goal_.cost_);
 
   // Iterate through path from goal
   Node node_on_goal_path = goal_;
   plan.insert(plan.begin(), nodeToPose(node_on_goal_path));
-  while(node_on_goal_path.id_ != 0)
-  {
+  path_.insert(path_.begin(), node_on_goal_path.position_);
+  while(node_on_goal_path.id_ != 0){
     node_on_goal_path = *node_on_goal_path.getParent();
     plan.insert(plan.begin(), nodeToPose(node_on_goal_path));
+    path_.insert(path_.begin(), node_on_goal_path.position_);
   }
+
+  return true;
 }
 
 geometry_msgs::Point UGVPlanner::generateRandomPoint()
@@ -460,7 +522,6 @@ double UGVPlanner::footprintCost(double x_i, double y_i, double theta_i){
 geometry_msgs::PoseStamped UGVPlanner::nodeToPose(Node node)
 {
   ROS_DEBUG("UGVPlanner: nodeToPose");
-  ROS_INFO("Finished planning. Final goal cost: %f",  goal_.cost_);
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = planner_world_frame_;
   pose.header.stamp = ros::Time::now();

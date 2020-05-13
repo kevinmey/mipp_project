@@ -182,4 +182,29 @@ void UGVPlanner::visualizeGoal(geometry_msgs::Point point, double red, double gr
   pub_viz_goal_node_.publish(marker_point);
 }
 
+void UGVPlanner::visualizeSubgoal(geometry_msgs::Point point, double red, double green, double blue)
+{
+  ROS_DEBUG("UGVPlanner: visualizeSubgoal");
+  visualization_msgs::MarkerArray marker_point;
+  visualization_msgs::Marker m;
+
+  m.header.frame_id = planner_world_frame_;
+  m.header.stamp = ros::Time::now();
+  m.type = visualization_msgs::Marker::SPHERE;
+  m.action = visualization_msgs::Marker::ADD;
+  m.scale.x = 0.5;
+  m.scale.y = 0.5;
+  m.scale.z = 0.5;
+  m.color.a = 1.0;
+  m.color.r = red;
+  m.color.g = green;
+  m.color.b = blue;
+  m.lifetime = ros::Duration();
+  m.id = 0;
+  m.pose.position = point;
+  marker_point.markers.push_back(m);
+  
+  pub_viz_subgoal_node_.publish(marker_point);
+}
+
 };

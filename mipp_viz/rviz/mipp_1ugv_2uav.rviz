@@ -5,13 +5,10 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /Husky1/Navigation1
-        - /Husky1/Navigation1/Static Map1
-        - /Husky1/Navigation1/Global Plan1
-        - /Husky1/Navigation1/Local Plan1
+        - /Husky1
+        - /Husky1/Sensing1
         - /UAV01/Image1
-        - /GoalNode1
-        - /PathToGoal1
+        - /Tree1
       Splitter Ratio: 0.5
     Tree Height: 1154
   - Class: rviz/Selection
@@ -283,7 +280,7 @@ Visualization Manager:
               Color: 255; 255; 255
               Color Transformer: Intensity
               Decay Time: 0
-              Enabled: true
+              Enabled: false
               Invert Rainbow: false
               Max Color: 255; 255; 255
               Max Intensity: 0
@@ -300,7 +297,7 @@ Visualization Manager:
               Unreliable: false
               Use Fixed Frame: true
               Use rainbow: true
-              Value: true
+              Value: false
           Enabled: true
           Name: Sensing
         - Class: rviz/Group
@@ -787,7 +784,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /UGVPlanner/rrt_planner/goal_node
+      Marker Topic: /UGVPlanner/goal_node
       Name: GoalNode
       Namespaces:
         {}
@@ -795,7 +792,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /UGVPlanner/rrt_planner/path_to_goal
+      Marker Topic: /UGVPlanner/path_to_goal
       Name: PathToGoal
       Namespaces:
         {}
@@ -803,7 +800,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /UGVPlanner/rrt_planner/root_node
+      Marker Topic: /UGVPlanner/root_node
       Name: RootNode
       Namespaces:
         {}
@@ -811,7 +808,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /UGVPlanner/rrt_planner/viz_collision_tree
+      Marker Topic: /UGVPlanner/viz_collision_tree
       Name: CollisionTree
       Namespaces:
         {}
@@ -819,7 +816,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /UGVPlanner/rrt_planner/viz_tree
+      Marker Topic: /UGVPlanner/viz_tree
       Name: Tree
       Namespaces:
         {}
@@ -852,25 +849,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 17.880441665649414
+      Distance: 11.332603454589844
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -3.7455201148986816
-        Y: 1.2002475261688232
+        X: 1.1099891662597656
+        Y: -1.2945090532302856
         Z: 7.62939453125e-6
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6897968649864197
+      Pitch: 0.40979719161987305
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 2.9129748344421387
+      Yaw: 3.502984046936035
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
@@ -931,4 +928,4 @@ Window Geometry:
     collapsed: false
   Width: 2014
   X: 195
-  Y: 282
+  Y: 222
