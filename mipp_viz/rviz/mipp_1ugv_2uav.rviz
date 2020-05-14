@@ -787,7 +787,7 @@ Visualization Manager:
       Marker Topic: /UGVPlanner/goal_node
       Name: GoalNode
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -795,7 +795,7 @@ Visualization Manager:
       Marker Topic: /UGVPlanner/path_to_goal
       Name: PathToGoal
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -803,7 +803,7 @@ Visualization Manager:
       Marker Topic: /UGVPlanner/root_node
       Name: RootNode
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -811,13 +811,21 @@ Visualization Manager:
       Marker Topic: /UGVPlanner/viz_collision_tree
       Name: CollisionTree
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /UGVPlanner/viz_tree
       Name: Tree
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /UGVPlanner/frontier_nodes
+      Name: Frontier Nodes
       Namespaces:
         {}
       Queue Size: 100
@@ -849,25 +857,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 11.332603454589844
+      Distance: 19.971920013427734
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 1.1099891662597656
-        Y: -1.2945090532302856
-        Z: 7.62939453125e-6
+        X: -2.048854351043701
+        Y: 0.6711708307266235
+        Z: 8.58306884765625e-6
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.40979719161987305
+      Pitch: 0.7997968196868896
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.502984046936035
+      Yaw: 3.1479814052581787
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
@@ -928,4 +936,4 @@ Window Geometry:
     collapsed: false
   Width: 2014
   X: 195
-  Y: 222
+  Y: 192
