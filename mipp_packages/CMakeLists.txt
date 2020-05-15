@@ -39,7 +39,6 @@ include_directories(
 
 add_library(
     common_libs
-    src/Node.cpp
     src/utils.cpp
 )
 
