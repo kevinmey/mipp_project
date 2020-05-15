@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="run_gazebo"  default="true"/>
-  <arg name="world_file_name"   default="disaster_60x60" />
+  <arg name="world_file_name"   default="maze_60x60" />
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
   <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
@@ -19,13 +19,13 @@
     Run OctoMap
   -->
   <include file="$(find mipp_launch)/launch/octomap_mapping.launch">
-    <arg name="resolution"                      value="0.20"/>
+    <arg name="resolution"                      value="0.25"/>
     <arg name="frame_id"                        value="world"/>
 		<arg name="base_frame_id"                   value="base_footprint"/>
 		<arg name="sensor_model/max_range"          value="7.5"/>
   	<arg name="latch"                           value="false"/>
-		<arg name="filter_ground"                   value="true"/>
-		<arg name="pointcloud_min_z"                value="0.0"/>
+		<arg name="filter_ground"                   value="false"/>
+		<arg name="pointcloud_min_z"                value="0.2"/>
 		<arg name="pointcloud_max_z"                value="5.0"/>
 	  <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
   </include>

@@ -42,6 +42,49 @@ add_library(
     src/utils.cpp
 )
 
+### ###
+# UGV #
+### ###
+
+## ugv_server_node
+
+add_executable(
+    ugv_server_node
+    src/ugv_server_node.cpp
+    src/UGVServer.cpp
+)
+
+add_dependencies(
+    ugv_server_node 
+    ${ugv_server_node_EXPORTED_TARGETS} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    ugv_server_node
+    common_libs
+    ${catkin_LIBRARIES}
+)
+
+## ugv_planner_plugin
+# global planner plugin for navigation
+
+add_library(
+    ugv_planner_lib
+    src/UGVPlanner.cpp
+    src/UGVPlannerVisualization.cpp
+)
+
+target_link_libraries(
+    ugv_planner_lib
+    common_libs
+    ${catkin_LIBRARIES}
+)
+
+### ###
+# UAV #
+### ###
+
 ## uav_server_node
 
 add_executable(
@@ -62,6 +105,10 @@ target_link_libraries(
     ${catkin_LIBRARIES}
 )
 
+###   ###
+# Other #
+###   ###
+
 ## rrt_planner_node
 
 add_executable(
@@ -79,20 +126,6 @@ add_dependencies(
 
 target_link_libraries(
     rrt_planner_node
-    common_libs
-    ${catkin_LIBRARIES}
-)
-
-# ugv_planner_node
-
-add_library(
-    ugv_planner_lib
-    src/UGVPlanner.cpp
-    src/UGVPlannerVisualization.cpp
-)
-
-target_link_libraries(
-    ugv_planner_lib
     common_libs
     ${catkin_LIBRARIES}
 )

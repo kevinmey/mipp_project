@@ -6,9 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /Husky1
-        - /Husky1/Sensing1
+        - /Husky1/Navigation1
         - /UAV01/Image1
-        - /Tree1
       Splitter Ratio: 0.5
     Tree Height: 1154
   - Class: rviz/Selection
@@ -338,12 +337,12 @@ Visualization Manager:
               Class: rviz/Map
               Color Scheme: costmap
               Draw Behind: true
-              Enabled: true
+              Enabled: false
               Name: Global Costmap
               Topic: /move_base/global_costmap/costmap
               Unreliable: false
               Use Timestamp: false
-              Value: true
+              Value: false
             - Alpha: 0.699999988079071
               Class: rviz/Map
               Color Scheme: costmap
@@ -362,8 +361,8 @@ Visualization Manager:
               Head Diameter: 0.30000001192092896
               Head Length: 0.20000000298023224
               Length: 0.30000001192092896
-              Line Style: Lines
-              Line Width: 0.029999999329447746
+              Line Style: Billboards
+              Line Width: 0.05000000074505806
               Name: Global Plan
               Offset:
                 X: 0
@@ -374,7 +373,7 @@ Visualization Manager:
               Radius: 0.029999999329447746
               Shaft Diameter: 0.10000000149011612
               Shaft Length: 0.10000000149011612
-              Topic: /move_base/NavfnROS/plan
+              Topic: /move_base/TebLocalPlannerROS/global_plan
               Unreliable: false
               Value: true
             - Alpha: 1
@@ -759,7 +758,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Plane: XY
-      Plane Cell Count: 36
+      Plane Cell Count: 60
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: octomap_rviz_plugin/OccupancyGrid
@@ -787,23 +786,23 @@ Visualization Manager:
       Marker Topic: /UGVPlanner/goal_node
       Name: GoalNode
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /UGVPlanner/path_to_goal
       Name: PathToGoal
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /UGVPlanner/root_node
       Name: RootNode
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -811,7 +810,7 @@ Visualization Manager:
       Marker Topic: /UGVPlanner/viz_collision_tree
       Name: CollisionTree
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -819,7 +818,7 @@ Visualization Manager:
       Marker Topic: /UGVPlanner/viz_tree
       Name: Tree
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -857,25 +856,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 19.971920013427734
+      Distance: 8.784405708312988
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -2.048854351043701
-        Y: 0.6711708307266235
-        Z: 8.58306884765625e-6
+        X: -1.931406021118164
+        Y: 1.282959222793579
+        Z: 1.239776611328125e-5
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7997968196868896
+      Pitch: 1.1297967433929443
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.1479814052581787
+      Yaw: 3.278001070022583
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
@@ -936,4 +935,4 @@ Window Geometry:
     collapsed: false
   Width: 2014
   X: 195
-  Y: 192
+  Y: 72
