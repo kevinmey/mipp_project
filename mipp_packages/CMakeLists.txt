@@ -52,6 +52,7 @@ add_executable(
     ugv_server_node
     src/ugv_server_node.cpp
     src/UGVServer.cpp
+    src/UGVServerVisualization.cpp
 )
 
 add_dependencies(

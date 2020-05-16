@@ -5,7 +5,6 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /Husky1
         - /Husky1/Navigation1
         - /UAV01/Image1
       Splitter Ratio: 0.5
@@ -337,12 +336,12 @@ Visualization Manager:
               Class: rviz/Map
               Color Scheme: costmap
               Draw Behind: true
-              Enabled: false
+              Enabled: true
               Name: Global Costmap
               Topic: /move_base/global_costmap/costmap
               Unreliable: false
               Use Timestamp: false
-              Value: false
+              Value: true
             - Alpha: 0.699999988079071
               Class: rviz/Map
               Color Scheme: costmap
@@ -823,8 +822,24 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /UGVPlanner/frontier_nodes
+      Marker Topic: /UGVServer/viz_frontier_nodes
       Name: Frontier Nodes
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /UGVServer/viz_root_node
+      Name: Frontier Root Node
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /UGVServer/viz_tree
+      Name: Frontier Tree
       Namespaces:
         {}
       Queue Size: 100
@@ -856,25 +871,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 8.784405708312988
+      Distance: 27.283031463623047
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -1.931406021118164
-        Y: 1.282959222793579
-        Z: 1.239776611328125e-5
+        X: -3.0602850914001465
+        Y: -5.178162574768066
+        Z: 9.5367431640625e-6
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.1297967433929443
+      Pitch: 0.7297970652580261
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.278001070022583
+      Yaw: 3.9930100440979004
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
@@ -935,4 +950,4 @@ Window Geometry:
     collapsed: false
   Width: 2014
   X: 195
-  Y: 72
+  Y: 27

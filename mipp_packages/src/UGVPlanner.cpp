@@ -111,7 +111,6 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   plan.clear();
   path_.clear();
   tree_.clear();
-  frontier_nodes_.clear();
   costmap_ = costmap_ros_->getCostmap();
 
   if(use_dynamic_range_){
@@ -133,103 +132,20 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     z_distribution_ = std::uniform_real_distribution<double>(z_range_min_, z_range_max_);
   }
 
-  //if(goal.header.frame_id != costmap_ros_->getGlobalFrameID()){
-  //  ROS_ERROR("This planner as configured will only accept goals in the %s frame, but a goal was sent in the %s frame.", 
-  //      costmap_ros_->getGlobalFrameID().c_str(), goal.header.frame_id.c_str());
-  //  return false;
-  //}
-
   double start_x = start.pose.position.x;
   double start_y = start.pose.position.y;
   const double start_yaw = tf2::getYaw(start.pose.orientation);
   root_ = Node(start_x, start_y, 0.0, start_yaw, 0.0, 0.0, 0, nullptr, false);
   tree_.push_back(root_);
-
-  // Grow frontier exploration tree
-  ros::Rate rate(planner_rate_);
-  ros::Time start_time = ros::Time::now();
-  double exploration_max_time_ = 1.0;
-  while((ros::Time::now() - start_time).toSec() < exploration_max_time_){
-    ros::Time begin = ros::Time::now();
-    
-    geometry_msgs::Point sample_point = generateRandomPoint();
-    ROS_DEBUG("UGVPlanner: Sampled random point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
-
-    // Start finding nearest node in the tree to the sampled point (init. as root)
-    Node* nearest_neighbor = &root_;
-    double nearest_neighbor_distance = getDistanceBetweenPoints(sample_point, root_.position_);
-
-    // Iterate through tree nodes, checking distance to sampled point
-    double min_allowed_node_distance = 0.1;
-    bool sample_is_too_close = false;
-    for(std::list<Node>::iterator tree_node_itr = tree_.begin();
-        tree_node_itr != tree_.end(); tree_node_itr++)
-    {
-      // Get distance to tree node
-      double distance_to_node = getDistanceBetweenPoints(sample_point, tree_node_itr->position_);
-      ROS_DEBUG("Sampled node distance to node %d: %f", tree_node_itr->id_, distance_to_node);
-
-      if(distance_to_node < min_allowed_node_distance)
-      {
-        ROS_DEBUG("Too close.");
-        sample_is_too_close = true;
-        break;
-      }
-
-      // Make tree node new nearest neighbor if it is closer than current nearest neighbor
-      if(distance_to_node < nearest_neighbor_distance) 
-      {
-        ROS_DEBUG("Sampled node is closer to node %d: %f", tree_node_itr->id_, distance_to_node);
-        nearest_neighbor = &*tree_node_itr;
-        nearest_neighbor_distance = distance_to_node;
-      }
-    }
-
-    if(!sample_is_too_close){
-      /* Get the coordinates of the new point
-      * Cast a ray from the nearest neighbor in the direction of the sampled point.
-      * If nearest neighbor is within planner_max_ray_distance_ of sampled point, sampled point is new point.
-      * Else the endpoint of the ray (with length planner_max_ray_distance_) is new point
-      */
-      geometry_msgs::Point new_point_ray_origin = nearest_neighbor->position_;
-      geometry_msgs::Vector3 new_point_ray_direction = getDirection(new_point_ray_origin, sample_point);
-      geometry_msgs::Point new_point = castRay(nearest_neighbor->position_, 
-                                                new_point_ray_direction, 
-                                                std::min(nearest_neighbor_distance, planner_max_ray_distance_));
-
-      // RRTstar algorithm
-      bool is_sampling_goal = false;
-      bool is_searching_frontiers = true;
-      extendTreeRRTstar(new_point, is_sampling_goal, is_searching_frontiers);
-    }
-
-    visualizeTree();
-    visualizeRoot(root_.position_, 0.0, 1.0, 0.0);
-    visualizeFrontierNodes(0.0, 0.0, 1.0);
-
-    ros::spinOnce();
-    rate.sleep();
-  }
-
-
-  if(frontier_nodes_.size() > 0){
-    double goal_x = frontier_nodes_.begin()->second.getParent()->position_.x;
-    double goal_y = frontier_nodes_.begin()->second.getParent()->position_.y;
-    double goal_yaw = frontier_nodes_.begin()->second.getParent()->yaw_;
-    goal_ = Node(goal_x, goal_y, 0.0, goal_yaw, INFINITY, 0.0, -1, nullptr, true);
-  } else {
-    double goal_x = goal.pose.position.x;
-    double goal_y = goal.pose.position.y;
-    const double goal_yaw = tf2::getYaw(goal.pose.orientation);
-    goal_ = Node(goal_x, goal_y, 0.0, goal_yaw, INFINITY, 0.0, -1, nullptr, true);
-  }
-
-
-  tree_.clear();
-  tree_.push_back(root_);
+  
+  double goal_x = goal.pose.position.x;
+  double goal_y = goal.pose.position.y;
+  const double goal_yaw = tf2::getYaw(goal.pose.orientation);
+  goal_ = Node(goal_x, goal_y, 0.0, goal_yaw, INFINITY, 0.0, -1, nullptr, true);
 
   // Check first if goal can be reached with straight line
-  if(isPathCollisionFree(root_.position_, goal_.position_)){
+  bool return_collision_free_point = false;
+  if(isPathCollisionFree(root_.position_, goal_.position_, return_collision_free_point)){
     ROS_INFO("No collision between root and goal detected. Returning straight line plan.");
     // Create "tree" of interpolated nodes on straight line between root and goal
     plan.push_back(makePoseStampedFromNode(root_));
@@ -281,10 +197,11 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   goal_root_rotation_[1][0] = sin(goal_root_angle);
   goal_root_rotation_[1][1] = cos(goal_root_angle);
 
-  start_time = ros::Time::now();
+  ros::Rate rate(planner_rate_);
+  ros::Time start_time = ros::Time::now();
   ros::Time last_check_time = ros::Time::now();
   double last_check_cost = goal_.cost_;
-  double check_interval = 0.5;
+  double check_interval = 0.2;
   while((ros::Time::now() - start_time).toSec() < planner_max_time_){
     ros::Time begin = ros::Time::now();
     
@@ -306,23 +223,20 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     // Iterate through tree nodes, checking distance to sampled point
     double min_allowed_node_distance = 0.1;
     bool sample_is_too_close = false;
-    for(std::list<Node>::iterator tree_node_itr = tree_.begin();
-        tree_node_itr != tree_.end(); tree_node_itr++)
-    {
+    for (std::list<Node>::iterator tree_node_itr = tree_.begin();
+         tree_node_itr != tree_.end(); tree_node_itr++) {
       // Get distance to tree node
       double distance_to_node = getDistanceBetweenPoints(sample_point, tree_node_itr->position_);
       ROS_DEBUG("Sampled node distance to node %d: %f", tree_node_itr->id_, distance_to_node);
 
-      if(distance_to_node < min_allowed_node_distance and !sample_is_goal)
-      {
+      if (distance_to_node < min_allowed_node_distance and !sample_is_goal) {
         ROS_DEBUG("Too close.");
         sample_is_too_close = true;
         break;
       }
 
       // Make tree node new nearest neighbor if it is closer than current nearest neighbor
-      if(distance_to_node < nearest_neighbor_distance) 
-      {
+      if (distance_to_node < nearest_neighbor_distance) {
         ROS_DEBUG("Sampled node is closer to node %d: %f", tree_node_itr->id_, distance_to_node);
         nearest_neighbor = &*tree_node_itr;
         nearest_neighbor_distance = distance_to_node;
@@ -342,9 +256,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
                                                 std::min(nearest_neighbor_distance, planner_max_ray_distance_));
 
       // RRTstar algorithm
-      bool is_sampling_goal = true;
-      bool is_searching_frontiers = false;
-      extendTreeRRTstar(new_point, is_sampling_goal, is_searching_frontiers);
+      extendTreeRRTstar(new_point);
     }
     goal_path_distance_ = goal_.cost_;
 
@@ -392,7 +304,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 
 geometry_msgs::Point UGVPlanner::generateRandomPoint()
 {
-  ROS_DEBUG("UGVPlanner: generateRandomPoint");
+  ROS_INFO("UGVPlanner: generateRandomPoint");
   geometry_msgs::Point sample_point;
   sample_point.x = x_distribution_(generator_);
   sample_point.y = y_distribution_(generator_);
@@ -406,6 +318,11 @@ geometry_msgs::Point UGVPlanner::generateRandomInformedPoint()
   // Details in Informed RRT* paper: https://arxiv.org/pdf/1404.2334.pdf
   ROS_DEBUG("UGVPlanner: generateRandomInformedPoint");
 
+  // Revert to normal random point if grow-informed planning doesn't work
+  if (goal_grow_distance_ > 2.0*goal_euclidean_distance_ and goal_.cost_ == INFINITY) {
+    return generateRandomPoint();
+  }
+
   geometry_msgs::Point sample_point;
 
   // Sample from unit circle, uniformly https://stackoverflow.com/a/50746409
@@ -417,12 +334,10 @@ geometry_msgs::Point UGVPlanner::generateRandomInformedPoint()
 
   // Define ellipse dimensions according to root, goal and minimum found goal path length
   double path_distance;
-  if(goal_path_distance_ < INFINITY)
-  {
+  if (goal_path_distance_ < INFINITY) {
     path_distance = goal_path_distance_;
   }
-  else
-  {
+  else {
     path_distance = goal_grow_distance_;
   }
   
@@ -447,7 +362,7 @@ geometry_msgs::Point UGVPlanner::generateRandomInformedPoint()
   return sample_point;
 }
 
-void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point, bool is_sampling_goal, bool is_searching_frontiers)
+void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
 {
   ROS_DEBUG("UGVPlanner: extendTreeRRTstar");
 
@@ -463,7 +378,7 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point, bool is
 
     // Add tree node to neighborhood if it is within range
     // Inserted into map with combined cost (tree node cost + distance to node) as key
-    if(distance_to_node < planner_max_ray_distance_+0.01) 
+    if(distance_to_node < 2*planner_max_ray_distance_+0.01) 
     {
       ROS_DEBUG("Node %d is within neighborhood", tree_node_itr->id_);
       double neighbor_cost = tree_node_itr->cost_;
@@ -481,9 +396,11 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point, bool is
   }
 
   // Add the new node if it is collision free
+  bool new_node_added = false;
+  bool return_collision_free_point = false; // But return closest collision free point
   std::vector<geometry_msgs::Point> collision_tree;
   for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) { 
-    bool pathIsCollisionFree = isPathCollisionFree(neighbor_itr->second->position_, candidate_point);
+    bool pathIsCollisionFree = isPathCollisionFree(neighbor_itr->second->position_, candidate_point, return_collision_free_point);
     if(pathIsCollisionFree) {
       int node_id = tree_.size();
       int node_rank = neighbor_itr->second->rank_ + 1;
@@ -492,17 +409,16 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point, bool is
       bool node_is_goal = (getDistanceBetweenPoints(candidate_point, makePoint(goal_.position_.x, goal_.position_.y, goal_.position_.z)) < goal_radius_);
       Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, node_yaw, node_cost, 0.0, node_id, neighbor_itr->second, node_rank, node_is_goal);
 
-      if(is_sampling_goal and node_is_goal and (new_node.cost_ < goal_.cost_)) {
+      if(node_is_goal and (new_node.cost_ < goal_.cost_)) {
         new_node.yaw_ = goal_.yaw_;
         goal_ = new_node;
-        ROS_DEBUG("UGVPlanner: New goal node. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
-      } else if(is_searching_frontiers and isPointFrontier(candidate_point)) {
-        frontier_nodes_.insert(std::pair<double, Node>(node_cost, new_node));
-        ROS_DEBUG("UGVPlanner: Frontier found. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+        ROS_INFO("UGVPlanner: New goal node. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       } else if(!node_is_goal) {
         tree_.push_back(new_node);
         ROS_DEBUG("UGVPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       }
+
+      new_node_added = true;
       
       // Since neighbor map is already sorted, the first collision free candidate is best candidate. Therefore break.
       break;
@@ -510,20 +426,21 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point, bool is
     else
     {
       ROS_DEBUG("UGVPlanner: Collision detected when trying to add node at (x,y,z) = (%f,%f,%f)",candidate_point.x,candidate_point.y,candidate_point.z);
-      if(goal_path_distance_ == INFINITY)
-      {
-        goal_grow_distance_ = std::min(1.01*goal_grow_distance_, 10*goal_euclidean_distance_);
-        ROS_DEBUG("UGVPlanner: Growing goal_grow_distance_, new size: %f",goal_grow_distance_);
-      }
       collision_tree.push_back(neighbor_itr->second->position_);
       collision_tree.push_back(candidate_point);
     }
+  }
+  if (goal_path_distance_ == INFINITY and !new_node_added) {
+    double max_path_distance = costmap_->getSizeInMetersX() + costmap_->getSizeInMetersY();
+    goal_grow_distance_ = std::min(goal_grow_distance_*1.05, max_path_distance);
+    ROS_INFO("UGVPlanner: Growing goal_grow_distance_, new size: %f",goal_grow_distance_);
   }
 
   visualizeCollisionTree(collision_tree);
 }
 
-bool UGVPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b, 
+bool UGVPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point& point_b, 
+                                     bool return_collision_free_point,
                                      geometry_msgs::Vector3 direction_ab, double distance_ab)
 {
   ROS_DEBUG("UGVPlanner: isPathCollisionFree");
@@ -547,7 +464,14 @@ bool UGVPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs
   geometry_msgs::Point point_on_line = point_a;
   while(distance_on_line < distance_ab){
     if(footprintCost(point_on_line.x, point_on_line.y, angle_ab) == -1.0){
-      return false;
+      if (return_collision_free_point) {
+        point_b.x = point_on_line.x - step_size_*direction_ab.x;
+        point_b.y = point_on_line.y - step_size_*direction_ab.y;
+        return true;
+      }
+      else {
+        return false;
+      }
     }
 
     distance_on_line += step_size_;
@@ -556,21 +480,6 @@ bool UGVPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs
   }
 
   return true;
-}
-
-bool UGVPlanner::isPointFrontier(geometry_msgs::Point point)
-{
-  ROS_DEBUG("UGVPlanner: isPointFrontier");
-
-  // Check first if point_b is collision free configuration
-  int map_x;
-  int map_y;
-  costmap_->worldToMapEnforceBounds(point.x, point.y, map_x, map_y);
-  ROS_DEBUG("UGVPlanner: Point world (%f, %f) to map (%d, %d)", point.x, point.y, map_x, map_y);
-  auto point_cost = costmap_->getCost(map_x, map_y);
-  ROS_DEBUG("UGVPlanner: Point (%f, %f) has cost: %d", point.x, point.y, point_cost);
-
-  return (point_cost == 255);
 }
 
 /* 
@@ -592,9 +501,9 @@ void UGVPlanner::getParams(ros::NodeHandle np)
   np.param<double>("y_range_max", y_range_max_,  10.0);
   np.param<double>("z_range_min", z_range_min_,  0.0);
   np.param<double>("z_range_max", z_range_max_,  0.0);
-  np.param<double>("planner_rate", planner_rate_, 100.0);
+  np.param<double>("planner_rate", planner_rate_, 200.0);
   np.param<int>("planner_max_tree_nodes", planner_max_tree_nodes_, 1000);
-  np.param<double>("planner_max_time", planner_max_time_, 5.0);
+  np.param<double>("planner_max_time", planner_max_time_, 2.0);
   np.param<double>("planner_max_ray_distance_", planner_max_ray_distance_, 2.0);
   np.param("step_size", step_size_, costmap_->getResolution());
   np.param("min_dist_from_robot", min_dist_from_robot_, 0.10);

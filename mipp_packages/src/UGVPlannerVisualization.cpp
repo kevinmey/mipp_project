@@ -23,9 +23,9 @@ void UGVPlanner::visualizeTree()
   tree_marker.pose.orientation.w = 1.0;
   tree_marker.scale.x = 0.02;
   tree_marker.color.a = 0.5;
-  tree_marker.color.r = 0.4;
-  tree_marker.color.g = 0.4;
-  tree_marker.color.b = 0.9;
+  tree_marker.color.r = 0.2;
+  tree_marker.color.g = 1.0;
+  tree_marker.color.b = 0.2;
   for(Node tree_node : tree_)
   {
     if(tree_node.getParent() != NULL) 
@@ -205,33 +205,6 @@ void UGVPlanner::visualizeSubgoal(geometry_msgs::Point point, double red, double
   marker_point.markers.push_back(m);
   
   pub_viz_subgoal_node_.publish(marker_point);
-}
-
-void UGVPlanner::visualizeFrontierNodes(double red, double green, double blue)
-{
-  ROS_DEBUG("UGVPlanner: visualizeFrontierNodes");
-  visualization_msgs::Marker m;
-
-  m.header.frame_id = planner_world_frame_;
-  m.header.stamp = ros::Time::now();
-  m.type = visualization_msgs::Marker::SPHERE_LIST;
-  m.action = visualization_msgs::Marker::ADD;
-  m.scale.x = 0.5;
-  m.scale.y = 0.5;
-  m.scale.z = 0.5;
-  m.color.a = 1.0;
-  m.color.r = red;
-  m.color.g = green;
-  m.color.b = blue;
-  m.lifetime = ros::Duration();
-  m.id = 0;
-
-  std::map<double, Node>::iterator frontier_node_itr;
-  for(frontier_node_itr = frontier_nodes_.begin(); frontier_node_itr != frontier_nodes_.end(); ++frontier_node_itr){
-    m.points.push_back(frontier_node_itr->second.position_);
-  }
-  
-  pub_viz_frontier_nodes_.publish(m);
 }
 
 };

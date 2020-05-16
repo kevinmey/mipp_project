@@ -59,12 +59,11 @@ public:
                 std::vector<geometry_msgs::PoseStamped>& plan);
   geometry_msgs::Point generateRandomPoint();
   geometry_msgs::Point generateRandomInformedPoint();
-  void extendTreeRRTstar(geometry_msgs::Point candidate_point, bool is_sampling_goal, bool is_searching_frontiers);
-  bool isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b, 
+  void extendTreeRRTstar(geometry_msgs::Point candidate_point);
+  bool isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point& point_b,
+                           bool return_collision_free_point,
                            geometry_msgs::Vector3 direction_ab = makeVector3(0.0,0.0,0.0), 
                            double distance = -1.0);
-  bool isPointFrontier(geometry_msgs::Point point);
-  double getFrontierCost();
   
   /* 
   *  Utility functions
@@ -85,7 +84,6 @@ public:
   void visualizeRoot(geometry_msgs::Point point, double red, double green, double blue);
   void visualizeGoal(geometry_msgs::Point point, double red, double green, double blue);
   void visualizeSubgoal(geometry_msgs::Point point, double red, double green, double blue);
-  void visualizeFrontierNodes(double red, double green, double blue);
 
 private:
   ros::Publisher pub_viz_tree_;
@@ -104,8 +102,6 @@ private:
   std::vector<geometry_msgs::Point> collision_tree_;
   std::list<geometry_msgs::Point> path_;
   std::list<geometry_msgs::Point> path_remaining_;
-  // For frontier exploration
-  std::map<double, Node> frontier_nodes_;
   // For global_planner plugin:
   bool initialized_;
   costmap_2d::Costmap2DROS* costmap_ros_;

@@ -14,12 +14,12 @@ UGVPlanner:
   use_dynamic_range: True
   dynamic_range_padding: 2.0
 
-  goal_sample_probability: 0.1
-  goal_radius: 0.01
+  goal_sample_probability: 0.2
+  goal_radius: 0.1
 
   # Planner
 
-  planner_rate: 300.0
+  planner_rate: 200.0
   planner_max_time: 30.0
   planner_max_tree_nodes: 2000
   planner_max_ray_distance: 2.0
@@ -57,7 +57,7 @@ TebLocalPlannerROS:
  max_vel_theta: 1.0
  acc_lim_x: 2.5
  acc_lim_theta: 2.5
- min_turning_radius: 0.2
+ min_turning_radius: 0.1
  footprint_model: # types: "point", "circular", "two_circles", "line", "polygon"
    type: "polygon"
    radius: 0.2 # for type "circular"
@@ -72,7 +72,7 @@ TebLocalPlannerROS:
  # GoalTolerance
     
  xy_goal_tolerance: 0.2
- yaw_goal_tolerance: 0.1
+ yaw_goal_tolerance: 0.8
  free_goal_vel: False
     
  # Obstacles
@@ -106,8 +106,8 @@ TebLocalPlannerROS:
 
  # Homotopy Class Planner
 
- enable_homotopy_class_planning: True
- enable_multithreading: True
+ enable_homotopy_class_planning: False
+ enable_multithreading: False
  simple_exploration: False
  max_number_classes: 4
  roadmap_graph_no_samples: 15
