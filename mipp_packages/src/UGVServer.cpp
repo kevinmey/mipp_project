@@ -33,6 +33,8 @@ UGVServer::UGVServer(ros::NodeHandle n, ros::NodeHandle np)
     wait_rate.sleep();
   }
 
+  running_frontier_exploration_ = false;
+
   ROS_INFO("UGVServer: Initialization done.");
 }
 
@@ -56,13 +58,27 @@ void UGVServer::subClickedPoint(const geometry_msgs::PointStampedConstPtr& click
   double wx = clicked_point_msg->point.x;
   double wy = clicked_point_msg->point.y;
   convWorldToMap(wx, wy, mx, my);
-  ROS_INFO("World (%f, %f) = Map (%d, %d)",wx,wy,mx,my);
+  ROS_DEBUG("World (%f, %f) = Map (%d, %d)",wx,wy,mx,my);
   
   int gridCost = map_.data[getGridIndex(wx, wy)];
-  ROS_INFO("Cost %d, is collision: %d", gridCost, (int)!isPositionCollisionFree(wx, wy));
+  ROS_DEBUG("Cost %d, is collision: %d", gridCost, (int)!isPositionCollisionFree(wx, wy));
 
-  ros::Rate wait_rate(5.0);
-  while (true) {
+  if (running_frontier_exploration_) { 
+    ROS_INFO("Stopping frontier exploration.");
+    running_frontier_exploration_ = false;
+  }
+  else { 
+    ROS_INFO("Starting frontier exploration.");
+    running_frontier_exploration_ = true;
+      runFrontierExploration();
+      if (frontier_nodes_.size() > 0) {
+        current_frontier_goal_ = makePoseStampedFromNode(*frontier_nodes_.begin()->second.getParent());
+        pub_goal_.publish(current_frontier_goal_);
+      }
+  }
+
+  ros::Rate wait_rate(20.0);
+  while (running_frontier_exploration_) {
     if (getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, current_frontier_goal_.pose.position) < 0.5) {
       runFrontierExploration();
       if (frontier_nodes_.size() > 0) {
@@ -291,7 +307,7 @@ void UGVServer::extendTreeRRTstar(geometry_msgs::Point candidate_point)
       bool node_is_goal = false;
       Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, node_yaw, node_cost, 0.0, node_id, neighbor_itr->second, node_rank, node_is_goal);
 
-      if(isPositionUnmapped(candidate_point.x, candidate_point.y)) {
+      if (isPositionUnmapped(candidate_point.x, candidate_point.y) and node_cost > planner_min_distance_to_frontier_ and node_cost < planner_max_distance_to_frontier_) {
         frontier_nodes_.insert(std::pair<double, Node>(node_cost, new_node));
         ROS_DEBUG("UGVPlanner: Frontier found. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       } else if(!node_is_goal) {
@@ -335,7 +351,9 @@ void UGVServer::getParams(ros::NodeHandle np)
   np.param<std::string>("planner_world_frame", planner_world_frame_, "map");
   np.param<double>("planner_rate", planner_rate_, 2.0);
   np.param<double>("planner_max_time", planner_max_time_, 5.0);
-  np.param<double>("planner_max_ray_distance_", planner_max_ray_distance_, 2.0);
+  np.param<double>("planner_max_ray_distance", planner_max_ray_distance_, 2.0);
+  np.param<double>("planner_min_distance_to_frontier", planner_min_distance_to_frontier_, 4.0);
+  np.param<double>("planner_max_distance_to_frontier", planner_max_distance_to_frontier_, 100.0);
   np.param<int>("collision_threshold", collision_threshold_, 0);
   np.param<bool>("unmapped_is_collision", unmapped_is_collision_, false);
 }

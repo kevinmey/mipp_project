@@ -169,7 +169,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
       path_.push_back(new_node.position_);
       plan.push_back(makePoseStampedFromNode(new_node));
 
-      ROS_INFO("UGVPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, new_node.getParent()->id_, node_rank, node_cost);
+      ROS_DEBUG("UGVPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, new_node.getParent()->id_, node_rank, node_cost);
       node_on_path = new_node;
     }
     goal_.setParent(&(tree_.back()));
@@ -304,7 +304,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 
 geometry_msgs::Point UGVPlanner::generateRandomPoint()
 {
-  ROS_INFO("UGVPlanner: generateRandomPoint");
+  ROS_DEBUG("UGVPlanner: generateRandomPoint");
   geometry_msgs::Point sample_point;
   sample_point.x = x_distribution_(generator_);
   sample_point.y = y_distribution_(generator_);
@@ -412,7 +412,7 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
       if(node_is_goal and (new_node.cost_ < goal_.cost_)) {
         new_node.yaw_ = goal_.yaw_;
         goal_ = new_node;
-        ROS_INFO("UGVPlanner: New goal node. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+        ROS_DEBUG("UGVPlanner: New goal node. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       } else if(!node_is_goal) {
         tree_.push_back(new_node);
         ROS_DEBUG("UGVPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
@@ -433,7 +433,7 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
   if (goal_path_distance_ == INFINITY and !new_node_added) {
     double max_path_distance = costmap_->getSizeInMetersX() + costmap_->getSizeInMetersY();
     goal_grow_distance_ = std::min(goal_grow_distance_*1.05, max_path_distance);
-    ROS_INFO("UGVPlanner: Growing goal_grow_distance_, new size: %f",goal_grow_distance_);
+    ROS_DEBUG("UGVPlanner: Growing goal_grow_distance_, new size: %f",goal_grow_distance_);
   }
 
   visualizeCollisionTree(collision_tree);

@@ -74,6 +74,7 @@ private:
   std::list<geometry_msgs::Point> path_remaining_;
   std::map<double, Node> frontier_nodes_;
   geometry_msgs::PoseStamped current_frontier_goal_;
+  bool running_frontier_exploration_;
   // Map variables
   bool map_initialized_;
   bool map_in_use_;
@@ -101,6 +102,8 @@ private:
   double planner_rate_;
   double planner_max_ray_distance_;
   double planner_max_time_;
+  double planner_min_distance_to_frontier_;
+  double planner_max_distance_to_frontier_;
   int collision_threshold_;
   bool unmapped_is_collision_;
 };
