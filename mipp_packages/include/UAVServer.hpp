@@ -1,5 +1,7 @@
 #include <ros/ros.h>
 
+#include <utils.hpp>
+
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -9,6 +11,10 @@
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
 #include <nav_msgs/Odometry.h>
+#include <visualization_msgs/Marker.h>
+
+#include <octomap_msgs/Octomap.h>
+#include "octomap_msgs/conversions.h"
 
 #include <string>
 #include <math.h> /* sqrt, pow */
@@ -33,6 +39,8 @@ public:
   /* 
   *  Callback functions for subscriptions
   */
+
+  void subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg);
   
   /**
   * @brief Callback for global goal, which avoidance is setting.
@@ -72,12 +80,16 @@ public:
   * @brief Mavros procedure to takeoff the drone. Done on init.
   */
   void takeoff();
+
+  void visualizeFOV();
   
 private:
   // Publishers    
   ros::Timer pub_timer_mavros_setpoint_;
   ros::Publisher pub_mavros_setpoint_;
+  ros::Publisher pub_viz_fov_;
   // Subscribers
+  ros::Subscriber sub_clicked_pose_;
   ros::Subscriber sub_global_goal_;
   ros::Subscriber sub_local_goal_;
   ros::Subscriber sub_mavros_state_;
@@ -90,10 +102,14 @@ private:
   tf2_ros::TransformListener* tf_listener_; 
   // Parameters
   int uav_id_;
-  double uav_takeoff_z_;
   std::string uav_world_frame_;
   std::string uav_local_frame_;
   std::string uav_body_frame_;
+  double uav_takeoff_z_;
+  double uav_camera_width_;
+  double uav_camera_height_;
+  double uav_camera_hfov_;
+  double uav_camera_range_;
   // Variables
   bool uav_takeoff_complete_;
   geometry_msgs::PoseStamped uav_global_goal_;
@@ -102,4 +118,6 @@ private:
   geometry_msgs::PoseStamped uav_pose_;
   geometry_msgs::Vector3Stamped uav_rpy_;
   mavros_msgs::State uav_state_;
+  std::vector<tf2::Vector3> uav_camera_rays_;
+  std::vector<tf2::Vector3> uav_camera_corner_rays_;
 };

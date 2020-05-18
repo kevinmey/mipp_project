@@ -130,3 +130,22 @@ target_link_libraries(
     common_libs
     ${catkin_LIBRARIES}
 )
+
+## ground_truth_handler_node
+
+add_executable(
+    ground_truth_handler_node
+    src/ground_truth_handler_node.cpp
+)
+
+add_dependencies(
+    ground_truth_handler_node 
+    ${ground_truth_handler_node} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    ground_truth_handler_node
+    common_libs
+    ${catkin_LIBRARIES}
+)

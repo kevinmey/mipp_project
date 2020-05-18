@@ -14,7 +14,9 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   // Establish publish timers and publishers
   pub_timer_mavros_setpoint_ =  n.createTimer(ros::Duration(0.1), boost::bind(&UAVServer::pubMavrosSetpoint, this));
   pub_mavros_setpoint_ =        n.advertise<geometry_msgs::PoseStamped>("uav_server/mavros_setpoint", 10);
+  pub_viz_fov_ =                n.advertise<visualization_msgs::Marker>("uav_server/viz_fov", 1);
   // Establish subscriptions
+  sub_clicked_pose_ =   n.subscribe("/move_base_simple/goal", 1, &UAVServer::subClickedPose, this);
   sub_global_goal_ =    n.subscribe("uav_server/global_goal", 1, &UAVServer::subGlobalGoal, this);
   sub_local_goal_ =     n.subscribe("uav_server/local_goal", 1, &UAVServer::subLocalGoal, this);
   sub_mavros_state_ =   n.subscribe("uav_server/mavros_state", 1, &UAVServer::subMavrosState, this);
@@ -24,6 +26,24 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   cli_set_mode_ = n.serviceClient<mavros_msgs::SetMode>("uav_server/set_mode");
   // TF
   tf_listener_ = new tf2_ros::TransformListener(tf_buffer_);
+  // Set variables
+  double uav_camera_vfov_ = (uav_camera_height_/uav_camera_width_)*uav_camera_hfov_;
+  tf2::Matrix3x3 ray_rot_mat;
+  tf2::Vector3 unit_ray_direction(1.0, 0.0, 0.0);
+  for (double img_y = -uav_camera_height_/2.0; img_y <= uav_camera_height_/2.0; img_y+=1.0){
+    for (double img_x = -uav_camera_width_/2.0; img_x <= uav_camera_width_/2.0; img_x+=1.0){
+      double ray_yaw = (img_x/uav_camera_width_)*uav_camera_hfov_;
+      double ray_pitch = (img_y/uav_camera_height_)*uav_camera_vfov_;
+      ray_rot_mat.setEulerYPR(ray_yaw, ray_pitch, 0.0);
+      tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
+      uav_camera_rays_.push_back(ray_direction);
+      ROS_DEBUG("YPR: (%f, %f, %f)", ray_yaw, ray_pitch, 0.0);
+      ROS_DEBUG("Ray: (%f, %f, %f)", ray_direction.getX(), ray_direction.getY(), ray_direction.getZ());
+      if (abs(img_y) == uav_camera_height_/2.0 and abs(img_x) == uav_camera_width_/2.0) {
+        uav_camera_corner_rays_.push_back(ray_direction);
+      }
+    }
+  }
   // Init.
   takeoff();
 }
@@ -62,7 +82,7 @@ void UAVServer::pubMavrosSetpoint()
     pub_mavros_setpoint_.publish(mavros_setpoint);
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
+    ROS_WARN("UAVServer: pubMavrosSetpoint: %s",ex.what());
     ros::Duration(1.0).sleep();
   }
 }
@@ -70,6 +90,11 @@ void UAVServer::pubMavrosSetpoint()
 /* 
 *  Callback functions for subscriptions
 */
+
+void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg)
+{
+  ROS_DEBUG("UAVServer: subClickedPose");
+}
 
 void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global_goal_msg)
 { 
@@ -138,6 +163,8 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg)
     ROS_WARN("UAVServer: subOdometry: %s",ex.what());
     ros::Duration(1.0).sleep();
   }
+
+  visualizeFOV();
 }
 
 // Utility functions
@@ -146,10 +173,14 @@ void UAVServer::getParams(ros::NodeHandle np)
 {
   ROS_DEBUG("UAVServer: getParams");
   np.param<int>("uav_id", uav_id_, 0);
-  np.param<double>("uav_takeoff_z", uav_takeoff_z_, 2.0);
   np.param<std::string>("uav_world_frame", uav_world_frame_, "world");
   np.param<std::string>("uav_local_frame", uav_local_frame_, "odom_uav"+std::to_string(uav_id_));
   np.param<std::string>("uav_body_frame", uav_body_frame_, "base_link_uav"+std::to_string(uav_id_));
+  np.param<double>("uav_takeoff_z", uav_takeoff_z_, 2.0);
+  np.param<double>("uav_camera_width", uav_camera_width_, 6.0);
+  np.param<double>("uav_camera_height", uav_camera_height_, 4.0);
+  np.param<double>("uav_camera_hfov", uav_camera_hfov_, 1.02974);
+  np.param<double>("uav_camera_range", uav_camera_range_, 7.5);
 }
 
 void UAVServer::takeoff()
@@ -214,4 +245,63 @@ void UAVServer::takeoff()
     rate.sleep();
   }
   ROS_INFO("UAVServer: Vehicle takeoff procedure complete");
+}
+
+/* 
+*  Visualization functions
+*/
+
+void UAVServer::visualizeFOV()
+{
+  ROS_DEBUG("UAVServer: visualizeFOV");
+  visualization_msgs::Marker fov_marker;
+  fov_marker.header.frame_id = uav_world_frame_;
+  fov_marker.header.stamp = ros::Time::now();
+  fov_marker.id = 0;
+  fov_marker.type = visualization_msgs::Marker::LINE_LIST;
+  fov_marker.action = visualization_msgs::Marker::ADD;
+  fov_marker.pose.orientation.w = 1.0;
+  fov_marker.scale.x = 0.05;
+  fov_marker.color.a = 0.5;
+  fov_marker.color.r = 0.2;
+  fov_marker.color.g = 0.2;
+  fov_marker.color.b = 1.0;
+    
+  bool show_all_rays = false;
+  double ray_length = uav_camera_range_;
+  tf2::Matrix3x3 ray_direction_rotmat;
+  ray_direction_rotmat.setEulerYPR(uav_rpy_.vector.z, uav_rpy_.vector.y, uav_rpy_.vector.x);
+  if (show_all_rays) {
+    for(tf2::Vector3 ray : uav_camera_rays_) {
+      fov_marker.points.push_back(uav_pose_.pose.position);
+      tf2::Vector3 ray_direction = ray_direction_rotmat*ray*ray_length;
+      geometry_msgs::Point ray_endpoint;
+      ray_endpoint.x = uav_pose_.pose.position.x + ray_direction.getX();
+      ray_endpoint.y = uav_pose_.pose.position.y + ray_direction.getY();
+      ray_endpoint.z = uav_pose_.pose.position.z + ray_direction.getZ();
+      fov_marker.points.push_back(ray_endpoint);
+    }
+  }
+  else {
+    std::vector<geometry_msgs::Point> ray_endpoints;
+    for(tf2::Vector3 ray : uav_camera_corner_rays_) {
+      fov_marker.points.push_back(uav_pose_.pose.position);
+      tf2::Vector3 ray_direction = ray_direction_rotmat*ray*ray_length;
+      geometry_msgs::Point ray_endpoint;
+      ray_endpoint.x = uav_pose_.pose.position.x + ray_direction.getX();
+      ray_endpoint.y = uav_pose_.pose.position.y + ray_direction.getY();
+      ray_endpoint.z = uav_pose_.pose.position.z + ray_direction.getZ();
+      fov_marker.points.push_back(ray_endpoint);
+      ray_endpoints.push_back(ray_endpoint);
+    }
+    fov_marker.points.push_back(ray_endpoints[0]);
+    fov_marker.points.push_back(ray_endpoints[1]);
+    fov_marker.points.push_back(ray_endpoints[1]);
+    fov_marker.points.push_back(ray_endpoints[3]);
+    fov_marker.points.push_back(ray_endpoints[3]);
+    fov_marker.points.push_back(ray_endpoints[2]);
+    fov_marker.points.push_back(ray_endpoints[2]);
+    fov_marker.points.push_back(ray_endpoints[0]);
+  }
+  pub_viz_fov_.publish(fov_marker);
 }
