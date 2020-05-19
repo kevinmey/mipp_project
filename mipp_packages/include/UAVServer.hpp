@@ -65,6 +65,8 @@ public:
   * @param odometry_msg Message sent to topic.
   */
   void subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg);
+
+  void subOctomap(const octomap_msgs::Octomap& octomap_msg);
   
   /* 
   *  Utility functions
@@ -81,19 +83,26 @@ public:
   */
   void takeoff();
 
-  void visualizeFOV();
+  double calculateInformationGain(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy);
+
+  void visualizeUAVFOV();
+  void visualizeFOV(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy);
+  void visualizeInformationPoints();
   
 private:
   // Publishers    
   ros::Timer pub_timer_mavros_setpoint_;
   ros::Publisher pub_mavros_setpoint_;
+  ros::Publisher pub_viz_uav_fov_;
   ros::Publisher pub_viz_fov_;
+  ros::Publisher pub_viz_information_points_;
   // Subscribers
   ros::Subscriber sub_clicked_pose_;
   ros::Subscriber sub_global_goal_;
   ros::Subscriber sub_local_goal_;
   ros::Subscriber sub_mavros_state_;
   ros::Subscriber sub_odometry_;
+  ros::Subscriber sub_octomap_;
   // Service clients
   ros::ServiceClient cli_arm_;
   ros::ServiceClient cli_set_mode_;
@@ -111,6 +120,8 @@ private:
   double uav_camera_hfov_;
   double uav_camera_range_;
   // Variables
+  octomap::OcTree* map_;
+  bool received_map_;
   bool uav_takeoff_complete_;
   geometry_msgs::PoseStamped uav_global_goal_;
   geometry_msgs::PoseStamped uav_local_goal_;
@@ -120,4 +131,5 @@ private:
   mavros_msgs::State uav_state_;
   std::vector<tf2::Vector3> uav_camera_rays_;
   std::vector<tf2::Vector3> uav_camera_corner_rays_;
+  std::vector<std::pair<double, geometry_msgs::Point>> uav_camera_information_points_;
 };

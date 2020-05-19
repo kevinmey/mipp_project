@@ -14,13 +14,16 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   // Establish publish timers and publishers
   pub_timer_mavros_setpoint_ =  n.createTimer(ros::Duration(0.1), boost::bind(&UAVServer::pubMavrosSetpoint, this));
   pub_mavros_setpoint_ =        n.advertise<geometry_msgs::PoseStamped>("uav_server/mavros_setpoint", 10);
+  pub_viz_uav_fov_ =            n.advertise<visualization_msgs::Marker>("uav_server/viz_uav_fov", 1);
   pub_viz_fov_ =                n.advertise<visualization_msgs::Marker>("uav_server/viz_fov", 1);
+  pub_viz_information_points_ = n.advertise<visualization_msgs::Marker>("uav_server/viz_information_points", 1);
   // Establish subscriptions
   sub_clicked_pose_ =   n.subscribe("/move_base_simple/goal", 1, &UAVServer::subClickedPose, this);
   sub_global_goal_ =    n.subscribe("uav_server/global_goal", 1, &UAVServer::subGlobalGoal, this);
   sub_local_goal_ =     n.subscribe("uav_server/local_goal", 1, &UAVServer::subLocalGoal, this);
   sub_mavros_state_ =   n.subscribe("uav_server/mavros_state", 1, &UAVServer::subMavrosState, this);
   sub_odometry_ =       n.subscribe("uav_server/ground_truth_uav", 1, &UAVServer::subOdometry, this);
+  sub_octomap_ =        n.subscribe("/octomap_binary", 1, &UAVServer::subOctomap, this);
   // Establish service clients
   cli_arm_ =      n.serviceClient<mavros_msgs::CommandBool>("uav_server/arm");
   cli_set_mode_ = n.serviceClient<mavros_msgs::SetMode>("uav_server/set_mode");
@@ -46,6 +49,15 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   }
   // Init.
   takeoff();
+
+  // Wait for map
+  ros::Rate rate_wait_map(1.0);
+  while(!received_map_)
+  {
+    ROS_WARN("UAVServer: No map received yet, waiting...");
+    ros::spinOnce();
+    rate_wait_map.sleep();
+  }
 }
 
 // Destructor
@@ -53,6 +65,8 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
 UAVServer::~UAVServer()
 {
   ROS_INFO("UAVServer object is being deleted.");
+
+
 }
 
 /* 
@@ -93,7 +107,22 @@ void UAVServer::pubMavrosSetpoint()
 
 void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg)
 {
-  ROS_DEBUG("UAVServer: subClickedPose");
+  ROS_INFO("UAVServer: subClickedPose");
+
+  geometry_msgs::Point clicked_pose;
+  clicked_pose.x = clicked_pose_msg->pose.position.x;
+  clicked_pose.y = clicked_pose_msg->pose.position.y;
+  clicked_pose.z = uav_takeoff_z_;
+
+  geometry_msgs::Vector3 rpy_vector;
+  tf2::Quaternion tf_quat;
+  tf2::fromMsg(clicked_pose_msg->pose.orientation, tf_quat);
+  tf2::Matrix3x3(tf_quat).getRPY(rpy_vector.x, 
+                                 rpy_vector.y, 
+                                 rpy_vector.z);
+  
+  visualizeFOV(clicked_pose, rpy_vector);
+  calculateInformationGain(clicked_pose, rpy_vector);
 }
 
 void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global_goal_msg)
@@ -164,7 +193,22 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg)
     ros::Duration(1.0).sleep();
   }
 
-  visualizeFOV();
+  visualizeUAVFOV();
+}
+
+void UAVServer::subOctomap(const octomap_msgs::Octomap& octomap_msg)
+{
+  ROS_DEBUG("UAVServer: subOctomap");
+  octomap::AbstractOcTree* abstract_map = octomap_msgs::binaryMsgToMap(octomap_msg);
+  if(abstract_map)
+  {
+    map_ = dynamic_cast<octomap::OcTree*>(abstract_map);
+    received_map_ = true;
+  } 
+  else 
+  {
+    ROS_ERROR("UAVServer: Error creating octree from received message");
+  }
 }
 
 // Utility functions
@@ -247,11 +291,67 @@ void UAVServer::takeoff()
   ROS_INFO("UAVServer: Vehicle takeoff procedure complete");
 }
 
+double UAVServer::calculateInformationGain(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy)
+{
+  ROS_DEBUG("UAVServer: calculateInformationGain");
+  uav_camera_information_points_.clear();
+
+  double ray_distance = uav_camera_range_;
+  tf2::Matrix3x3 ray_direction_rotmat;
+  ray_direction_rotmat.setEulerYPR(rpy.z, rpy.y, rpy.x);
+
+  octomap::point3d om_ray_origin = octomap::point3d(origin.x, origin.y, origin.z);
+  int hits = 0;
+  int occupied = 0;
+  int free = 0;
+  int unmapped = 0;
+  double occupancy_threshold = map_->getOccupancyThres();
+
+  for(tf2::Vector3 ray : uav_camera_rays_) {
+    tf2::Vector3 ray_direction = ray_direction_rotmat*ray*ray_distance;
+    octomap::point3d om_ray_direction = octomap::point3d(ray_direction.getX(), ray_direction.getY(), ray_direction.getZ());
+    octomap::point3d om_ray_end_cell;
+    bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, ray_distance);
+    if (hit_occupied) {
+      hits++;
+    }
+    geometry_msgs::Point ray_end_point;
+    ray_end_point.x = om_ray_end_cell.x();
+    ray_end_point.y = om_ray_end_cell.y();
+    ray_end_point.z = om_ray_end_cell.z();
+    
+    octomap::OcTreeNode* om_ray_end_node = map_->search(om_ray_end_cell);
+    if (om_ray_end_node != NULL) {
+      double node_occupancy = om_ray_end_node->getOccupancy();
+      ROS_INFO("Node value: %f", node_occupancy);
+      uav_camera_information_points_.push_back(std::pair<double, geometry_msgs::Point>(node_occupancy, ray_end_point));
+      if (node_occupancy < occupancy_threshold) {
+        free++;
+      }
+      else {
+        occupied++;
+      }
+    }
+    else {
+      uav_camera_information_points_.push_back(std::pair<double, geometry_msgs::Point>(0.5, ray_end_point));
+      unmapped++;
+    }
+    
+  }
+  
+  visualizeInformationPoints();
+  ROS_INFO("Hits: %d", hits);
+  ROS_INFO("Occupied: %d", occupied);
+  ROS_INFO("Free: %d", free);
+  ROS_INFO("Unmapped: %d", unmapped);
+
+}
+
 /* 
 *  Visualization functions
 */
 
-void UAVServer::visualizeFOV()
+void UAVServer::visualizeUAVFOV()
 {
   ROS_DEBUG("UAVServer: visualizeFOV");
   visualization_msgs::Marker fov_marker;
@@ -303,5 +403,85 @@ void UAVServer::visualizeFOV()
     fov_marker.points.push_back(ray_endpoints[2]);
     fov_marker.points.push_back(ray_endpoints[0]);
   }
+  pub_viz_uav_fov_.publish(fov_marker);
+}
+
+void UAVServer::visualizeFOV(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy)
+{
+  ROS_DEBUG("UAVServer: visualizeFOV");
+  visualization_msgs::Marker fov_marker;
+  fov_marker.header.frame_id = uav_world_frame_;
+  fov_marker.header.stamp = ros::Time::now();
+  fov_marker.id = 0;
+  fov_marker.type = visualization_msgs::Marker::LINE_LIST;
+  fov_marker.action = visualization_msgs::Marker::ADD;
+  fov_marker.pose.orientation.w = 1.0;
+  fov_marker.scale.x = 0.05;
+  fov_marker.color.a = 0.5;
+  fov_marker.color.r = 0.2;
+  fov_marker.color.g = 0.2;
+  fov_marker.color.b = 1.0;
+  bool show_all_rays = false;
+  double ray_length = uav_camera_range_;
+  tf2::Matrix3x3 ray_direction_rotmat;
+  ray_direction_rotmat.setEulerYPR(rpy.z, rpy.y, rpy.x);
+  if (show_all_rays) {
+    for(tf2::Vector3 ray : uav_camera_rays_) {
+      fov_marker.points.push_back(origin);
+      tf2::Vector3 ray_direction = ray_direction_rotmat*ray*ray_length;
+      geometry_msgs::Point ray_endpoint;
+      ray_endpoint.x = origin.x + ray_direction.getX();
+      ray_endpoint.y = origin.y + ray_direction.getY();
+      ray_endpoint.z = origin.z + ray_direction.getZ();
+      fov_marker.points.push_back(ray_endpoint);
+    }
+  }
+  else {
+    std::vector<geometry_msgs::Point> ray_endpoints;
+    for(tf2::Vector3 ray : uav_camera_corner_rays_) {
+      fov_marker.points.push_back(origin);
+      tf2::Vector3 ray_direction = ray_direction_rotmat*ray*ray_length;
+      geometry_msgs::Point ray_endpoint;
+      ray_endpoint.x = origin.x + ray_direction.getX();
+      ray_endpoint.y = origin.y + ray_direction.getY();
+      ray_endpoint.z = origin.z + ray_direction.getZ();
+      fov_marker.points.push_back(ray_endpoint);
+      ray_endpoints.push_back(ray_endpoint);
+    }
+    fov_marker.points.push_back(ray_endpoints[0]);
+    fov_marker.points.push_back(ray_endpoints[1]);
+    fov_marker.points.push_back(ray_endpoints[1]);
+    fov_marker.points.push_back(ray_endpoints[3]);
+    fov_marker.points.push_back(ray_endpoints[3]);
+    fov_marker.points.push_back(ray_endpoints[2]);
+    fov_marker.points.push_back(ray_endpoints[2]);
+    fov_marker.points.push_back(ray_endpoints[0]);
+  }
   pub_viz_fov_.publish(fov_marker);
 }
+
+void UAVServer::visualizeInformationPoints()
+{
+  ROS_DEBUG("UAVServer: visualizeInformationPoints");
+  visualization_msgs::Marker information_marker;
+  information_marker.header.frame_id = uav_world_frame_;
+  information_marker.header.stamp = ros::Time::now();
+  information_marker.id = 0;
+  information_marker.type = visualization_msgs::Marker::POINTS;
+  information_marker.action = visualization_msgs::Marker::ADD;
+  information_marker.pose.orientation.w = 1.0;
+  information_marker.scale.x = 0.25;
+  information_marker.scale.y = 0.25;
+
+  for(std::pair<double, geometry_msgs::Point> information_point : uav_camera_information_points_) {
+    std_msgs::ColorRGBA point_color;
+    point_color.a = 1.0;
+    point_color.r = information_point.first;
+    point_color.g = 1.0 - information_point.first;
+    point_color.b = 0.0;
+    information_marker.colors.push_back(point_color);
+    information_marker.points.push_back(information_point.second);
+  }
+  pub_viz_information_points_.publish(information_marker);
+}
+
