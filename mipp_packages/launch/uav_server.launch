@@ -11,6 +11,8 @@
   <node pkg="mipp_packages" type="uav_server_node" name="uav_server_node" output="screen">
     <!-- Parameters -->
     <param name="uav_id"            value="$(arg uav_id)"/>
+    <param name="uav_start_x"       value="$(arg uav_start_x)"/>
+    <param name="uav_start_y"       value="$(arg uav_start_y)"/>
     <param name="uav_takeoff_z"     value="$(arg uav_takeoff_z)"/>
     <param name="uav_world_frame"   value="world"/>
     <param name="uav_local_frame"   value="odom_$(arg uav_name)"/>

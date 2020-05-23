@@ -149,3 +149,22 @@ target_link_libraries(
     common_libs
     ${catkin_LIBRARIES}
 )
+
+## octomap_clearer_node
+
+add_executable(
+    octomap_clearer_node
+    src/octomap_clearer_node.cpp
+)
+
+add_dependencies(
+    octomap_clearer_node 
+    ${octomap_clearer_node} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    octomap_clearer_node
+    common_libs
+    ${catkin_LIBRARIES}
+)

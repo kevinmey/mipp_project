@@ -8,6 +8,7 @@
 
   <arg name="initial_x"     default="0"/>
   <arg name="initial_y"     default="0"/>
+  <arg name="takeoff_z"     default="2.0"/>
 
   <arg name="fcu_ip"            default="$(eval 14540 + arg('uav_id'))"/>
   <arg name="fcu_gate"          default="$(eval 14580 + arg('uav_id'))"/>
@@ -27,10 +28,10 @@
   <arg name="pointcloud_topics"     default="[$(arg ns)/camera/depth/points]"/>
   <arg name="octomap_cloud_topic"   default="/octomap/points"/>
 
+  <arg name="use_ground_truth"   default="true"/>
+
   <remap from="/mavros/companion_process/status"              to="$(arg ns)/mavros/companion_process/status" />
   <remap from="/mavros/altitude"                              to="$(arg ns)/mavros/altitude" />
-  <remap from="/mavros/local_position/pose"                   to="$(arg ns)/mavros/local_position/pose" />
-  <remap from="/mavros/local_position/velocity_local"         to="$(arg ns)/mavros/local_position/velocity_local" />
   <remap from="/mavros/mission/waypoints"                     to="$(arg ns)/mavros/mission/waypoints" />
   <remap from="/mavros/obstacle/send"                         to="$(arg ns)/mavros/obstacle/send" />
   <remap from="/mavros/param/param_value"                     to="$(arg ns)/mavros/param/param_value" />
@@ -44,9 +45,21 @@
   <remap from="/camera/depth/points"                          to="$(arg ns)/camera/depth/points" />
   <remap from="/camera/rgb/image_raw"                         to="$(arg ns)/camera/rgb/image_raw" />
 
+  <remap from="/mavros/local_position/pose"                   to="$(arg ns)/mavros/local_position/pose" />
+  <remap from="/mavros/local_position/velocity_local"         to="$(arg ns)/mavros/local_position/velocity_local" />
+
+  <!-- <group if="$(arg use_ground_truth)">
+    <remap from="/mavros/local_position/pose"                   to="$(arg ns)/ground_truth/pose" />
+    <remap from="/mavros/local_position/velocity_local"         to="$(arg ns)/ground_truth/velocity_local" />
+  </group>
+  <group unless="$(arg use_ground_truth)">
+    <remap from="/mavros/local_position/pose"                   to="$(arg ns)/mavros/local_position/pose" />
+    <remap from="/mavros/local_position/velocity_local"         to="$(arg ns)/mavros/local_position/velocity_local" />
+  </group>-->
+
   <!-- Define a static transform from a camera internal frame to the fcu for every camera used -->
   <node pkg="tf" type="static_transform_publisher" name="tf_depth_camera_$(arg uav_name)"
-        args="0 0 0 -1.57 0 -1.57 base_link_$(arg uav_name) camera_link_$(arg uav_name) 10"/>
+        args="0.1 0 -0.1 -1.57 0 -1.57 gt_base_link_$(arg uav_name) camera_link_$(arg uav_name) 10"/>
 
   <param name="use_sim_time" value="true" />
 
@@ -80,23 +93,45 @@
     <node pkg="nodelet" type="nodelet" name="local_planner_nodelet" args="load LocalPlannerNodelet $(arg manager)" output="screen">
       <param name="goal_x_param"  value="0" />
       <param name="goal_y_param"  value="0"/>
-      <param name="goal_z_param"  value="1.5" />
+      <param name="goal_z_param"  value="$(arg takeoff_z)" />
       <param name="world_name"    value="$(find avoidance)/sim/worlds/$(arg world_file_name).yaml" />
       <rosparam param="pointcloud_topics" subst_value="True">$(arg pointcloud_topics)</rosparam>
 
       <param name="tf_origin"  value="odom_$(arg uav_name)" />
       <param name="tf_base_link"  value="base_link_$(arg uav_name)" />
     </node>
-    <!-- Offboard test node 
-    <node name="offb_test" pkg="offb_test" type="offb_test">
-    </node>-->
 
     <include file="$(find mipp_packages)/launch/uav_server.launch">
-      <arg name="uav_id"      value="$(arg uav_id)"/>
+      <arg name="uav_id"          value="$(arg uav_id)"/>
+      <arg name="uav_start_x"     value="$(arg initial_x)"/>
+      <arg name="uav_start_y"     value="$(arg initial_y)"/>
+      <arg name="uav_takeoff_z"   value="$(arg takeoff_z)"/>
     </include>
 
     <!-- Relay/republish pointcloud to common cloud for OctoMap -->
     <node name="pointcloud_throttle_$(arg uav_name)" pkg="topic_tools" type="throttle" args="messages camera/depth/points 5.0 $(arg octomap_cloud_topic)"/>
+
+    <node pkg="mipp_packages" type="ground_truth_handler_node" name="ground_truth_handler" output="screen" if="$(arg use_ground_truth)">
+      <param name="vehicle_name"                value="$(arg uav_name)" />
+      <param name="publish_footprint_tf"        value="true" />
+      <param name="vehicle_map_frame"           value="map" />
+      <param name="vehicle_local_origin_frame"  value="gt_odom_$(arg uav_name)" />
+      <param name="vehicle_footprint_frame"     value="gt_base_footprint_$(arg uav_name)" />
+      <param name="vehicle_link_frame"          value="gt_base_link_$(arg uav_name)" />
+      <param name="vehicle_ground_truth_topic"  value="/gazebo/ground_truth_$(arg uav_name)" />
+      <param name="vehicle_pos_topic"           value="ground_truth/pose" />
+      <param name="vehicle_vel_topic"           value="ground_truth/velocity_local" />
+      <param name="vehicle_origin_offset_x"     value="$(arg initial_x)" />
+      <param name="vehicle_origin_offset_y"     value="$(arg initial_y)" />
+    </node>
+
+    <node pkg="mipp_packages" type="octomap_clearer_node" name="octomap_clearer_node" output="screen">
+      <param name="vehicle_name"                value="$(arg uav_name)" />
+      <param name="vehicle_ground_truth_topic"  value="/gazebo/ground_truth_$(arg uav_name)" />
+      <param name="vehicle_size_x"              value="1.0" />
+      <param name="vehicle_size_y"              value="1.0" />
+      <param name="vehicle_size_z"              value="0.5" />
+    </node>
 
   </group>
 
@@ -109,6 +144,6 @@
 
   <!-- Static TF for uav odom, which is offset from "real" odom/world -->
   <arg name="pub_odom_tf"   default="true"/>
-  <node pkg="tf" type="static_transform_publisher" name="tf_world_odom_$(arg uav_name)_link" args="$(arg initial_x) $(arg initial_y) 0 0 0 0  /world /odom_$(arg uav_name) 100" if="$(arg pub_odom_tf)"/>
+  <node pkg="tf" type="static_transform_publisher" name="tf_world_odom_$(arg uav_name)_link" args="$(arg initial_x) $(arg initial_y) 0 0 0 0  /map /odom_$(arg uav_name) 100" if="$(arg pub_odom_tf)"/>
 
 </launch>

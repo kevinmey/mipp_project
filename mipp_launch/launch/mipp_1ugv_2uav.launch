@@ -1,13 +1,12 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="run_gazebo"  default="true"/>
-  <arg name="world_file_name"   default="empty_60x60" />
+  <arg name="world_file_name"   default="empty_30x30" />
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
   <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
-  <arg name="run_husky_explore" default="false"/>
-  <arg name="run_uav0"    default="false"/>
+  <arg name="run_uav0"    default="true"/>
   <arg name="run_uav1"    default="false"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
 
@@ -25,8 +24,10 @@
 		<arg name="sensor_model/max_range"          value="7.5"/>
   	<arg name="latch"                           value="false"/>
 		<arg name="filter_ground"                   value="false"/>
-		<arg name="pointcloud_min_z"                value="0.2"/>
+		<arg name="pointcloud_min_z"                value="0.0"/>
 		<arg name="pointcloud_max_z"                value="5.0"/>
+		<arg name="occupancy_min_z"                value="0.2"/>
+		<arg name="occupancy_max_z"                value="4.0"/>
 	  <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
   </include>
 
@@ -36,7 +37,7 @@
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(arg run_uav0)">
     <arg name="uav_id"        value="0"/>
     <arg name="initial_x"     value="-1"/>
-    <arg name="initial_y"     value="-1"/>
+    <arg name="initial_y"     value="-2"/>
     <arg name="octomap_cloud_topic"    value="$(arg octomap_cloud_topic)"/>
   </include>
 
@@ -75,7 +76,6 @@
   -->
   <group if="$(arg run_husky)">
     <include file="$(find mipp_launch)/launch/husky.launch"/>
-    <include file="$(find explore_lite)/launch/explore.launch" if="$(arg run_husky_explore)"/>
     <include file="$(find mipp_packages)/launch/ugv_server.launch"/>
   </group>
 

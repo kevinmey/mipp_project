@@ -7,6 +7,8 @@ Panels:
         - /Global Options1
         - /Husky1/Navigation1
         - /UAV01/Image1
+        - /Viz Tree1
+        - /Viz Path1
       Splitter Ratio: 0.5
     Tree Height: 1154
   - Class: rviz/Selection
@@ -26,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: LaserScan
+    SyncSource: Local pointcloud
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -416,7 +418,7 @@ Visualization Manager:
           Color: 255; 255; 255
           Color Transformer: Intensity
           Decay Time: 0
-          Enabled: true
+          Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Max Intensity: 20
@@ -433,7 +435,7 @@ Visualization Manager:
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
-          Value: true
+          Value: false
         - Class: rviz/Image
           Enabled: false
           Image Topic: /uav0/camera/rgb/image_raw
@@ -451,7 +453,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/complete_tree
           Name: Tree
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -459,7 +461,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/tree_path
           Name: TreePath
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -539,7 +541,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/goal_position
           Name: Goal
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -547,7 +549,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/path_waypoint
           Name: path_waypoint
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -555,7 +557,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/path_actual
           Name: path_actual
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -563,7 +565,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/drone
           Name: Drone
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -785,7 +787,7 @@ Visualization Manager:
       Marker Topic: /UGVPlanner/goal_node
       Name: GoalNode
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -801,7 +803,7 @@ Visualization Manager:
       Marker Topic: /UGVPlanner/root_node
       Name: RootNode
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -817,7 +819,7 @@ Visualization Manager:
       Marker Topic: /UGVPlanner/viz_tree
       Name: Tree
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -825,7 +827,7 @@ Visualization Manager:
       Marker Topic: /UGVServer/viz_frontier_nodes
       Name: Frontier Nodes
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -833,7 +835,7 @@ Visualization Manager:
       Marker Topic: /UGVServer/viz_root_node
       Name: Frontier Root Node
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -841,7 +843,168 @@ Visualization Manager:
       Marker Topic: /UGVServer/viz_tree
       Name: Frontier Tree
       Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+        base_footprint:
+          Value: true
+        base_laser:
+          Value: true
+        base_laser_mount:
+          Value: true
+        base_link:
+          Value: true
+        base_link_frd:
+          Value: true
+        base_link_uav0:
+          Value: true
+        camera_link_uav0:
+          Value: true
+        front_bumper_link:
+          Value: true
+        front_left_wheel_link:
+          Value: true
+        front_right_wheel_link:
+          Value: true
+        gt_base_footprint_uav0:
+          Value: true
+        gt_base_link_uav0:
+          Value: true
+        gt_odom_uav0:
+          Value: true
+        imu_link:
+          Value: true
+        inertial_link:
+          Value: true
+        map:
+          Value: true
+        map_ned:
+          Value: true
+        odom:
+          Value: true
+        odom_ned:
+          Value: true
+        odom_uav0:
+          Value: true
+        rear_bumper_link:
+          Value: true
+        rear_left_wheel_link:
+          Value: true
+        rear_right_wheel_link:
+          Value: true
+        sensor_arch_mount_link:
+          Value: true
+        top_chassis_link:
+          Value: true
+        top_plate_front_link:
+          Value: true
+        top_plate_link:
+          Value: true
+        top_plate_rear_link:
+          Value: true
+        user_rail_link:
+          Value: true
+        velodyne:
+          Value: true
+        velodyne_base_link:
+          Value: true
+        world:
+          Value: true
+      Marker Scale: 1
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Tree:
+        world:
+          base_link_frd:
+            {}
+          map:
+            gt_odom_uav0:
+              gt_base_footprint_uav0:
+                gt_base_link_uav0:
+                  camera_link_uav0:
+                    {}
+            map_ned:
+              {}
+            odom:
+              base_link:
+                base_footprint:
+                  {}
+                front_bumper_link:
+                  {}
+                front_left_wheel_link:
+                  {}
+                front_right_wheel_link:
+                  {}
+                imu_link:
+                  {}
+                inertial_link:
+                  {}
+                rear_bumper_link:
+                  {}
+                rear_left_wheel_link:
+                  {}
+                rear_right_wheel_link:
+                  {}
+                top_chassis_link:
+                  {}
+                top_plate_link:
+                  base_laser_mount:
+                    base_laser:
+                      {}
+                  sensor_arch_mount_link:
+                    velodyne_base_link:
+                      velodyne:
+                        {}
+                  top_plate_front_link:
+                    {}
+                  top_plate_rear_link:
+                    {}
+                user_rail_link:
+                  {}
+              odom_ned:
+                {}
+            odom_uav0:
+              base_link_uav0:
+                {}
+      Update Interval: 0
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /uav0/uav_server/viz_fov
+      Name: Clicked FOV
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /uav0/uav_server/viz_information_points
+      Name: Information Points
+      Namespaces:
         {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /uav0/uav_server/viz_tree
+      Name: Viz Tree
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /uav0/uav_server/viz_path
+      Name: Viz Path
+      Namespaces:
+        "": true
       Queue Size: 100
       Value: true
   Enabled: true
@@ -871,25 +1034,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 27.283031463623047
+      Distance: 23.008831024169922
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -3.0602850914001465
-        Y: -5.178162574768066
-        Z: 9.5367431640625e-6
+        X: -1.170398473739624
+        Y: -2.19594144821167
+        Z: 1.52587890625e-5
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7297970652580261
+      Pitch: 0.48479747772216797
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.9930100440979004
+      Yaw: 3.063006639480591
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
@@ -939,7 +1102,7 @@ Window Geometry:
   Hide Right Dock: false
   Image:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd000000040000000000000156000004bffc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730200000a00000004fd00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000004bf000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002b5000002660000001600fffffffb0000000a0049006d00610067006500000002ce000000c00000001600ffffff0000000100000132000004f2fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000028000004f2000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007de0000004afc0100000002fb0000000800540069006d00650100000000000007de000002eb00fffffffb0000000800540069006d0065010000000000000450000000000000000000000682000004bf00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000019f000004bffc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730200000a00000004fd00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000004bf000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002b5000002660000001600fffffffb0000000a0049006d00610067006500000003f5000001070000001600ffffff0000000100000132000004f2fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000028000004f2000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007de0000004afc0100000002fb0000000800540069006d00650100000000000007de000002eb00fffffffb0000000800540069006d0065010000000000000450000000000000000000000639000004bf00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:

@@ -36,21 +36,29 @@
        to include the ground plane. -->
   <arg name="pointcloud_min_z"        default="0.0"/>
   <arg name="pointcloud_max_z"        default="5.0"/>
+  <!-- Minimum and maximum height of occupied cells to be consider in 
+       the final map. This ignores all occupied voxels outside of the 
+       interval when sending out visualizations and collision maps, but 
+       will not affect the actual octomap representation. -->
+  <arg name="occupancy_min_z"        default="0.0"/>
+  <arg name="occupancy_max_z"        default="5.0"/>
   <!-- Common topic for point cloud data from all robot sensors (on
        both UGV and UAVs) to be published to. -->
   <arg name="octomap_cloud_topic"     default="/octomap/points"/>
 
-	<node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
-		<param name="resolution"                      value="$(arg resolution)"/>
+  <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+    <param name="resolution"                      value="$(arg resolution)"/>
     <param name="frame_id"          type="string" value="$(arg frame_id)"/>
-		<param name="base_frame_id"     type="string" value="$(arg base_frame_id)"/>
-		<param name="sensor_model/max_range"          value="$(arg sensor_model/max_range)"/>
-  	<param name="latch"             type="bool"   value="$(arg latch)"/>
-		<param name="filter_ground"     type="bool"   value="$(arg filter_ground)"/>
-		<param name="pointcloud_min_z"  type="double" value="$(arg pointcloud_min_z)"/>
-		<param name="pointcloud_max_z"  type="double" value="$(arg pointcloud_max_z)"/>
-	  <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
-	</node>
+    <param name="base_frame_id"     type="string" value="$(arg base_frame_id)"/>
+    <param name="sensor_model/max_range"          value="$(arg sensor_model/max_range)"/>
+    <param name="latch"             type="bool"   value="$(arg latch)"/>
+    <param name="filter_ground"     type="bool"   value="$(arg filter_ground)"/>
+    <param name="pointcloud_min_z"  type="double" value="$(arg pointcloud_min_z)"/>
+    <param name="pointcloud_max_z"  type="double" value="$(arg pointcloud_max_z)"/>
+    <param name="occupancy_min_z"   type="double" value="$(arg occupancy_min_z)"/>
+    <param name="occupancy_max_z"   type="double" value="$(arg occupancy_max_z)"/>
+    <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
+  </node>
 <!--
 	<node pkg="tf" type="static_transform_publisher" name="tf_pub"
           args="0 0 0 0 0 0 1 map camera_color_optical_frame 10"/>-->
