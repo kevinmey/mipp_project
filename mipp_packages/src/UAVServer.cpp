@@ -374,8 +374,6 @@ void UAVServer::runExploration() {
     ros::spinOnce();
     wait_rate.sleep();
   }
-
-  path_.clear();
   tree_.clear();
   exploration_nodes_.clear();
 
@@ -401,11 +399,22 @@ void UAVServer::runExploration() {
   while((ros::Time::now() - start_time).toSec() < planner_max_time_){
     ros::Time begin = ros::Time::now();
     
-    geometry_msgs::Point sample_point = generateRandomPoint();
-    sample_point.x += uav_pose_.pose.position.x;
-    sample_point.y += uav_pose_.pose.position.y;
-    double sample_yaw = M_PI - 2*M_PI*unit_distribution_(generator_);
-    ROS_DEBUG("UAVServer: Sampled random point: (x,y,z,y) = (%.1f,%.1f,%.1f,%.1f)",sample_point.x,sample_point.y,sample_point.z,angles::to_degrees(sample_yaw));
+    geometry_msgs::Point sample_point;
+    double sample_yaw;
+    if (path_.size() > 0) {
+      sample_point = path_.begin()->pose.position;
+      geometry_msgs::Vector3 sample_rpy = makeRPYFromQuat(path_.begin()->pose.orientation);
+      sample_yaw = sample_rpy.z;
+      path_.pop_front();
+      ROS_DEBUG("UAVServer: Sampled previous path point: (x,y,z,y) = (%.1f,%.1f,%.1f,%.1f)",sample_point.x,sample_point.y,sample_point.z,angles::to_degrees(sample_yaw));
+    }
+    else {
+      sample_point = generateRandomPoint();
+      sample_point.x += uav_pose_.pose.position.x;
+      sample_point.y += uav_pose_.pose.position.y;
+      sample_yaw = M_PI - 2*M_PI*unit_distribution_(generator_);
+      ROS_DEBUG("UAVServer: Sampled random point: (x,y,z,y) = (%.1f,%.1f,%.1f,%.1f)",sample_point.x,sample_point.y,sample_point.z,angles::to_degrees(sample_yaw));
+    }
 
     // Start finding nearest node in the tree to the sampled point (init. as root)
     Node* nearest_neighbor = &root_;
@@ -467,10 +476,11 @@ void UAVServer::runExploration() {
     ROS_DEBUG("\t%d\t%f\t%f", exploration_nodes_itr->second.id_, exploration_nodes_itr->first, exploration_nodes_itr->second.gain_indiv_);
   }
 
+  path_.clear();
   Node node_on_path = exploration_nodes_.rbegin()->second;
   while (node_on_path.getParent() != nullptr) {
     path_.push_front(makePoseStampedFromNode(node_on_path));
-    ROS_INFO("Node: %d", (int)node_on_path.id_);
+    ROS_DEBUG("Node: %d", (int)node_on_path.id_);
 
     if (node_on_path.getParent()->id_ == 0) {
       uav_global_goal_.header.frame_id = uav_world_frame_;
