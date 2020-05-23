@@ -102,7 +102,10 @@ void UAVServer::pubMavrosSetpoint()
   */ 
   try{
     geometry_msgs::PoseStamped mavros_setpoint;
-    tf_buffer_.transform(uav_local_goal_, mavros_setpoint, uav_local_frame_);
+    //tf_buffer_.transform(uav_local_goal_, mavros_setpoint, uav_local_frame_);
+    geometry_msgs::TransformStamped mavros_setpoint_tf = tf_buffer_.lookupTransform(uav_local_frame_, uav_local_goal_.header.frame_id, ros::Time(0));
+    tf2::doTransform(uav_local_goal_, mavros_setpoint, mavros_setpoint_tf);
+    
     if(uav_global_goal_euc_dist_ < 1.0){
       mavros_setpoint.pose.orientation = uav_global_goal_.pose.orientation;
     }
@@ -120,7 +123,12 @@ void UAVServer::pubMavrosSetpoint()
 
 void UAVServer::subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg) {
   ROS_INFO("UAVServer: subClickedPoint");
-  
+  // Block if UAV still initializing (taking off)
+  if(!uav_takeoff_complete_ or !uav_clearing_rotation_complete_)
+  {
+    return;
+  }
+
   if (uav_running_exploration_) { 
     ROS_INFO("UAVServer: Stopping exploration.");
     uav_running_exploration_ = false;
@@ -173,7 +181,9 @@ void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global
   }
    
   try{
-    tf_buffer_.transform(*global_goal_msg, uav_global_goal_, uav_world_frame_);
+    //tf_buffer_.transform(*global_goal_msg, uav_global_goal_, uav_world_frame_);
+    geometry_msgs::TransformStamped global_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, global_goal_msg->header.frame_id, ros::Time(0));
+    tf2::doTransform(*global_goal_msg, uav_global_goal_, global_goal_tf);
 
     double roll, pitch, yaw;
     tf2::Quaternion tf_quat;
@@ -201,7 +211,9 @@ void UAVServer::subLocalGoal(const geometry_msgs::PoseStamped::ConstPtr& local_g
   }
   
   try{
-    tf_buffer_.transform(*local_goal_msg, uav_local_goal_, uav_world_frame_);
+    //tf_buffer_.transform(*local_goal_msg, uav_local_goal_, uav_world_frame_, ros::Time(0), uav_world_frame_);
+    geometry_msgs::TransformStamped local_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, local_goal_msg->header.frame_id, ros::Time(0));
+    tf2::doTransform(*local_goal_msg, uav_local_goal_, local_goal_tf);
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("UAVServer: subLocalGoal: %s",ex.what());
@@ -222,7 +234,9 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg) {
   pose_msg.pose = odometry_msg->pose.pose;
   try{
     // Transform pose information contained in odom message to world frame and store
-    tf_buffer_.transform(pose_msg, uav_pose_, uav_world_frame_);
+    //tf_buffer_.transform(pose_msg, uav_pose_, uav_world_frame_);
+    geometry_msgs::TransformStamped odometry_tf = tf_buffer_.lookupTransform(uav_world_frame_, odometry_msg->header.frame_id, ros::Time(0));
+    tf2::doTransform(pose_msg, uav_pose_, odometry_tf);
 
     // Store orientation in pose also as roll, pitch and yaw
     uav_rpy_.header = pose_msg.header;
@@ -265,7 +279,6 @@ void UAVServer::getParams(ros::NodeHandle np) {
   np.param<double>("uav_start_x", uav_start_x_, 0.0);
   np.param<double>("uav_start_y", uav_start_y_, 0.0);
   np.param<double>("uav_takeoff_z", uav_takeoff_z_, 2.0);
-  np.param<double>("uav_takeoff_z", uav_takeoff_z_, 2.0);
   np.param<double>("uav_camera_width", uav_camera_width_, 6.0);
   np.param<double>("uav_camera_height", uav_camera_height_, 3.0);
   np.param<double>("uav_camera_hfov", uav_camera_hfov_, 1.02974);
@@ -277,7 +290,7 @@ void UAVServer::getParams(ros::NodeHandle np) {
   np.param<double>("planner_max_ray_distance", planner_max_ray_distance_, 3.0);
   np.param<double>("planner_max_neighbor_distance", planner_max_neighbor_distance_, planner_max_ray_distance_);
   np.param<double>("planner_max_neighbor_yaw", planner_max_neighbor_yaw_, angles::from_degrees(90.0));
-  np.param<bool>("planner_unmapped_is_collision", planner_unmapped_is_collision_, false);
+  np.param<bool>("planner_unmapped_is_collision", planner_unmapped_is_collision_, true);
 }
 
 void UAVServer::takeoff() {
