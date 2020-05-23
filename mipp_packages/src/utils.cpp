@@ -33,6 +33,23 @@ geometry_msgs::Point castRay(geometry_msgs::Point const origin, geometry_msgs::V
   return ray_endpoint;
 }
 
+double getClosestYaw(double from_yaw, double to_yaw, double max_yaw_delta)
+{
+  double max_yaw = from_yaw + max_yaw_delta;
+  double min_yaw = from_yaw - max_yaw_delta;
+  double yaw_distance_to_node = angles::shortest_angular_distance(from_yaw, to_yaw);
+  double new_yaw = from_yaw + yaw_distance_to_node;
+  if (new_yaw < min_yaw) {
+    new_yaw = min_yaw;
+  }
+  else if (new_yaw > max_yaw) {
+    new_yaw = max_yaw;
+  }
+  ROS_DEBUG("Utils: Previous yaw: %f, Goal yaw: %f, New yaw: %f", angles::to_degrees(from_yaw), angles::to_degrees(to_yaw), angles::to_degrees(new_yaw));
+  ROS_DEBUG("Utils: Distance: %f, Limits: [%f, %f]", angles::to_degrees(yaw_distance_to_node), angles::to_degrees(min_yaw), angles::to_degrees(max_yaw));
+  return angles::normalize_angle(new_yaw);
+}
+
 geometry_msgs::Vector3 getDirection(geometry_msgs::Point const from_point, geometry_msgs::Point const to_point)
 {
   geometry_msgs::Vector3 direction;

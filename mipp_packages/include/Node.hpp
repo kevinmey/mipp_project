@@ -14,6 +14,7 @@ public:
   double yaw_;
   double cost_;
   double gain_;
+  double gain_indiv_;;
   int id_;
   int rank_;
   bool is_goal_;
@@ -25,6 +26,7 @@ public:
     this->yaw_ = yaw;
     this->cost_ = cost;
     this->gain_ = gain;
+    this->gain_indiv_ = gain;
     this->id_ = id;
     this->parent_ = parent;
     this->rank_ = rank;
@@ -39,6 +41,7 @@ public:
     this->yaw_ = p.yaw_;
     this->cost_ = p.cost_;
     this->gain_ = p.gain_;
+    this->gain_indiv_ = p.gain_indiv_;
     this->id_ = p.id_;
     this->parent_ = p.parent_;
     this->rank_ = p.rank_;
