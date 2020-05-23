@@ -44,6 +44,7 @@ public:
   *  Callback functions for subscriptions
   */
 
+  void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   void subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg);
   
   /**
@@ -94,6 +95,7 @@ public:
   geometry_msgs::Point generateRandomPoint();
   void extendTreeRRTstar(geometry_msgs::Point candidate_point, double candidate_yaw);
   bool isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b);
+  bool isGoalReached();
 
   geometry_msgs::PoseStamped makePoseStampedFromNode(Node node);
   geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy);
@@ -111,12 +113,14 @@ private:
   // Publishers    
   ros::Timer pub_timer_mavros_setpoint_;
   ros::Publisher pub_mavros_setpoint_;
+  ros::Publisher pub_global_goal_;
   ros::Publisher pub_viz_uav_fov_;
   ros::Publisher pub_viz_fov_;
   ros::Publisher pub_viz_information_points_;
   ros::Publisher pub_viz_tree_;
   ros::Publisher pub_viz_path_;
   // Subscribers
+  ros::Subscriber sub_clicked_point_;
   ros::Subscriber sub_clicked_pose_;
   ros::Subscriber sub_global_goal_;
   ros::Subscriber sub_local_goal_;
@@ -138,6 +142,8 @@ private:
   std::string uav_world_frame_;
   std::string uav_local_frame_;
   std::string uav_body_frame_;
+  double uav_start_x_;
+  double uav_start_y_;
   double uav_takeoff_z_;
   double uav_camera_width_;
   double uav_camera_height_;
@@ -157,9 +163,12 @@ private:
   //   Planner
   bool uav_takeoff_complete_;
   bool uav_clearing_rotation_complete_;
+  bool uav_running_exploration_;
   geometry_msgs::PoseStamped uav_global_goal_;
+  double uav_global_goal_yaw_;
   geometry_msgs::PoseStamped uav_local_goal_;
-  float uav_global_goal_dist_;
+  float uav_global_goal_euc_dist_;
+  float uav_global_goal_yaw_dist_;
   Node root_;
   std::list<Node> tree_;
   std::list<geometry_msgs::PoseStamped> path_;
@@ -172,6 +181,4 @@ private:
   std::vector<tf2::Vector3> uav_camera_rays_;
   std::vector<tf2::Vector3> uav_camera_corner_rays_;
   std::vector<std::pair<double, geometry_msgs::Point>> uav_camera_information_points_;
-
-  double test_yaw;
 };

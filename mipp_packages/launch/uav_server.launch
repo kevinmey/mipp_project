@@ -4,6 +4,8 @@
         Otherwise the loaded file's resolution is used. -->
   <arg name="uav_id"          default="0"/>
   <arg name="uav_name"        default="uav$(arg uav_id)"/>
+  <arg name="uav_start_x"     default="0.0"/>
+  <arg name="uav_start_y"     default="0.0"/>
   <arg name="uav_takeoff_z"   default="2.0"/>
 
   <node pkg="mipp_packages" type="uav_server_node" name="uav_server_node" output="screen">

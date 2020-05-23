@@ -8,24 +8,29 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
 
   // Initialize values
   getParams(np);
+  uav_local_goal_.pose.position.x = uav_start_x_;
+  uav_local_goal_.pose.position.y = uav_start_y_;
   uav_local_goal_.pose.position.z = uav_takeoff_z_;
   uav_local_goal_.pose.orientation.w = 1.0;
   uav_global_goal_ = uav_local_goal_;
+  uav_running_exploration_ = false;
   // Establish publish timers and publishers
   pub_timer_mavros_setpoint_  = n.createTimer(ros::Duration(0.1), boost::bind(&UAVServer::pubMavrosSetpoint, this));
   pub_mavros_setpoint_        = n.advertise<geometry_msgs::PoseStamped>("uav_server/mavros_setpoint", 10);
+  pub_global_goal_            = n.advertise<geometry_msgs::PoseStamped>("uav_server/global_goal", 10);
   pub_viz_uav_fov_            = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav_fov", 1);
   pub_viz_fov_                = n.advertise<visualization_msgs::Marker>("uav_server/viz_fov", 1);
   pub_viz_information_points_ = n.advertise<visualization_msgs::Marker>("uav_server/viz_information_points", 1);
   pub_viz_tree_               = n.advertise<visualization_msgs::Marker>("uav_server/viz_tree", 1);
   pub_viz_path_               = n.advertise<visualization_msgs::Marker>("uav_server/viz_path", 1);
   // Establish subscriptions
-  sub_clicked_pose_ =   n.subscribe("/move_base_simple/goal", 1, &UAVServer::subClickedPose, this);
-  sub_global_goal_ =    n.subscribe("uav_server/global_goal", 1, &UAVServer::subGlobalGoal, this);
-  sub_local_goal_ =     n.subscribe("uav_server/local_goal", 1, &UAVServer::subLocalGoal, this);
-  sub_mavros_state_ =   n.subscribe("uav_server/mavros_state", 1, &UAVServer::subMavrosState, this);
-  sub_odometry_ =       n.subscribe("uav_server/ground_truth_uav", 1, &UAVServer::subOdometry, this);
-  sub_octomap_ =        n.subscribe("/octomap_binary", 1, &UAVServer::subOctomap, this);
+  sub_clicked_point_  = n.subscribe("/clicked_point", 1, &UAVServer::subClickedPoint, this);
+  sub_clicked_pose_   = n.subscribe("/yeet", 1, &UAVServer::subClickedPose, this);
+  sub_global_goal_    = n.subscribe("uav_server/global_goal", 1, &UAVServer::subGlobalGoal, this);
+  sub_local_goal_     = n.subscribe("uav_server/local_goal", 1, &UAVServer::subLocalGoal, this);
+  sub_mavros_state_   = n.subscribe("uav_server/mavros_state", 1, &UAVServer::subMavrosState, this);
+  sub_odometry_       = n.subscribe("uav_server/ground_truth_uav", 1, &UAVServer::subOdometry, this);
+  sub_octomap_        = n.subscribe("/octomap_binary", 1, &UAVServer::subOctomap, this);
   // Establish service clients
   cli_arm_ =      n.serviceClient<mavros_msgs::CommandBool>("uav_server/arm");
   cli_set_mode_ = n.serviceClient<mavros_msgs::SetMode>("uav_server/set_mode");
@@ -55,7 +60,6 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   }
   ROS_DEBUG("UAVServer: Camera rays has %d rays", (int)uav_camera_rays_.size());
 
-  test_yaw = 0.0;
   // Init.
   takeoff();
 
@@ -99,7 +103,7 @@ void UAVServer::pubMavrosSetpoint()
   try{
     geometry_msgs::PoseStamped mavros_setpoint;
     tf_buffer_.transform(uav_local_goal_, mavros_setpoint, uav_local_frame_);
-    if(uav_global_goal_dist_ < 1.0){
+    if(uav_global_goal_euc_dist_ < 1.0){
       mavros_setpoint.pose.orientation = uav_global_goal_.pose.orientation;
     }
     pub_mavros_setpoint_.publish(mavros_setpoint);
@@ -114,8 +118,33 @@ void UAVServer::pubMavrosSetpoint()
 *  Callback functions for subscriptions
 */
 
-void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg)
-{
+void UAVServer::subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg) {
+  ROS_INFO("UAVServer: subClickedPoint");
+  
+  if (uav_running_exploration_) { 
+    ROS_INFO("UAVServer: Stopping exploration.");
+    uav_running_exploration_ = false;
+  }
+  else { 
+    ROS_INFO("UAVServer: Starting exploration.");
+    uav_running_exploration_ = true;
+      runExploration();
+      pub_global_goal_.publish(uav_global_goal_);
+  }
+
+  ros::Rate wait_rate(20.0);
+  while (uav_running_exploration_) {
+    if (isGoalReached()) {
+      runExploration();
+      pub_global_goal_.publish(uav_global_goal_);
+    }
+
+    ros::spinOnce();
+    wait_rate.sleep();
+  }
+}
+
+void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg) {
   ROS_INFO("UAVServer: subClickedPose");
 
   geometry_msgs::Point clicked_pose;
@@ -133,14 +162,9 @@ void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked
   visualizeFOV(clicked_pose, rpy_vector);
   calculateInformationGain(clicked_pose, rpy_vector);
 
-  test_yaw = getClosestYaw(test_yaw, rpy_vector.z, planner_max_neighbor_yaw_);
-
-  runExploration();
-  ROS_INFO("Exploration done");
 }
 
-void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global_goal_msg)
-{ 
+void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global_goal_msg) { 
   ROS_DEBUG("UAVServer: subGlobalGoal");
   // Block if UAV still initializing (taking off)
   if(!uav_takeoff_complete_ or !uav_clearing_rotation_complete_)
@@ -160,6 +184,7 @@ void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global
               uav_global_goal_.pose.position.y,
               uav_global_goal_.pose.position.z,
               yaw);  
+    uav_global_goal_yaw_ = yaw;
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
@@ -167,8 +192,7 @@ void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global
   }
 }
 
-void UAVServer::subLocalGoal(const geometry_msgs::PoseStamped::ConstPtr& local_goal_msg)
-{ 
+void UAVServer::subLocalGoal(const geometry_msgs::PoseStamped::ConstPtr& local_goal_msg) { 
   ROS_DEBUG("UAVServer: subLocalGoal");
   // Block if UAV still initializing (taking off)
   if(!uav_takeoff_complete_ or !uav_clearing_rotation_complete_)
@@ -185,14 +209,12 @@ void UAVServer::subLocalGoal(const geometry_msgs::PoseStamped::ConstPtr& local_g
   }
 }
 
-void UAVServer::subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_msg)
-{ 
+void UAVServer::subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_msg) { 
   ROS_DEBUG("UAVServer: subMavrosState");
   uav_state_ = *mavros_state_msg;
 }
 
-void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg)
-{ 
+void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg) { 
   ROS_DEBUG("UAVServer: subOdometry");
   // Only need pose information (twist/velocities not needed)
   geometry_msgs::PoseStamped pose_msg;
@@ -209,10 +231,6 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg)
     tf2::Matrix3x3(tf_quat).getRPY(uav_rpy_.vector.x, 
                                    uav_rpy_.vector.y, 
                                    uav_rpy_.vector.z);
-
-    // Calculate distance to global goal in 2D
-    uav_global_goal_dist_ = sqrt( pow(uav_global_goal_.pose.position.x - uav_pose_.pose.position.x, 2.0 ) +
-                                  pow(uav_global_goal_.pose.position.y - uav_pose_.pose.position.y, 2.0 ) );
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("UAVServer: subOdometry: %s",ex.what());
@@ -222,8 +240,7 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg)
   visualizeUAVFOV();
 }
 
-void UAVServer::subOctomap(const octomap_msgs::Octomap& octomap_msg)
-{
+void UAVServer::subOctomap(const octomap_msgs::Octomap& octomap_msg) {
   ROS_DEBUG("UAVServer: subOctomap");
   octomap::AbstractOcTree* abstract_map = octomap_msgs::binaryMsgToMap(octomap_msg);
   if(abstract_map)
@@ -239,13 +256,15 @@ void UAVServer::subOctomap(const octomap_msgs::Octomap& octomap_msg)
 
 // Utility functions
 
-void UAVServer::getParams(ros::NodeHandle np)
-{
+void UAVServer::getParams(ros::NodeHandle np) {
   ROS_DEBUG("UAVServer: getParams");
   np.param<int>("uav_id", uav_id_, 0);
   np.param<std::string>("uav_world_frame", uav_world_frame_, "world");
   np.param<std::string>("uav_local_frame", uav_local_frame_, "odom_uav"+std::to_string(uav_id_));
   np.param<std::string>("uav_body_frame", uav_body_frame_, "base_link_uav"+std::to_string(uav_id_));
+  np.param<double>("uav_start_x", uav_start_x_, 0.0);
+  np.param<double>("uav_start_y", uav_start_y_, 0.0);
+  np.param<double>("uav_takeoff_z", uav_takeoff_z_, 2.0);
   np.param<double>("uav_takeoff_z", uav_takeoff_z_, 2.0);
   np.param<double>("uav_camera_width", uav_camera_width_, 6.0);
   np.param<double>("uav_camera_height", uav_camera_height_, 3.0);
@@ -261,8 +280,7 @@ void UAVServer::getParams(ros::NodeHandle np)
   np.param<bool>("planner_unmapped_is_collision", planner_unmapped_is_collision_, false);
 }
 
-void UAVServer::takeoff()
-{
+void UAVServer::takeoff() {
   ROS_DEBUG("UAVServer: takeoff");
 
   ros::Rate rate(20.0);
@@ -348,8 +366,7 @@ void UAVServer::takeoff()
 *  Exploration functions
 */
 
-void UAVServer::runExploration()
-{
+void UAVServer::runExploration() {
   ROS_DEBUG("UAVServer: planPathToGoal");
   // If map not initialized or in use by others, wait
   ros::Rate wait_rate(5.0);
@@ -365,6 +382,13 @@ void UAVServer::runExploration()
   double start_x = uav_pose_.pose.position.x;
   double start_y = uav_pose_.pose.position.y;
   double start_z = uav_pose_.pose.position.z;
+
+  bool root_from_global_goal = true;
+  if (root_from_global_goal) {
+    start_x = uav_global_goal_.pose.position.x;
+    start_y = uav_global_goal_.pose.position.y;
+    start_z = uav_global_goal_.pose.position.z;
+  }
   const double start_yaw = tf2::getYaw(uav_pose_.pose.orientation);
   root_ = Node(start_x, start_y, start_z, start_yaw, 0.0, 0.0, 0, nullptr, false);
   tree_.push_back(root_);
@@ -447,6 +471,14 @@ void UAVServer::runExploration()
   while (node_on_path.getParent() != nullptr) {
     path_.push_front(makePoseStampedFromNode(node_on_path));
     ROS_INFO("Node: %d", (int)node_on_path.id_);
+
+    if (node_on_path.getParent()->id_ == 0) {
+      uav_global_goal_.header.frame_id = uav_world_frame_;
+      uav_global_goal_.header.stamp = ros::Time::now();
+      uav_global_goal_.pose.position = node_on_path.position_;
+      uav_global_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, node_on_path.yaw_);
+      break;
+    }
     node_on_path = *(node_on_path.getParent());
   }
   ROS_INFO("Done");
@@ -454,8 +486,7 @@ void UAVServer::runExploration()
   visualizePathFOVs(1.0);
 }
 
-double UAVServer::calculateInformationGain(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy)
-{
+double UAVServer::calculateInformationGain(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy) {
   ROS_DEBUG("UAVServer: calculateInformationGain");
   uav_camera_information_points_.clear();
 
@@ -509,8 +540,7 @@ double UAVServer::calculateInformationGain(geometry_msgs::Point origin, geometry
   return unmapped;
 }
 
-double UAVServer::calculateInformationGain(geometry_msgs::Point origin, double yaw)
-{
+double UAVServer::calculateInformationGain(geometry_msgs::Point origin, double yaw) {
   ROS_DEBUG("UAVServer: calculateInformationGain");
   uav_camera_information_points_.clear();
 
@@ -571,8 +601,7 @@ geometry_msgs::Point UAVServer::generateRandomPoint()
   return sample_point;
 }
 
-void UAVServer::extendTreeRRTstar(geometry_msgs::Point candidate_point, double candidate_yaw)
-{
+void UAVServer::extendTreeRRTstar(geometry_msgs::Point candidate_point, double candidate_yaw) {
   ROS_DEBUG("UAVServer: extendTreeRRTstar");
 
   // Make a neighbor list of nodes close enough to the candidate point
@@ -614,7 +643,7 @@ void UAVServer::extendTreeRRTstar(geometry_msgs::Point candidate_point, double c
     {
       int node_id = tree_.size();
       double node_cost = neighbor_itr->second->cost_ + getDistanceBetweenPoints(candidate_point, neighbor_itr->second->position_);
-      double node_gain_indiv = calculateInformationGain(candidate_point, candidate_yaw);
+      double node_gain_indiv = calculateInformationGain(candidate_point, candidate_yaw)/(double)node_rank;
       double node_gain = neighbor_itr->second->gain_ + node_gain_indiv;
       Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, candidate_yaw, node_cost, node_gain, node_id, neighbor_itr->second, node_rank, false);
       new_node.gain_indiv_ = node_gain_indiv;
@@ -679,18 +708,50 @@ bool UAVServer::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs:
     double om_ray_distance = std::min(distance, planner_max_ray_distance_);
     bool hit_occupied_to = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, om_ray_distance);
     bool hit_occupied_from = map_->castRay(om_ray_end, om_ray_return_direction, om_ray_return_cell, false, om_ray_distance);
-
-    // Return whether there was a collision or not
-    return !(hit_occupied_to or hit_occupied_from);
+    if (hit_occupied_to or hit_occupied_from) {
+      return false;
+    }
   }
+
+  tf2::Matrix3x3 ray_rot_mat;
+  tf2::Vector3 unit_ray_direction(1.0, 0.0, 0.0);
+
+  double uav_radius = 0.75;
+  int degrees_to_check = 360;
+  while (degrees_to_check > 0) {
+    double ray_yaw = angles::from_degrees(degrees_to_check);
+    ray_rot_mat.setEulerYPR(ray_yaw, 0.0, 0.0);
+    tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
+    om_ray_direction = octomap::point3d(ray_direction.x(), ray_direction.y(), ray_direction.z());
+    bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, uav_radius);
+    if (hit_occupied) {
+      return false;
+    }
+    degrees_to_check -= 45;
+  }
+
+  // Return whether there was a collision or not
+  return true;
+}
+
+bool UAVServer::isGoalReached() {
+
+  // Calculate distance to global goal in 2D
+  uav_global_goal_euc_dist_ = sqrt( pow(uav_global_goal_.pose.position.x - uav_pose_.pose.position.x, 2.0 ) +
+                                    pow(uav_global_goal_.pose.position.y - uav_pose_.pose.position.y, 2.0 ) );
+
+  // Calculate yaw distance to global goal yaw
+  uav_global_goal_yaw_dist_ = abs(angles::shortest_angular_distance(uav_rpy_.vector.z, uav_global_goal_yaw_));
+
+  ROS_DEBUG("Goal dist (euc, yaw) = (%.2f, %.2f)", uav_global_goal_euc_dist_, uav_global_goal_yaw_dist_);
+  return (uav_global_goal_euc_dist_ < 0.5) and (uav_global_goal_yaw_dist_ < 0.2);
 }
 
 /* 
 *  Utility functions
 */
 
-geometry_msgs::PoseStamped UAVServer::makePoseStampedFromNode(Node node)
-{
+geometry_msgs::PoseStamped UAVServer::makePoseStampedFromNode(Node node) {
   ROS_DEBUG("UAVServer: makePoseStampedFromNode");
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = uav_world_frame_;
@@ -705,8 +766,7 @@ geometry_msgs::PoseStamped UAVServer::makePoseStampedFromNode(Node node)
   return pose;
 }
 
-geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(geometry_msgs::Vector3 rpy)
-{
+geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(geometry_msgs::Vector3 rpy) {
   ROS_DEBUG("UAVServer: makeQuatFromRPY");
   tf2::Quaternion tf_quat;
   tf_quat.setRPY(rpy.x, rpy.y, rpy.z);
@@ -718,8 +778,7 @@ geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(geometry_msgs::Vector3 rpy)
   return quat;
 }
 
-geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(double r, double p, double y)
-{
+geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(double r, double p, double y) {
   ROS_DEBUG("UAVServer: makeQuatFromRPY");
   tf2::Quaternion tf_quat;
   tf_quat.setRPY(r, p, y);
@@ -731,8 +790,7 @@ geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(double r, double p, double 
   return quat;
 }
 
-geometry_msgs::Vector3 UAVServer::makeRPYFromQuat(geometry_msgs::Quaternion quat)
-{
+geometry_msgs::Vector3 UAVServer::makeRPYFromQuat(geometry_msgs::Quaternion quat) {
   ROS_DEBUG("UAVServer: makeRPYFromQuat");
   tf2::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);
   geometry_msgs::Vector3 rpy;
@@ -746,8 +804,7 @@ geometry_msgs::Vector3 UAVServer::makeRPYFromQuat(geometry_msgs::Quaternion quat
 *  Visualization functions
 */
 
-void UAVServer::visualizeUAVFOV()
-{
+void UAVServer::visualizeUAVFOV() {
   ROS_DEBUG("UAVServer: visualizeFOV");
   visualization_msgs::Marker fov_marker;
   fov_marker.header.frame_id = uav_world_frame_;
@@ -801,8 +858,7 @@ void UAVServer::visualizeUAVFOV()
   pub_viz_uav_fov_.publish(fov_marker);
 }
 
-void UAVServer::visualizeFOV(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy)
-{
+void UAVServer::visualizeFOV(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy) {
   ROS_DEBUG("UAVServer: visualizeFOV");
   visualization_msgs::Marker fov_marker;
   fov_marker.header.frame_id = uav_world_frame_;
@@ -855,8 +911,7 @@ void UAVServer::visualizeFOV(geometry_msgs::Point origin, geometry_msgs::Vector3
   pub_viz_fov_.publish(fov_marker);
 }
 
-void UAVServer::visualizeInformationPoints()
-{
+void UAVServer::visualizeInformationPoints() {
   ROS_DEBUG("UAVServer: visualizeInformationPoints");
   visualization_msgs::Marker information_marker;
   information_marker.header.frame_id = uav_world_frame_;
@@ -880,8 +935,7 @@ void UAVServer::visualizeInformationPoints()
   pub_viz_information_points_.publish(information_marker);
 }
 
-void UAVServer::visualizeTree()
-{
+void UAVServer::visualizeTree() {
   ROS_DEBUG("UAVServer: visualizeTree");
   visualization_msgs::Marker tree_marker;
   tree_marker.header.frame_id = uav_world_frame_;
@@ -906,8 +960,7 @@ void UAVServer::visualizeTree()
   pub_viz_tree_.publish(tree_marker);
 }
 
-void UAVServer::visualizePath()
-{
+void UAVServer::visualizePath() {
   ROS_DEBUG("UAVServer: visualizePath");
   if(path_.empty()){
     return;
@@ -936,8 +989,7 @@ void UAVServer::visualizePath()
   pub_viz_path_.publish(path_marker);
 }
 
-void UAVServer::visualizePathFOVs(double ray_length)
-{
+void UAVServer::visualizePathFOVs(double ray_length) {
   ROS_DEBUG("UAVServer: visualizePathFOVs");
 
   visualization_msgs::Marker fov_marker;
