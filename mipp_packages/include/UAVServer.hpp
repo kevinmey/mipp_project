@@ -105,6 +105,7 @@ public:
   void visualizeInformationPoints();
   void visualizeTree();
   void visualizePath();
+  void visualizePathFOVs(double ray_length);
   
 private:
   // Publishers    

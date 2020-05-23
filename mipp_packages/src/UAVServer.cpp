@@ -445,12 +445,13 @@ void UAVServer::runExploration()
 
   Node node_on_path = exploration_nodes_.rbegin()->second;
   while (node_on_path.getParent() != nullptr) {
-    //path_.push_front(makePoseStampedFromNode(node_on_path));
+    path_.push_front(makePoseStampedFromNode(node_on_path));
     ROS_INFO("Node: %d", (int)node_on_path.id_);
     node_on_path = *(node_on_path.getParent());
   }
   ROS_INFO("Done");
   visualizePath();
+  visualizePathFOVs(1.0);
 }
 
 double UAVServer::calculateInformationGain(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy)
@@ -622,7 +623,7 @@ void UAVServer::extendTreeRRTstar(geometry_msgs::Point candidate_point, double c
       ROS_DEBUG("UAVServer: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       ROS_DEBUG("UAVServer: Gain indiv: %f, Gain combined: %f", node_gain_indiv, node_gain);
 
-      exploration_nodes_.insert(std::pair<double, Node>(node_gain-node_cost, new_node));
+      exploration_nodes_.insert(std::pair<double, Node>(node_gain+node_cost, new_node));
       
       break;
     }
@@ -907,7 +908,7 @@ void UAVServer::visualizeTree()
 
 void UAVServer::visualizePath()
 {
-  ROS_DEBUG("UAVServer: visualizePathToGoal");
+  ROS_DEBUG("UAVServer: visualizePath");
   if(path_.empty()){
     return;
   }
@@ -933,4 +934,62 @@ void UAVServer::visualizePath()
   path_marker.points.pop_back();
   
   pub_viz_path_.publish(path_marker);
+}
+
+void UAVServer::visualizePathFOVs(double ray_length)
+{
+  ROS_DEBUG("UAVServer: visualizePathFOVs");
+
+  visualization_msgs::Marker fov_marker;
+  fov_marker.header.frame_id = uav_world_frame_;
+  fov_marker.header.stamp = ros::Time::now();
+  fov_marker.id = 0;
+  fov_marker.type = visualization_msgs::Marker::LINE_LIST;
+  fov_marker.action = visualization_msgs::Marker::ADD;
+  fov_marker.pose.orientation.w = 1.0;
+  fov_marker.scale.x = 0.05;
+  fov_marker.color.a = 0.5;
+  fov_marker.color.r = 0.2;
+  fov_marker.color.g = 0.2;
+  fov_marker.color.b = 1.0;
+  bool show_all_rays = false;
+  tf2::Matrix3x3 ray_direction_rotmat;
+  for (auto const& path_pose : path_) {
+    geometry_msgs::Vector3 rpy_vector = makeRPYFromQuat(path_pose.pose.orientation);
+    geometry_msgs::Point origin = path_pose.pose.position;
+    ray_direction_rotmat.setEulerYPR(rpy_vector.z, rpy_vector.y, rpy_vector.x);
+    if (show_all_rays) {
+      for(tf2::Vector3 ray : uav_camera_rays_) {
+        fov_marker.points.push_back(origin);
+        tf2::Vector3 ray_direction = ray_direction_rotmat*ray*ray_length;
+        geometry_msgs::Point ray_endpoint;
+        ray_endpoint.x = origin.x + ray_direction.getX();
+        ray_endpoint.y = origin.y + ray_direction.getY();
+        ray_endpoint.z = origin.z + ray_direction.getZ();
+        fov_marker.points.push_back(ray_endpoint);
+      }
+    }
+    else {
+      std::vector<geometry_msgs::Point> ray_endpoints;
+      for(tf2::Vector3 ray : uav_camera_corner_rays_) {
+        fov_marker.points.push_back(origin);
+        tf2::Vector3 ray_direction = ray_direction_rotmat*ray*ray_length;
+        geometry_msgs::Point ray_endpoint;
+        ray_endpoint.x = origin.x + ray_direction.getX();
+        ray_endpoint.y = origin.y + ray_direction.getY();
+        ray_endpoint.z = origin.z + ray_direction.getZ();
+        fov_marker.points.push_back(ray_endpoint);
+        ray_endpoints.push_back(ray_endpoint);
+      }
+      fov_marker.points.push_back(ray_endpoints[0]);
+      fov_marker.points.push_back(ray_endpoints[1]);
+      fov_marker.points.push_back(ray_endpoints[1]);
+      fov_marker.points.push_back(ray_endpoints[3]);
+      fov_marker.points.push_back(ray_endpoints[3]);
+      fov_marker.points.push_back(ray_endpoints[2]);
+      fov_marker.points.push_back(ray_endpoints[2]);
+      fov_marker.points.push_back(ray_endpoints[0]);
+    }
+  }
+  pub_viz_fov_.publish(fov_marker);
 }
