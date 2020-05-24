@@ -9,8 +9,8 @@
             <topicName>gazebo/ground_truth_ugv</topicName>
             <gaussianNoise>0.01</gaussianNoise>
             <frameName>world</frameName>
-            <xyzOffsets>0 0 0</xyzOffsets>
-            <rpyOffsets>0 0 0</rpyOffsets>
+            <xyzOffset>0 0 -0.1</xyzOffset>
+            <rpyOffset>0 0 0</rpyOffset>
         </plugin>
     </gazebo>
     
@@ -19,7 +19,7 @@
         <origin xyz="0 0 0.51" rpy="0 0 0"/>
     </xacro:sensor_arch>
     <xacro:include filename="$(find velodyne_description)/urdf/VLP-16.urdf.xacro"/>
-    <VLP-16 parent="sensor_arch_mount_link" name="velodyne" topic="gazebo/velodyne_points" hz="5" samples="440">
+    <VLP-16 parent="sensor_arch_mount_link" name="velodyne" topic="gazebo/velodyne_points" hz="2" samples="100">
         <origin xyz="0 0 0" rpy="0 0 0" />
     </VLP-16>
 </robot>
