@@ -357,12 +357,12 @@ void UAVServer::takeoff() {
   ROS_INFO("UAVServer: Vehicle takeoff procedure complete");
 
   ROS_INFO("UAVServer: Performing clearing rotation");
-  std::array<double,5> clearing_rotations = {0.0, 90.0, 180.0, 270.0, 360.0};
   uav_local_goal_.pose.position.x = 0.0;
   uav_local_goal_.pose.position.y = 0.0;
   uav_local_goal_.pose.position.z = uav_takeoff_z_;
-  for (int i = 0; i < clearing_rotations.size(); i++) {
-    double clearing_rotation = angles::from_degrees(clearing_rotations[i]);
+  double clearing_rotation_angle = 0.0;
+  while (clearing_rotation_angle < 360.0) {
+    double clearing_rotation = angles::from_degrees(clearing_rotation_angle);
     double angle_threshold = angles::from_degrees(10.0);
     uav_local_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, clearing_rotation);
     while (angles::shortest_angular_distance(uav_rpy_.vector.z, clearing_rotation) > angle_threshold) {
@@ -370,6 +370,8 @@ void UAVServer::takeoff() {
       ros::spinOnce();
       rate.sleep();
     }
+    clearing_rotation_angle += 30;
+    ros::Duration(0.5).sleep();
   }
   ROS_INFO("UAVServer: Clearing rotations complete");
   uav_clearing_rotation_complete_ = true;
