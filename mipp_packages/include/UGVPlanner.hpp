@@ -126,6 +126,7 @@ private:
   std::vector<geometry_msgs::Point> collision_points_;
   // Parameters
   std::string planner_world_frame_;
+  std::string robot_namespace_;
   double goal_sample_probability_;
   double goal_radius_;
   double ugv_midpoint_z_;

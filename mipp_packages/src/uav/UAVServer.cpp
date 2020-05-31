@@ -305,6 +305,8 @@ void UAVServer::takeoff() {
   }
   ROS_DEBUG("UAVServer: FCU connected");
 
+  ros::Duration(5.0).sleep();
+
   // Send a few setpoints before starting procedure
   for(int i = 50; ros::ok() && i > 0; --i){
     pub_mavros_setpoint_.publish(uav_local_goal_);

@@ -1,21 +1,24 @@
 <?xml version="1.0"?>
 <launch>
+  <arg name="robot_namespace"        default="/"/>
+  
+  <group ns="$(arg robot_namespace)">
+    <node pkg="mipp_packages" type="ugv_server_node" name="ugv_server_node" output="screen">
+      <!-- Parameters -->
+      <param name="planner_world_frame"       value="map"/>
+      <param name="x_range_min"               value="-10.0"/>
+      <param name="x_range_max"               value="10.0"/>
+      <param name="y_range_min"               value="-10.0"/>
+      <param name="y_range_max"               value="10.0"/>
+      <param name="planner_rate"              value="100.0"/>
+      <param name="planner_max_time"          value="2.0"/> 
+      <param name="max_ray_distance"          value="2.5"/>
 
-  <node pkg="mipp_packages" type="ugv_server_node" name="ugv_server_node" output="screen">
-    <!-- Parameters -->
-    <param name="planner_world_frame"       value="map"/>
-    <param name="x_range_min"               value="-10.0"/>
-    <param name="x_range_max"               value="10.0"/>
-    <param name="y_range_min"               value="-10.0"/>
-    <param name="y_range_max"               value="10.0"/>
-    <param name="planner_rate"              value="100.0"/>
-    <param name="planner_max_time"          value="2.0"/> 
-    <param name="max_ray_distance"          value="2.5"/>
-
-    <!-- Remap topics -->
-    <!-- Published topics -->
-    <!-- <remap from="rrt_planner/random_point" to="rrt_planner/random_point"/>-->
-  </node>
+      <!-- Remap topics -->
+      <!-- Published topics -->
+      <!-- <remap from="rrt_planner/random_point" to="rrt_planner/random_point"/>-->
+    </node>
+  </group>
 
 </launch>
 

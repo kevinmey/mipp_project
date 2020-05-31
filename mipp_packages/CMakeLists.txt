@@ -39,7 +39,7 @@ include_directories(
 
 add_library(
     common_libs
-    src/utils.cpp
+    src/common/utils.cpp
 )
 
 ### ###
@@ -50,9 +50,9 @@ add_library(
 
 add_executable(
     ugv_server_node
-    src/ugv_server_node.cpp
-    src/UGVServer.cpp
-    src/UGVServerVisualization.cpp
+    src/ugv/ugv_server_node.cpp
+    src/ugv/UGVServer.cpp
+    src/ugv/UGVServerVisualization.cpp
 )
 
 add_dependencies(
@@ -72,8 +72,8 @@ target_link_libraries(
 
 add_library(
     ugv_planner_lib
-    src/UGVPlanner.cpp
-    src/UGVPlannerVisualization.cpp
+    src/ugv/UGVPlanner.cpp
+    src/ugv/UGVPlannerVisualization.cpp
 )
 
 target_link_libraries(
@@ -90,8 +90,8 @@ target_link_libraries(
 
 add_executable(
     uav_server_node
-    src/uav_server_node.cpp
-    src/UAVServer.cpp
+    src/uav/uav_server_node.cpp
+    src/uav/UAVServer.cpp
 )
 
 add_dependencies(
@@ -114,9 +114,9 @@ target_link_libraries(
 
 add_executable(
     rrt_planner_node
-    src/rrt_planner_node.cpp
-    src/RRTPlanner.cpp
-    src/RRTPlannerVisualization.cpp
+    src/other/rrt_planner_node.cpp
+    src/other/RRTPlanner.cpp
+    src/other/RRTPlannerVisualization.cpp
 )
 
 add_dependencies(
@@ -135,7 +135,7 @@ target_link_libraries(
 
 add_executable(
     ground_truth_handler_node
-    src/ground_truth_handler_node.cpp
+    src/common/ground_truth_handler_node.cpp
 )
 
 add_dependencies(
@@ -154,7 +154,7 @@ target_link_libraries(
 
 add_executable(
     octomap_clearer_node
-    src/octomap_clearer_node.cpp
+    src/common/octomap_clearer_node.cpp
 )
 
 add_dependencies(

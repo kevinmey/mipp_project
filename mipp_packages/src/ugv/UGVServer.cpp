@@ -8,7 +8,7 @@ UGVServer::UGVServer(ros::NodeHandle n, ros::NodeHandle np)
 
   getParams(np);
 
-  pub_goal_ = n.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 1);
+  pub_goal_ = n.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 1);
   pub_viz_tree_ = n.advertise<visualization_msgs::Marker>("UGVServer/viz_tree", 1);
   pub_viz_root_node_ = n.advertise<visualization_msgs::MarkerArray>("UGVServer/viz_root_node", 1);
   pub_viz_frontier_nodes_ = n.advertise<visualization_msgs::Marker>("UGVServer/viz_frontier_nodes", 1);
@@ -24,9 +24,9 @@ UGVServer::UGVServer(ros::NodeHandle n, ros::NodeHandle np)
 
   map_initialized_ = false;
   sub_clicked_point_ = n.subscribe("/clicked_point", 1, &UGVServer::subClickedPoint, this);
-  sub_map_ = n.subscribe("/move_base/global_costmap/costmap", 1, &UGVServer::subMap, this);
-  sub_map_update_ = n.subscribe("/move_base/global_costmap/costmap_updates", 1, &UGVServer::subMapUpdate, this);
-  sub_odometry_ = n.subscribe("/odometry/filtered", 1, &UGVServer::subOdometry, this);
+  sub_map_ = n.subscribe("move_base/global_costmap/costmap", 1, &UGVServer::subMap, this);
+  sub_map_update_ = n.subscribe("move_base/global_costmap/costmap_updates", 1, &UGVServer::subMapUpdate, this);
+  sub_odometry_ = n.subscribe("odometry/filtered", 1, &UGVServer::subOdometry, this);
   ros::Rate wait_rate(1.0);
   while (!map_initialized_) {
     ros::spinOnce();

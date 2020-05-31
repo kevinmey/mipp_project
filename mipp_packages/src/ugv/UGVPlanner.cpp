@@ -48,13 +48,13 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
 
   getParams(np);
 
-  pub_viz_tree_ = n.advertise<visualization_msgs::Marker>("viz_tree", 1);
-  pub_viz_collision_tree_ = n.advertise<visualization_msgs::Marker>("viz_collision_tree", 1);
-  pub_viz_path_to_goal_ = n.advertise<visualization_msgs::Marker>("path_to_goal", 1);
-  pub_viz_root_node_ = n.advertise<visualization_msgs::MarkerArray>("root_node", 1);
-  pub_viz_goal_node_ = n.advertise<visualization_msgs::MarkerArray>("goal_node", 1);
-  pub_viz_subgoal_node_ = n.advertise<visualization_msgs::MarkerArray>("subgoal_node", 1);
-  pub_viz_frontier_nodes_ = n.advertise<visualization_msgs::Marker>("frontier_nodes", 1);
+  pub_viz_tree_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/viz_tree", 1);
+  pub_viz_collision_tree_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/viz_collision_tree", 1);
+  pub_viz_path_to_goal_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/path_to_goal", 1);
+  pub_viz_root_node_ = n.advertise<visualization_msgs::MarkerArray>(robot_namespace_+"/UGVPlanner/root_node", 1);
+  pub_viz_goal_node_ = n.advertise<visualization_msgs::MarkerArray>(robot_namespace_+"/UGVPlanner/goal_node", 1);
+  pub_viz_subgoal_node_ = n.advertise<visualization_msgs::MarkerArray>(robot_namespace_+"/UGVPlanner/subgoal_node", 1);
+  pub_viz_frontier_nodes_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/frontier_nodes", 1);
 
   sub_odometry_ = n.subscribe("/odometry/filtered", 1, &UGVPlanner::subOdometry, this);
 
@@ -490,6 +490,7 @@ void UGVPlanner::getParams(ros::NodeHandle np)
 {
   ROS_DEBUG("UGVPlanner: getParams");
   np.param<std::string>("planner_world_frame", planner_world_frame_, "world");
+  np.param<std::string>("robot_namespace", robot_namespace_, "/ugv");
   np.param<double>("goal_sample_probability", goal_sample_probability_, 0.1);
   np.param<double>("goal_radius", goal_radius_, 0.01);
   np.param<double>("ugv_midpoint_z", ugv_midpoint_z_, 0.35);
