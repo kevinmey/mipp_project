@@ -24,7 +24,6 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   received_map_ = false;
   sub_octomap_ = n.subscribe("octomap_binary", 1, &RRTPlanner::subOctomap, this);
 
-  for(planner_algorithm_ = 1; planner_algorithm_ < 4; planner_algorithm_++)
   {
 
   ros::Duration algorithm_time(0.0);

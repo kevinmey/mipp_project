@@ -168,3 +168,22 @@ target_link_libraries(
     common_libs
     ${catkin_LIBRARIES}
 )
+
+## communication_constraint_visualizer_node
+
+add_executable(
+    communication_constraint_visualizer_node
+    src/common/communication_constraint_visualizer_node.cpp
+)
+
+add_dependencies(
+    communication_constraint_visualizer_node 
+    ${communication_constraint_visualizer_node} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    communication_constraint_visualizer_node
+    common_libs
+    ${catkin_LIBRARIES}
+)
