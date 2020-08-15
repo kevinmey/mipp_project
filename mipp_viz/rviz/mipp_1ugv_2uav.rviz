@@ -5,9 +5,11 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /UGV1
         - /UGV1/Exploration1
+        - /UAV01
         - /UAV01/Communication constraint1
+        - /UAV01/Exploration1
+        - /UAV01/Mavros setpoint1
         - /Octomap1
       Splitter Ratio: 0.3964401185512543
     Tree Height: 874
@@ -30,7 +32,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: LaserScan
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -43,106 +45,11 @@ Visualization Manager:
       Collision Enabled: false
       Enabled: true
       Links:
-        /velodyne:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        /velodyne_base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
         All Links Enabled: true
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        base_footprint:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        base_laser:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        base_laser_mount:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        front_bumper_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        front_left_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        front_right_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        imu_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        inertial_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        rear_bumper_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        rear_left_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        rear_right_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        sensor_arch_mount_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        top_chassis_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        top_plate_front_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        top_plate_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        top_plate_rear_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        user_rail_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
       Name: RobotModel
       Robot Description: /ugv/robot_description
       TF Prefix: ""
@@ -458,198 +365,12 @@ Visualization Manager:
       Name: UGV
     - Class: rviz/Group
       Displays:
-        - Alpha: 1
-          Autocompute Intensity Bounds: false
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: Intensity
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Max Intensity: 20
-          Min Color: 0; 0; 0
-          Min Intensity: 0
-          Name: Local pointcloud
-          Position Transformer: XYZ
-          Queue Size: 10
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.10000000149011612
-          Style: Flat Squares
-          Topic: /uav0/local_planner_manager/local_pointcloud
-          Unreliable: false
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-        - Class: rviz/Image
-          Enabled: false
-          Image Topic: /uav0/camera/rgb/image_raw
-          Max Value: 1
-          Median window: 5
-          Min Value: 0
-          Name: Image
-          Normalize Range: true
-          Queue Size: 2
-          Transport Hint: raw
-          Unreliable: false
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/complete_tree
-          Name: Tree
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/tree_path
-          Name: TreePath
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/take_off_pose
-          Name: TakeOff
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/original_waypoint
-          Name: WpOriginal
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/adapted_waypoint
-          Name: WpAdapted
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/smoothed_waypoint
-          Name: WpSmoothed
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/current_setpoint
-          Name: currenSetpoint
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/closest_point
-          Name: Offtrack Closest Point
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/deg60_point
-          Name: Offtrack degrees 60 Point
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/fov
-          Name: FOV
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/range_scan
-          Name: RangeScan
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/MarkerArray
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/goal_position
-          Name: Goal
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/path_waypoint
-          Name: path_waypoint
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
-        - Class: rviz/Marker
-          Enabled: false
-          Marker Topic: /uav0/local_planner_manager/path_actual
-          Name: path_actual
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: false
         - Class: rviz/Marker
           Enabled: true
           Marker Topic: /uav0/local_planner_manager/drone
           Name: Drone
           Namespaces:
-            {}
-          Queue Size: 100
-          Value: true
-        - Class: rviz/Marker
-          Enabled: true
-          Marker Topic: /uav0/uav_server/viz_information_points
-          Name: Information Points
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: true
-        - Class: rviz/Marker
-          Enabled: true
-          Marker Topic: /uav0/uav_server/viz_tree
-          Name: Viz Tree
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: true
-        - Class: rviz/Marker
-          Enabled: true
-          Marker Topic: /uav0/uav_server/viz_path
-          Name: Viz Path
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: true
-        - Class: rviz/Marker
-          Enabled: true
-          Marker Topic: /uav0/uav_server/viz_fov
-          Name: Viz FOV
-          Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -657,8 +378,217 @@ Visualization Manager:
           Marker Topic: /uav0/viz_constraint
           Name: Communication constraint
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
+          Value: true
+        - Class: rviz/Group
+          Displays:
+            - Class: rviz/Image
+              Enabled: false
+              Image Topic: /uav0/camera/rgb/image_raw
+              Max Value: 1
+              Median window: 5
+              Min Value: 0
+              Name: Image
+              Normalize Range: true
+              Queue Size: 2
+              Transport Hint: raw
+              Unreliable: false
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/complete_tree
+              Name: Tree
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/tree_path
+              Name: TreePath
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/take_off_pose
+              Name: TakeOff
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/original_waypoint
+              Name: WpOriginal
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/adapted_waypoint
+              Name: WpAdapted
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/smoothed_waypoint
+              Name: WpSmoothed
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/current_setpoint
+              Name: currenSetpoint
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/closest_point
+              Name: Offtrack Closest Point
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/deg60_point
+              Name: Offtrack degrees 60 Point
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/fov
+              Name: FOV
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/range_scan
+              Name: RangeScan
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/MarkerArray
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/goal_position
+              Name: Goal
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/path_waypoint
+              Name: path_waypoint
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Class: rviz/Marker
+              Enabled: false
+              Marker Topic: /uav0/local_planner_manager/path_actual
+              Name: path_actual
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: false
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz/PointCloud2
+              Color: 255; 255; 255
+              Color Transformer: Intensity
+              Decay Time: 0
+              Enabled: false
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 20
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: Local pointcloud
+              Position Transformer: XYZ
+              Queue Size: 10
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic: /uav0/local_planner_manager/local_pointcloud
+              Unreliable: false
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: false
+          Enabled: true
+          Name: Avoidance
+        - Class: rviz/Group
+          Displays:
+            - Class: rviz/Marker
+              Enabled: true
+              Marker Topic: /uav0/uav_server/viz_information_points
+              Name: Information Points
+              Namespaces:
+                {}
+              Queue Size: 100
+              Value: true
+            - Class: rviz/Marker
+              Enabled: true
+              Marker Topic: /uav0/uav_server/viz_tree
+              Name: Viz Tree
+              Namespaces:
+                "": true
+              Queue Size: 100
+              Value: true
+            - Class: rviz/Marker
+              Enabled: true
+              Marker Topic: /uav0/uav_server/viz_path
+              Name: Viz Path
+              Namespaces:
+                "": true
+              Queue Size: 100
+              Value: true
+            - Class: rviz/Marker
+              Enabled: true
+              Marker Topic: /uav0/uav_server/viz_fov
+              Name: Viz FOV
+              Namespaces:
+                "": true
+              Queue Size: 100
+              Value: true
+          Enabled: true
+          Name: Exploration
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 0; 255; 0
+          Enabled: true
+          Head Length: 0.30000001192092896
+          Head Radius: 0.10000000149011612
+          Name: Mavros setpoint
+          Shaft Length: 0.5
+          Shaft Radius: 0.05000000074505806
+          Shape: Arrow
+          Topic: /uav0/mavros/setpoint_position/local
+          Unreliable: false
           Value: true
       Enabled: true
       Name: UAV0
@@ -955,25 +885,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 20.10321044921875
+      Distance: 14.439688682556152
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.5338916778564453
-        Y: -4.18739652633667
-        Z: 2.2852713300380856e-5
+        X: -1.089892864227295
+        Y: 3.0517988204956055
+        Z: 2.6667410566005856e-5
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9297975897789001
+      Pitch: 0.7697978019714355
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 5.1767425537109375
+      Yaw: 1.7154582738876343
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
