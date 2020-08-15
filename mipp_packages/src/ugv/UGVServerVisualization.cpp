@@ -19,8 +19,8 @@ void UGVServer::visualizeTree()
   tree_marker.type = visualization_msgs::Marker::LINE_LIST;
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
-  tree_marker.scale.x = 0.02;
-  tree_marker.color.a = 0.5;
+  tree_marker.scale.x = 0.03;
+  tree_marker.color.a = 0.8;
   tree_marker.color.r = 0.4;
   tree_marker.color.g = 0.4;
   tree_marker.color.b = 0.9;
@@ -69,10 +69,10 @@ void UGVServer::visualizeFrontierNodes(double red, double green, double blue)
   m.header.stamp = ros::Time::now();
   m.type = visualization_msgs::Marker::SPHERE_LIST;
   m.action = visualization_msgs::Marker::ADD;
-  m.scale.x = 0.5;
-  m.scale.y = 0.5;
+  m.scale.x = 0.25;
+  m.scale.y = 0.25;
   m.scale.z = 0.5;
-  m.color.a = 1.0;
+  m.color.a = 0.8;
   m.color.r = red;
   m.color.g = green;
   m.color.b = blue;

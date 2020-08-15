@@ -27,6 +27,7 @@
 
   <arg name="pointcloud_topics"     default="[$(arg ns)/camera/depth/points]"/>
   <arg name="octomap_cloud_topic"   default="/octomap/points"/>
+  <arg name="octomap_throttle_rate" default="1.0"/>
 
   <arg name="use_ground_truth"   default="true"/>
 
@@ -109,9 +110,9 @@
     </include>
 
     <!-- Relay/republish pointcloud to common cloud for OctoMap -->
-    <node name="pointcloud_throttle_$(arg uav_name)" pkg="topic_tools" type="throttle" args="messages camera/depth/points 5.0 $(arg octomap_cloud_topic)"/>
+    <node name="pointcloud_throttle_$(arg uav_name)" pkg="topic_tools" type="throttle" args="messages camera/depth/points $(arg octomap_throttle_rate) $(arg octomap_cloud_topic)"/>
 
-    <node pkg="mipp_packages" type="ground_truth_handler_node" name="ground_truth_handler" output="screen" if="$(arg use_ground_truth)">
+    <node pkg="mipp_packages" type="ground_truth_handler_node" name="ground_truth_handler" respawn="true" output="screen" if="$(arg use_ground_truth)">
       <param name="vehicle_name"                value="$(arg uav_name)" />
       <param name="publish_footprint_tf"        value="true" />
       <param name="vehicle_map_frame"           value="map" />
@@ -125,12 +126,23 @@
       <param name="vehicle_origin_offset_y"     value="$(arg initial_y)" />
     </node>
 
-    <node pkg="mipp_packages" type="octomap_clearer_node" name="octomap_clearer_node" output="screen">
+    <node pkg="mipp_packages" type="octomap_clearer_node" name="octomap_clearer_node" respawn="true" output="screen">
       <param name="vehicle_name"                value="$(arg uav_name)" />
       <param name="vehicle_ground_truth_topic"  value="/gazebo/ground_truth_$(arg uav_name)" />
       <param name="vehicle_size_x"              value="1.0" />
       <param name="vehicle_size_y"              value="1.0" />
       <param name="vehicle_size_z"              value="0.5" />
+    </node>
+    
+    <node pkg="mipp_packages" type="communication_constraint_visualizer_node" name="communication_constraint_visualizer_node" respawn="true" output="screen">
+      <param name="world_frame"                 value="map" />
+      <param name="vehicle_pose_topic"          value="$(arg ns)/mavros/local_position/pose" />
+      <param name="base_station_odom_topic"     value="/ugv/odometry/filtered" />
+      <param name="base_station_antenna_height" value="0.6" />
+      <param name="communication_range"         value="10.0" />
+      <param name="publish_rate"                value="10" />
+      <param name="counter_ceiling"             value="5" />
+      <param name="unmapped_is_occupied"        value="false" />
     </node>
 
   </group>

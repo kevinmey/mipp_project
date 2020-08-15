@@ -13,6 +13,7 @@
   <arg name="urdf_extras" default="$(find mipp_description)/urdf/accessories/extras.urdf.xacro"/>
   <arg name="republish_pointcloud"    default="true"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
+  
   <group ns="$(arg robot_namespace)">
     <!-- K: Husky Control launch -->
     <group>
@@ -26,11 +27,14 @@
         kinect_enabled:=$(arg kinect_enabled)
         urdf_extras:=$(arg urdf_extras)
         " />
+
       <!-- Load controller configuration -->
       <rosparam command="load" file="$(find husky_control)/config/control.yaml" />
+
       <!-- Spawn controllers -->
       <node name="base_controller_spawner" pkg="controller_manager" type="spawner"
         args="husky_joint_publisher husky_velocity_controller"/>
+
       <!-- Start EKF for localization -->
       <node pkg="robot_localization" type="ekf_localization_node" name="ekf_localization">
         <rosparam command="load" file="$(find husky_control)/config/localization.yaml" />
@@ -38,10 +42,12 @@
       <node pkg="interactive_marker_twist_server" type="marker_server" name="twist_marker_server" output="screen"/>
       <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
+      <!-- Control mux -->
       <node pkg="twist_mux" type="twist_mux" name="twist_mux">
         <rosparam command="load" file="$(find husky_control)/config/twist_mux.yaml" />
         <remap from="cmd_vel_out" to="husky_velocity_controller/cmd_vel"/>
       </node>
+
       <!-- Override the default control parameters, see config/empty.yaml for default. -->
       <rosparam command="load" file="$(arg config_extras)" />
     </group>
@@ -84,44 +90,52 @@
               -urdf
               -param robot_description
               -model $(arg robot_namespace)" />
+
+    <!---
+      Run Move Base Demo 
+    -->
+    <arg name="no_static_map" default="false"/> <!-- K: Changed to false (external map from octomap) -->
+    <arg name="base_global_planner" default="ugv_planner/UGVPlanner"/>
+    <arg name="base_local_planner" default="teb_local_planner/TebLocalPlannerROS"/>
+
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+      <param name="base_global_planner" value="$(arg base_global_planner)"/>
+      <param name="base_local_planner" value="$(arg base_local_planner)"/>
+      <rosparam file="$(find mipp_description)/config/husky_planner.yaml" command="load"/>
+      <!-- observation sources located in costmap_common.yaml -->
+      <rosparam file="$(find mipp_description)/config/husky_costmap_common.yaml" command="load" ns="global_costmap" />
+      <rosparam file="$(find mipp_description)/config/husky_costmap_common.yaml" command="load" ns="local_costmap" />
+      <!-- local costmap, needs size -->
+      <rosparam file="$(find mipp_description)/config/husky_costmap_local.yaml" command="load" ns="local_costmap" />
+      <param name="local_costmap/width" value="10.0"/>
+      <param name="local_costmap/height" value="10.0"/>
+      <!-- static global costmap, static map provides size -->
+      <rosparam file="$(find mipp_description)/config/husky_costmap_global.yaml" command="load" ns="global_costmap" unless="$(arg no_static_map)"/>
+      <!-- global costmap with laser, for odom_navigation_demo -->
+      <rosparam file="$(find husky_navigation)/config/costmap_global_laser.yaml" command="load" ns="global_costmap" if="$(arg no_static_map)"/>
+      <param name="global_costmap/width" value="100.0" if="$(arg no_static_map)"/>
+      <param name="global_costmap/height" value="100.0" if="$(arg no_static_map)"/>s" type="relay" args="gazebo/velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
+  
+      <remap from="/odometry/filtered" to="odometry/filtered"/>
+    </node>
+
+    <!-- Octomap clearer -->
+    <node pkg="mipp_packages" type="octomap_clearer_node" name="husky_octomap_clearer_node" output="screen">
+      <param name="vehicle_name"                value="ugv" />
+      <param name="vehicle_ground_truth_topic"  value="/gazebo/ground_truth_ugv" />
+      <param name="vehicle_size_x"              value="1.5" />
+      <param name="vehicle_size_y"              value="1.5" />
+      <param name="vehicle_size_z"              value="1.8" />
+    </node>
+    
+    <!-- Relay/republish pointcloud to common cloud for OctoMap -->
+    <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="gazebo/velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
+  
+    <remap from="/odometry/filtered" to="odometry/filtered"/>
   </group>
 
-  <!---
-    Run Move Base Demo 
-  -->
-  <arg name="no_static_map" default="false"/> <!-- K: Changed to false (external map from octomap) -->
-  <arg name="base_global_planner" default="ugv_planner/UGVPlanner"/>
-  <arg name="base_local_planner" default="teb_local_planner/TebLocalPlannerROS"/>
-
-  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
-    <param name="base_global_planner" value="$(arg base_global_planner)"/>
-    <param name="base_local_planner" value="$(arg base_local_planner)"/>
-    <rosparam file="$(find mipp_description)/config/husky_planner.yaml" command="load"/>
-    <!-- observation sources located in costmap_common.yaml -->
-    <rosparam file="$(find mipp_description)/config/husky_costmap_common.yaml" command="load" ns="global_costmap" />
-    <rosparam file="$(find mipp_description)/config/husky_costmap_common.yaml" command="load" ns="local_costmap" />
-    <!-- local costmap, needs size -->
-    <rosparam file="$(find mipp_description)/config/husky_costmap_local.yaml" command="load" ns="local_costmap" />
-    <param name="local_costmap/width" value="10.0"/>
-    <param name="local_costmap/height" value="10.0"/>
-    <!-- static global costmap, static map provides size -->
-    <rosparam file="$(find mipp_description)/config/husky_costmap_global.yaml" command="load" ns="global_costmap" unless="$(arg no_static_map)"/>
-    <!-- global costmap with laser, for odom_navigation_demo -->
-    <rosparam file="$(find husky_navigation)/config/costmap_global_laser.yaml" command="load" ns="global_costmap" if="$(arg no_static_map)"/>
-    <param name="global_costmap/width" value="100.0" if="$(arg no_static_map)"/>
-    <param name="global_costmap/height" value="100.0" if="$(arg no_static_map)"/>
-  </node>
-
-  <!-- Relay/republish pointcloud to common cloud for OctoMap -->
-  <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="gazebo/velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
-
-  <!-- Octomap clearer -->
-  <node pkg="mipp_packages" type="octomap_clearer_node" name="husky_octomap_clearer_node" output="screen">
-    <param name="vehicle_name"                value="ugv" />
-    <param name="vehicle_ground_truth_topic"  value="/gazebo/ground_truth_ugv" />
-    <param name="vehicle_size_x"              value="1.2" />
-    <param name="vehicle_size_y"              value="1.2" />
-    <param name="vehicle_size_z"              value="0.8" />
-  </node>
+  <include file="$(find mipp_packages)/launch/ugv_server.launch">
+    <arg name="robot_namespace"        value="$(arg robot_namespace)"/>
+  </include>
 
 </launch>

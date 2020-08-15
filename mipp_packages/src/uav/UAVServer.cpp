@@ -25,7 +25,7 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   pub_viz_path_               = n.advertise<visualization_msgs::Marker>("uav_server/viz_path", 1);
   // Establish subscriptions
   sub_clicked_point_  = n.subscribe("/clicked_point", 1, &UAVServer::subClickedPoint, this);
-  sub_clicked_pose_   = n.subscribe("/yeet", 1, &UAVServer::subClickedPose, this);
+  sub_clicked_pose_   = n.subscribe("uav_server/clicked_goal", 1, &UAVServer::subClickedPose, this);
   sub_global_goal_    = n.subscribe("uav_server/global_goal", 1, &UAVServer::subGlobalGoal, this);
   sub_local_goal_     = n.subscribe("uav_server/local_goal", 1, &UAVServer::subLocalGoal, this);
   sub_mavros_state_   = n.subscribe("uav_server/mavros_state", 1, &UAVServer::subMavrosState, this);
@@ -102,7 +102,6 @@ void UAVServer::pubMavrosSetpoint()
   */ 
   try{
     geometry_msgs::PoseStamped mavros_setpoint;
-    //tf_buffer_.transform(uav_local_goal_, mavros_setpoint, uav_local_frame_);
     geometry_msgs::TransformStamped mavros_setpoint_tf = tf_buffer_.lookupTransform(uav_local_frame_, uav_local_goal_.header.frame_id, ros::Time(0));
     tf2::doTransform(uav_local_goal_, mavros_setpoint, mavros_setpoint_tf);
     
@@ -155,21 +154,35 @@ void UAVServer::subClickedPoint(const geometry_msgs::PointStampedConstPtr& click
 void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg) {
   ROS_INFO("UAVServer: subClickedPose");
 
-  geometry_msgs::Point clicked_pose;
-  clicked_pose.x = clicked_pose_msg->pose.position.x;
-  clicked_pose.y = clicked_pose_msg->pose.position.y;
-  clicked_pose.z = uav_takeoff_z_;
+  try{
+    geometry_msgs::TransformStamped global_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, clicked_pose_msg->header.frame_id, ros::Time(0));
+    tf2::doTransform(*clicked_pose_msg, uav_global_goal_, global_goal_tf);
+    uav_global_goal_.pose.position.z = uav_takeoff_z_;
 
-  geometry_msgs::Vector3 rpy_vector;
-  tf2::Quaternion tf_quat;
-  tf2::fromMsg(clicked_pose_msg->pose.orientation, tf_quat);
-  tf2::Matrix3x3(tf_quat).getRPY(rpy_vector.x, 
-                                 rpy_vector.y, 
-                                 rpy_vector.z);
+    geometry_msgs::Vector3 rpy_vector;
+    tf2::Quaternion tf_quat;
+    tf2::fromMsg(uav_global_goal_.pose.orientation, tf_quat);
+    tf2::Matrix3x3(tf_quat).getRPY(rpy_vector.x, 
+                                   rpy_vector.y, 
+                                   rpy_vector.z);
+    ROS_INFO("UAVServer: New global goal: [%f,%f,%f,%f]",
+              uav_global_goal_.pose.position.x, 
+              uav_global_goal_.pose.position.y,
+              uav_global_goal_.pose.position.z,
+              rpy_vector.z);  
+    uav_global_goal_yaw_ = rpy_vector.z;
   
-  visualizeFOV(clicked_pose, rpy_vector);
-  calculateInformationGain(clicked_pose, rpy_vector);
+    visualizeFOV(uav_global_goal_.pose.position, rpy_vector);
+    calculateInformationGain(uav_global_goal_.pose.position, rpy_vector);
 
+    uav_global_goal_.header.frame_id = uav_world_frame_;
+    uav_global_goal_.header.stamp = ros::Time::now();
+    pub_global_goal_.publish(uav_global_goal_);
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
+    ros::Duration(0.1).sleep();
+  }
 }
 
 void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global_goal_msg) { 
@@ -181,7 +194,6 @@ void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global
   }
    
   try{
-    //tf_buffer_.transform(*global_goal_msg, uav_global_goal_, uav_world_frame_);
     geometry_msgs::TransformStamped global_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, global_goal_msg->header.frame_id, ros::Time(0));
     tf2::doTransform(*global_goal_msg, uav_global_goal_, global_goal_tf);
 
@@ -195,6 +207,7 @@ void UAVServer::subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& global
               uav_global_goal_.pose.position.z,
               yaw);  
     uav_global_goal_yaw_ = yaw;
+    uav_global_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, uav_global_goal_yaw_);
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
@@ -972,10 +985,10 @@ void UAVServer::visualizeTree() {
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
   tree_marker.scale.x = 0.02;
-  tree_marker.color.a = 0.5;
+  tree_marker.color.a = 0.6;
   tree_marker.color.r = 0.2;
-  tree_marker.color.g = 1.0;
-  tree_marker.color.b = 0.2;
+  tree_marker.color.g = 0.2;
+  tree_marker.color.b = 1.0;
   for(Node tree_node : tree_)
   {
     if(tree_node.getParent() != NULL) 
@@ -1027,10 +1040,10 @@ void UAVServer::visualizePathFOVs(double ray_length) {
   fov_marker.action = visualization_msgs::Marker::ADD;
   fov_marker.pose.orientation.w = 1.0;
   fov_marker.scale.x = 0.05;
-  fov_marker.color.a = 0.5;
-  fov_marker.color.r = 0.2;
-  fov_marker.color.g = 0.2;
-  fov_marker.color.b = 1.0;
+  fov_marker.color.a = 0.8;
+  fov_marker.color.r = 0.1;
+  fov_marker.color.g = 1.0;
+  fov_marker.color.b = 0.1;
   bool show_all_rays = false;
   tf2::Matrix3x3 ray_direction_rotmat;
   for (auto const& path_pose : path_) {

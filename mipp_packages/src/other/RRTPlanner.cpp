@@ -66,8 +66,14 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   * TEMPORARY
   * Testing the RRT functionality by running it in a while loop
   */
+  rate_wait_map.sleep();
   ros::Rate rate(planner_rate_);
   //while(tree_.size() < planner_max_tree_nodes_)
+  for (planner_algorithm_ = 1; planner_algorithm_<4; planner_algorithm_++){
+  tree_.clear();
+  tree_.push_back(root_);
+  goal_path_distance_ = 1000000;
+  goal_ = Node(goal_x_, goal_y_, goal_z_, 0.0, goal_path_distance_, 0.0, 0, NULL, 0);
   ros::Time algorithm_start = ros::Time::now();
   while((ros::Time::now() - algorithm_start).toSec() < 5.0)
   {
@@ -171,6 +177,7 @@ RRTPlanner::RRTPlanner(ros::NodeHandle n, ros::NodeHandle np)
   ROS_INFO("Finished planning for planner %d. Final goal cost: %f", planner_algorithm_, goal_.cost_);
   ROS_INFO("Average iteration time was: %f second", algorithm_time.toSec()/(double)algorithm_iterations);
 
+  }
   }
 }
 

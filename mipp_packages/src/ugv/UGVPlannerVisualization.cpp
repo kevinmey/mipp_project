@@ -21,11 +21,11 @@ void UGVPlanner::visualizeTree()
   tree_marker.type = visualization_msgs::Marker::LINE_LIST;
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
-  tree_marker.scale.x = 0.02;
-  tree_marker.color.a = 0.5;
-  tree_marker.color.r = 0.2;
-  tree_marker.color.g = 1.0;
-  tree_marker.color.b = 0.2;
+  tree_marker.scale.x = 0.03;
+  tree_marker.color.a = 0.8;
+  tree_marker.color.r = 0.1;
+  tree_marker.color.g = 0.1;
+  tree_marker.color.b = 1.0;
   for(Node tree_node : tree_)
   {
     if(tree_node.getParent() != NULL) 
@@ -73,8 +73,8 @@ void UGVPlanner::visualizeCollisionTree()
   tree_marker.type = visualization_msgs::Marker::LINE_LIST;
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
-  tree_marker.scale.x = 0.04;
-  tree_marker.color.a = 0.5;
+  tree_marker.scale.x = 0.01;
+  tree_marker.color.a = 0.3;
   tree_marker.color.r = 1.0;
   tree_marker.color.g = 0.0;
   tree_marker.color.b = 0.0;
