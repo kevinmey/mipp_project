@@ -8,6 +8,8 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
 
   // Initialize values
   getParams(np);
+  uav_local_goal_.header.frame_id = uav_local_frame_;
+  uav_local_goal_.header.stamp = ros::Time::now();
   uav_local_goal_.pose.position.x = uav_start_x_;
   uav_local_goal_.pose.position.y = uav_start_y_;
   uav_local_goal_.pose.position.z = uav_takeoff_z_;
@@ -17,6 +19,7 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   // Establish publish timers and publishers
   pub_timer_mavros_setpoint_  = n.createTimer(ros::Duration(0.1), boost::bind(&UAVServer::pubMavrosSetpoint, this));
   pub_mavros_setpoint_        = n.advertise<geometry_msgs::PoseStamped>("uav_server/mavros_setpoint", 10);
+  pub_mavros_cmd_vel_         = n.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 10);
   pub_global_goal_            = n.advertise<geometry_msgs::PoseStamped>("uav_server/global_goal", 10);
   pub_viz_uav_fov_            = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav_fov", 1);
   pub_viz_fov_                = n.advertise<visualization_msgs::Marker>("uav_server/viz_fov", 1);
@@ -376,7 +379,7 @@ void UAVServer::takeoff() {
   uav_local_goal_.pose.position.y = 0.0;
   uav_local_goal_.pose.position.z = uav_takeoff_z_;
   double clearing_rotation_angle = 0.0;
-  while (clearing_rotation_angle < 360.0) {
+  while (clearing_rotation_angle <= 360.0) {
     double clearing_rotation = angles::from_degrees(clearing_rotation_angle);
     double angle_threshold = angles::from_degrees(10.0);
     uav_local_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, clearing_rotation);
@@ -385,11 +388,34 @@ void UAVServer::takeoff() {
       ros::spinOnce();
       rate.sleep();
     }
-    clearing_rotation_angle += 30;
+    clearing_rotation_angle += 90;
     ros::Duration(0.5).sleep();
   }
   ROS_INFO("UAVServer: Clearing rotations complete");
   uav_clearing_rotation_complete_ = true;
+  /*
+  geometry_msgs::Twist test_cmd_vel;
+  mavros_msgs::PositionTarget test_pos_target;
+  while (true) {
+    test_cmd_vel.linear.x = 0.5;
+    test_cmd_vel.linear.y = 0.0;
+    test_cmd_vel.linear.z = 0.0;
+    test_cmd_vel.angular.x = 0.0;
+    test_cmd_vel.angular.y = 0.0;
+    test_cmd_vel.angular.z = 0.5;
+
+    test_pos_target.header.frame_id = uav_body_frame_;
+    test_pos_target.header.stamp = ros::Time::now();
+    test_pos_target.coordinate_frame = 8; // FRAME_BODY_NED
+    test_pos_target.type_mask = 0b011111000111;
+    test_pos_target.velocity.x = 0.0;
+    test_pos_target.velocity.y = 0.5;
+    test_pos_target.velocity.z = 0.0;
+    test_pos_target.yaw_rate = 0.0;
+    
+    pub_mavros_cmd_vel_.publish(test_pos_target);
+    ros::Duration(0.05).sleep();
+  }*/
 }
 
 /* 

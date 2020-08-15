@@ -87,7 +87,7 @@
         args="-sdf -database $(arg model) -model $(arg vehicle)_$(arg uav_id) -x $(arg initial_x) -y $(arg initial_y) -z 0 -R 0 -P 0 -Y 0">
     </node>
     
-    <!-- Launch local planner -->
+    <!-- Launch local planner 
     <arg name="manager"             default="local_planner_manager"/>
 
     <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="screen"/>
@@ -100,7 +100,7 @@
 
       <param name="tf_origin"  value="odom_$(arg uav_name)" />
       <param name="tf_base_link"  value="base_link_$(arg uav_name)" />
-    </node>
+    </node>-->
 
     <include file="$(find mipp_packages)/launch/uav_server.launch">
       <arg name="uav_id"          value="$(arg uav_id)"/>
@@ -144,6 +144,26 @@
       <param name="counter_ceiling"             value="5" />
       <param name="unmapped_is_occupied"        value="false" />
     </node>
+    
+    <!--
+    <remap from="cloud_in" to="camera/depth/points" />
+    <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan_node" respawn="true" output="screen">
+      <param name="min_height"  value="7.0" />
+      <param name="max_height"  value="8.0" />
+      <param name="range_min"   value="0.4" />
+      <param name="range_max"   value="10.0" />
+    </node>
+    -->
+    <remap from="image"       to="camera/depth/image_raw" />
+    <remap from="camera_info" to="camera/depth/camera_info" />
+    <node pkg="tf" type="static_transform_publisher" name="tf_camera_depth_link" args="0 0 0 0 -1.57 1.57  /camera_link_$(arg uav_name) /depth_link_$(arg uav_name) 100"/>
+    <node pkg="depthimage_to_laserscan" type="depthimage_to_laserscan" name="depthimage_to_laserscan_node" respawn="true" output="screen">
+      <param name="scan_height"     value="3" />
+      <param name="range_min"       value="0.4" />
+      <param name="range_max"       value="10.0" />
+      <param name="output_frame_id" value="depth_link_$(arg uav_name)" />
+    </node>
+
 
   </group>
 

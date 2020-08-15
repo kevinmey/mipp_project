@@ -12,6 +12,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
+#include <mavros_msgs/PositionTarget.h>
 #include <mavros_msgs/State.h>
 #include <nav_msgs/Odometry.h>
 #include <visualization_msgs/Marker.h>
@@ -113,6 +114,7 @@ private:
   // Publishers    
   ros::Timer pub_timer_mavros_setpoint_;
   ros::Publisher pub_mavros_setpoint_;
+  ros::Publisher pub_mavros_cmd_vel_;
   ros::Publisher pub_global_goal_;
   ros::Publisher pub_viz_uav_fov_;
   ros::Publisher pub_viz_fov_;

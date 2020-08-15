@@ -7,9 +7,6 @@ Panels:
         - /Global Options1
         - /UGV1/Exploration1
         - /UAV01
-        - /UAV01/Communication constraint1
-        - /UAV01/Exploration1
-        - /UAV01/Mavros setpoint1
         - /Octomap1
       Splitter Ratio: 0.3964401185512543
     Tree Height: 874
@@ -32,7 +29,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: PointCloud2
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -370,7 +367,7 @@ Visualization Manager:
           Marker Topic: /uav0/local_planner_manager/drone
           Name: Drone
           Namespaces:
-            "": true
+            {}
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -554,7 +551,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -562,7 +559,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_path
               Name: Viz Path
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -570,7 +567,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_fov
               Name: Viz FOV
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
           Enabled: true
@@ -589,6 +586,66 @@ Visualization Manager:
           Shape: Arrow
           Topic: /uav0/mavros/setpoint_position/local
           Unreliable: false
+          Value: true
+        - Alpha: 1
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 10
+            Min Value: -10
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz/PointCloud2
+          Color: 255; 255; 255
+          Color Transformer: RGB8
+          Decay Time: 0
+          Enabled: false
+          Invert Rainbow: false
+          Max Color: 255; 255; 255
+          Max Intensity: 4096
+          Min Color: 0; 0; 0
+          Min Intensity: 0
+          Name: PointCloud2
+          Position Transformer: XYZ
+          Queue Size: 10
+          Selectable: true
+          Size (Pixels): 3
+          Size (m): 0.10000000149011612
+          Style: Flat Squares
+          Topic: /uav0/camera/depth/points
+          Unreliable: false
+          Use Fixed Frame: true
+          Use rainbow: true
+          Value: false
+        - Alpha: 1
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 10
+            Min Value: -10
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz/LaserScan
+          Color: 255; 255; 255
+          Color Transformer: Intensity
+          Decay Time: 0
+          Enabled: true
+          Invert Rainbow: false
+          Max Color: 255; 255; 255
+          Max Intensity: 4096
+          Min Color: 0; 0; 0
+          Min Intensity: 0
+          Name: LaserScan
+          Position Transformer: XYZ
+          Queue Size: 10
+          Selectable: true
+          Size (Pixels): 3
+          Size (m): 0.10000000149011612
+          Style: Flat Squares
+          Topic: /uav0/scan
+          Unreliable: false
+          Use Fixed Frame: true
+          Use rainbow: true
           Value: true
       Enabled: true
       Name: UAV0
@@ -824,7 +881,7 @@ Visualization Manager:
           Voxel Alpha: 0.009999999776482582
           Voxel Coloring: Cell Probability
           Voxel Rendering: All Voxels
-      Enabled: true
+      Enabled: false
       Name: Octomap
     - Alpha: 0.5
       Cell Size: 1
@@ -845,19 +902,61 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz/TF
-      Enabled: false
+      Enabled: true
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        base_link:
+          Value: true
+        base_link_frd:
+          Value: true
+        base_link_uav0:
+          Value: true
+        camera_link_uav0:
+          Value: true
+        gt_base_footprint_uav0:
+          Value: true
+        gt_base_link_uav0:
+          Value: true
+        gt_odom_uav0:
+          Value: true
+        map:
+          Value: true
+        map_ned:
+          Value: true
+        odom:
+          Value: true
+        odom_ned:
+          Value: true
+        odom_uav0:
+          Value: true
+        world:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        {}
+        world:
+          base_link_frd:
+            {}
+          map:
+            gt_odom_uav0:
+              gt_base_footprint_uav0:
+                gt_base_link_uav0:
+                  camera_link_uav0:
+                    {}
+            map_ned:
+              {}
+            odom:
+              odom_ned:
+                {}
+            odom_uav0:
+              base_link_uav0:
+                {}
       Update Interval: 0
-      Value: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 89; 120; 76
@@ -885,25 +984,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 14.439688682556152
+      Distance: 8.411819458007812
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -1.089892864227295
-        Y: 3.0517988204956055
-        Z: 2.6667410566005856e-5
+        X: 0.9910907745361328
+        Y: -0.09200882911682129
+        Z: 2.8574759198818356e-5
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7697978019714355
+      Pitch: 0.42479825019836426
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 1.7154582738876343
+      Yaw: 1.915461540222168
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
