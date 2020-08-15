@@ -134,7 +134,7 @@
     <remap from="/odometry/filtered" to="odometry/filtered"/>
   </group>
 
-  <include file="$(find mipp_packages)/launch/ugv_server.launch">
+  <include file="$(find mipp_packages)/launch/ugv_frontier_explorer.launch">
     <arg name="robot_namespace"        value="$(arg robot_namespace)"/>
   </include>
 
