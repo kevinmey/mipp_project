@@ -78,10 +78,10 @@ UAVInformativeExplorer::~UAVInformativeExplorer()
 void UAVInformativeExplorer::subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg) {
   ROS_INFO("UAVInformativeExplorer: subClickedPoint");
   // Block if UAV still initializing (taking off)
-  if(!uav_takeoff_complete_ or !uav_clearing_rotation_complete_)
+  /*if(!uav_takeoff_complete_ or !uav_clearing_rotation_complete_)
   {
     return;
-  }
+  }*/
 
   if (uav_running_exploration_) { 
     ROS_INFO("UAVInformativeExplorer: Stopping exploration.");
@@ -562,8 +562,8 @@ bool UAVInformativeExplorer::isGoalReached() {
   // Calculate yaw distance to global goal yaw
   uav_position_goal_yaw_dist_ = abs(angles::shortest_angular_distance(uav_rpy_.vector.z, uav_position_goal_yaw_));
 
-  ROS_DEBUG("Goal dist (euc, yaw) = (%.2f, %.2f)", uav_position_goal_euc_dist_, uav_position_goal_yaw_dist_);
-  return (uav_position_goal_euc_dist_ < 0.5) and (uav_position_goal_yaw_dist_ < 0.2);
+  ROS_INFO("Goal dist (euc, yaw) = (%.2f, %.2f)", uav_position_goal_euc_dist_, uav_position_goal_yaw_dist_);
+  return (uav_position_goal_euc_dist_ < 0.5) and (uav_position_goal_yaw_dist_ < 10.2);
 }
 
 /* 

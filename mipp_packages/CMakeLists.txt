@@ -105,6 +105,26 @@ target_link_libraries(
     ${catkin_LIBRARIES}
 )
 
+## uav_informative_explorer_node
+
+add_executable(
+    uav_informative_explorer_node
+    src/uav/uav_informative_explorer_node.cpp
+    src/uav/UAVInformativeExplorer.cpp
+)
+
+add_dependencies(
+    uav_informative_explorer_node 
+    ${uav_informative_explorer_node_EXPORTED_TARGETS} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    uav_informative_explorer_node
+    common_libs
+    ${catkin_LIBRARIES}
+)
+
 ###   ###
 # Other #
 ###   ###
