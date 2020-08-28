@@ -19,6 +19,7 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   pub_mavros_setpoint_        = n.advertise<geometry_msgs::PoseStamped>("uav_server/mavros_setpoint", 10);
   pub_mavros_cmd_vel_         = n.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 10);
   pub_viz_uav_fov_            = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav_fov", 1);
+  pub_viz_uav_              = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav", 1);
   // Establish subscriptions
   sub_clicked_pose_   = n.subscribe("uav_server/clicked_goal", 1, &UAVServer::subClickedPose, this);
   sub_position_goal_  = n.subscribe("uav_server/position_goal", 1, &UAVServer::subPositionGoal, this);
@@ -158,6 +159,11 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg) {
     tf2::Matrix3x3(tf_quat).getRPY(uav_rpy_.vector.x, 
                                    uav_rpy_.vector.y, 
                                    uav_rpy_.vector.z);
+
+    // Visualize drone
+    if (visualizeDrone()) {
+      ROS_WARN("Failed to visualize drone in RViz");
+    }
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("UAVServer: subOdometry: %s",ex.what());
@@ -309,4 +315,36 @@ geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(double r, double p, double 
   quat.z = tf_quat.z();
   quat.w = tf_quat.w();
   return quat;
+}
+
+int UAVServer::visualizeDrone() {
+  visualization_msgs::Marker drone;
+  drone.header.frame_id = uav_world_frame_;
+  drone.header.stamp = ros::Time::now();
+  drone.type = visualization_msgs::Marker::MESH_RESOURCE;
+  drone.mesh_resource = "model://matrice_100/meshes/Matrice_100.dae";
+  if (drone.mesh_resource.find("model://") != std::string::npos) {
+    if (resolveUri(drone.mesh_resource)) {
+      ROS_ERROR("RVIZ world loader could not find drone model");
+      return 1;
+    }
+  }
+  drone.mesh_use_embedded_materials = true;
+  drone.scale.x = 1.5;
+  drone.scale.y = 1.5;
+  drone.scale.z = 1.5;
+  drone.pose.position.x = uav_pose_.pose.position.x;
+  drone.pose.position.y = uav_pose_.pose.position.y;
+  drone.pose.position.z = uav_pose_.pose.position.z;
+  drone.pose.orientation.x = uav_pose_.pose.orientation.x;
+  drone.pose.orientation.y = uav_pose_.pose.orientation.y;
+  drone.pose.orientation.z = uav_pose_.pose.orientation.z;
+  drone.pose.orientation.w = uav_pose_.pose.orientation.w;
+  drone.id = 0;
+  drone.lifetime = ros::Duration();
+  drone.action = visualization_msgs::Marker::ADD;
+
+  pub_viz_uav_.publish(drone);
+
+  return 0;
 }

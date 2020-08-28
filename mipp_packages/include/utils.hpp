@@ -13,6 +13,8 @@
 #include <angles/angles.h>
 
 #include <string>
+#include <sstream>
+#include <sys/stat.h>
 #include <math.h> /* sqrt, pow */
 
 double getDistanceBetweenPoints(geometry_msgs::Point p1, geometry_msgs::Point p2);
@@ -32,3 +34,5 @@ geometry_msgs::Vector3 normalize(geometry_msgs::Vector3 const vector);
 geometry_msgs::Vector3 makeVector3(double x, double y, double z);
 
 geometry_msgs::Point makePoint(double x, double y, double z);
+
+int resolveUri(std::string& uri);

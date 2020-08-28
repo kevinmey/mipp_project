@@ -82,6 +82,7 @@ public:
 
   void visualizeUAVFOV();
   void visualizeFOV(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy);
+  int visualizeDrone();
   
   geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy);
   geometry_msgs::Quaternion makeQuatFromRPY(double r, double p, double y);
@@ -94,6 +95,7 @@ private:
   ros::Publisher pub_position_goal_;
   ros::Publisher pub_viz_uav_fov_;
   ros::Publisher pub_viz_fov_;
+  ros::Publisher pub_viz_uav_;
   // Subscribers
   ros::Subscriber sub_clicked_pose_;
   ros::Subscriber sub_position_goal_;
