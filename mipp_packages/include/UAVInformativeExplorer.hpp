@@ -72,7 +72,7 @@ public:
   */
   void subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg);
 
-  void subOctomap(const octomap_msgs::Octomap& octomap_msg);
+  void subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg);
   
   /* 
   *  Utility functions
@@ -152,7 +152,7 @@ private:
   bool planner_unmapped_is_collision_;
   // Variables
   //   Map
-  octomap::OcTree* map_;
+  std::shared_ptr<octomap::OcTree> map_;
   bool received_map_;
   //   Planner
   bool uav_takeoff_complete_;

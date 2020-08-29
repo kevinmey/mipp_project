@@ -132,18 +132,10 @@ void UAVInformativeExplorer::subOdometry(const nav_msgs::Odometry::ConstPtr& odo
   }
 }
 
-void UAVInformativeExplorer::subOctomap(const octomap_msgs::Octomap& octomap_msg) {
+void UAVInformativeExplorer::subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg) {
   ROS_DEBUG("UAVInformativeExplorer: subOctomap");
-  octomap::AbstractOcTree* abstract_map = octomap_msgs::binaryMsgToMap(octomap_msg);
-  if(abstract_map)
-  {
-    map_ = dynamic_cast<octomap::OcTree*>(abstract_map);
-    received_map_ = true;
-  } 
-  else 
-  {
-    ROS_ERROR("UAVInformativeExplorer: Error creating octree from received message");
-  }
+  map_ = std::shared_ptr<octomap::OcTree> (dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(*octomap_msg)));
+  received_map_ = true;
 }
 
 // Utility functions
@@ -562,7 +554,7 @@ bool UAVInformativeExplorer::isGoalReached() {
   // Calculate yaw distance to global goal yaw
   uav_position_goal_yaw_dist_ = abs(angles::shortest_angular_distance(uav_rpy_.vector.z, uav_position_goal_yaw_));
 
-  ROS_INFO("Goal dist (euc, yaw) = (%.2f, %.2f)", uav_position_goal_euc_dist_, uav_position_goal_yaw_dist_);
+  ROS_DEBUG("Goal dist (euc, yaw) = (%.2f, %.2f)", uav_position_goal_euc_dist_, uav_position_goal_yaw_dist_);
   return (uav_position_goal_euc_dist_ < 0.5) and (uav_position_goal_yaw_dist_ < 10.2);
 }
 
