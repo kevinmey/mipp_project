@@ -149,7 +149,7 @@
       <param name="range_min"   value="0.4" />
       <param name="range_max"   value="10.0" />
     </node>
-    -->
+    
     <remap from="image"       to="camera/depth/image_raw" />
     <remap from="camera_info" to="camera/depth/camera_info" />
     <node pkg="tf" type="static_transform_publisher" name="tf_camera_depth_link" args="0 0 0 0 -1.57 1.57  /camera_link_$(arg uav_name) /depth_link_$(arg uav_name) 100"/>
@@ -159,7 +159,7 @@
       <param name="range_max"       value="10.0" />
       <param name="output_frame_id" value="depth_link_$(arg uav_name)" />
     </node>
-
+    -->
 
   </group>
 
