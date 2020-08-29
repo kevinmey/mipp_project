@@ -3,7 +3,7 @@
   <arg name="robot_namespace"        default="/"/>
   
   <group ns="$(arg robot_namespace)">
-    <node pkg="mipp_packages" type="ugv_server_node" name="ugv_server_node" output="screen">
+    <node pkg="mipp_packages" type="ugv_frontier_explorer_node" name="ugv_frontier_explorer_node" output="screen">
       <!-- Parameters -->
       <param name="planner_world_frame"       value="map"/>
       <param name="x_range_min"               value="-10.0"/>

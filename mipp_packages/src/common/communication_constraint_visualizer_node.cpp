@@ -23,7 +23,7 @@ public:
 private:
   void vehiclePoseCallback(const geometry_msgs::PoseStampedConstPtr& pose_msg);
   void baseStationPoseCallback(const nav_msgs::OdometryConstPtr& odom_msg);
-  void octomapCallback(const octomap_msgs::Octomap& octomap_msg);
+  void octomapCallback(const octomap_msgs::Octomap::ConstPtr& octomap_msg);
   void visualizeConstraint();
   // Params
   std::string world_frame_;
@@ -35,7 +35,7 @@ private:
   int counter_ceiling_;
   bool unmapped_is_occupied_;
   // Variables 
-  octomap::OcTree* map_;
+  std::shared_ptr<octomap::OcTree> map_;
   bool received_map_;
   geometry_msgs::PoseStamped vehicle_pose_;
   geometry_msgs::PoseStamped base_station_pose_;
@@ -83,16 +83,10 @@ void ComConstraintVisualizer::baseStationPoseCallback(const nav_msgs::OdometryCo
   }
 }
 
-void ComConstraintVisualizer::octomapCallback(const octomap_msgs::Octomap& octomap_msg) {
+void ComConstraintVisualizer::octomapCallback(const octomap_msgs::Octomap::ConstPtr& octomap_msg) {
   ROS_DEBUG("ComConstraintVisualizer: octomapCallback");
-  octomap::AbstractOcTree* abstract_map = octomap_msgs::binaryMsgToMap(octomap_msg);
-  if(abstract_map) {
-    map_ = dynamic_cast<octomap::OcTree*>(abstract_map);
-    received_map_ = true;
-  } 
-  else {
-    ROS_ERROR("UAVServer: Error creating octree from received message");
-  }
+  map_ = std::shared_ptr<octomap::OcTree> (dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(*octomap_msg)));
+  received_map_ = true;
 }
 
 void ComConstraintVisualizer::visualizeConstraint()

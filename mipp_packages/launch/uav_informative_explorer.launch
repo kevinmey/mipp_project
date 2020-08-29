@@ -8,7 +8,7 @@
   <arg name="uav_start_y"     default="0.0"/>
   <arg name="uav_takeoff_z"   default="2.0"/>
 
-  <node pkg="mipp_packages" type="uav_server_node" name="uav_server_node" output="screen">
+  <node pkg="mipp_packages" type="uav_informative_explorer_node" name="uav_informative_explorer_node" output="screen">
     <!-- Parameters -->
     <param name="uav_id"            value="$(arg uav_id)"/>
     <param name="uav_start_x"       value="$(arg uav_start_x)"/>
@@ -20,13 +20,8 @@
 
     <!-- Remap topics -->
     <!-- Published topics -->
-    <remap from="uav_server/mavros_setpoint" to="mavros/setpoint_position/local"/>
     <!-- Subscribed topics -->
-    <remap from="uav_server/mavros_state" to="mavros/state"/>
     <remap from="uav_server/ground_truth_uav" to="/gazebo/ground_truth_$(arg uav_name)"/>
-    <!-- Clients -->
-    <remap from="uav_server/arm" to="mavros/cmd/arming"/>
-    <remap from="uav_server/set_mode" to="mavros/set_mode"/>
   </node>
 </launch>
 

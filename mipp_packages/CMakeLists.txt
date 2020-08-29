@@ -46,23 +46,22 @@ add_library(
 # UGV #
 ### ###
 
-## ugv_server_node
+## ugv_frontier_explorer_node
 
 add_executable(
-    ugv_server_node
-    src/ugv/ugv_server_node.cpp
-    src/ugv/UGVServer.cpp
-    src/ugv/UGVServerVisualization.cpp
+    ugv_frontier_explorer_node
+    src/ugv/ugv_frontier_explorer_node.cpp
+    src/ugv/UGVFrontierExplorer.cpp
 )
 
 add_dependencies(
-    ugv_server_node 
-    ${ugv_server_node_EXPORTED_TARGETS} 
+    ugv_frontier_explorer_node
+    ${ugv_frontier_explorer_node_EXPORTED_TARGETS} 
     ${catkin_EXPORTED_TARGETS}
 )
 
 target_link_libraries(
-    ugv_server_node
+    ugv_frontier_explorer_node
     common_libs
     ${catkin_LIBRARIES}
 )
@@ -102,6 +101,26 @@ add_dependencies(
 
 target_link_libraries(
     uav_server_node
+    common_libs
+    ${catkin_LIBRARIES}
+)
+
+## uav_informative_explorer_node
+
+add_executable(
+    uav_informative_explorer_node
+    src/uav/uav_informative_explorer_node.cpp
+    src/uav/UAVInformativeExplorer.cpp
+)
+
+add_dependencies(
+    uav_informative_explorer_node 
+    ${uav_informative_explorer_node_EXPORTED_TARGETS} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    uav_informative_explorer_node
     common_libs
     ${catkin_LIBRARIES}
 )

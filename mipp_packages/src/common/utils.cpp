@@ -96,3 +96,25 @@ geometry_msgs::Vector3 makeVector3(double x, double y, double z)
   vector.z = z;
   return vector;
 }
+
+int resolveUri(std::string& uri) {
+  // Iterate through all locations in GAZEBO_MODEL_PATH
+  char* gazebo_model_path = getenv("GAZEBO_MODEL_PATH");
+  char* home = getenv("HOME");
+  uri = uri.substr(7, std::string::npos);
+  std::stringstream all_locations(gazebo_model_path, std::ios_base::app | std::ios_base::out | std::ios_base::in);
+  all_locations << ":" << home << "/.gazebo/models";
+  std::string current_location;
+  while (getline(all_locations, current_location, ':')) {
+    struct stat s;
+    std::string temp = current_location + uri;
+    if (stat(temp.c_str(), &s) == 0) {
+      if (s.st_mode & S_IFREG)  // this path describes a file
+      {
+        uri = "file://" + current_location + uri;
+        return 0;
+      }
+    }
+  }
+  return 1;
+}

@@ -114,7 +114,7 @@
       <!-- global costmap with laser, for odom_navigation_demo -->
       <rosparam file="$(find husky_navigation)/config/costmap_global_laser.yaml" command="load" ns="global_costmap" if="$(arg no_static_map)"/>
       <param name="global_costmap/width" value="100.0" if="$(arg no_static_map)"/>
-      <param name="global_costmap/height" value="100.0" if="$(arg no_static_map)"/>s" type="relay" args="gazebo/velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
+      <param name="global_costmap/height" value="100.0" if="$(arg no_static_map)"/>
   
       <remap from="/odometry/filtered" to="odometry/filtered"/>
     </node>
@@ -134,7 +134,7 @@
     <remap from="/odometry/filtered" to="odometry/filtered"/>
   </group>
 
-  <include file="$(find mipp_packages)/launch/ugv_server.launch">
+  <include file="$(find mipp_packages)/launch/ugv_frontier_explorer.launch">
     <arg name="robot_namespace"        value="$(arg robot_namespace)"/>
   </include>
 
