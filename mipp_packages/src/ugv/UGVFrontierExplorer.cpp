@@ -9,6 +9,7 @@ UGVFrontierExplorer::UGVFrontierExplorer(ros::NodeHandle n, ros::NodeHandle np)
   getParams(np);
 
   pub_goal_ = n.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 1);
+  pub_goal_path_ = n.advertise<nav_msgs::Path>("UGVFrontierExplorer/goal_path", 1);
   pub_viz_tree_ = n.advertise<visualization_msgs::Marker>("UGVFrontierExplorer/viz_tree", 1);
   pub_viz_root_node_ = n.advertise<visualization_msgs::MarkerArray>("UGVFrontierExplorer/viz_root_node", 1);
   pub_viz_frontier_nodes_ = n.advertise<visualization_msgs::Marker>("UGVFrontierExplorer/viz_frontier_nodes", 1);
@@ -73,7 +74,22 @@ void UGVFrontierExplorer::subClickedPoint(const geometry_msgs::PointStampedConst
       runFrontierExploration();
       if (frontier_nodes_.size() > 0) {
         current_frontier_goal_ = makePoseStampedFromNode(*frontier_nodes_.begin()->second.getParent());
+
+        nav_msgs::Path goal_path;
+        goal_path.header = current_frontier_goal_.header;
+        Node node_on_path = *frontier_nodes_.begin()->second.getParent();
+        while (node_on_path.getParent() != nullptr) {
+          goal_path.poses.insert(goal_path.poses.begin(), makePoseStampedFromNode(node_on_path));
+          ROS_DEBUG("Node: %d", (int)node_on_path.id_);
+
+          if (node_on_path.getParent()->id_ == 0) {
+            break;
+          }
+          node_on_path = *(node_on_path.getParent());
+        }
+
         pub_goal_.publish(current_frontier_goal_);
+        pub_goal_path_.publish(goal_path);
       }
   }
 
@@ -83,7 +99,22 @@ void UGVFrontierExplorer::subClickedPoint(const geometry_msgs::PointStampedConst
       runFrontierExploration();
       if (frontier_nodes_.size() > 0) {
         current_frontier_goal_ = makePoseStampedFromNode(*frontier_nodes_.begin()->second.getParent());
+
+        nav_msgs::Path goal_path;
+        goal_path.header = current_frontier_goal_.header;
+        Node node_on_path = *frontier_nodes_.begin()->second.getParent();
+        while (node_on_path.getParent() != nullptr) {
+          goal_path.poses.insert(goal_path.poses.begin(), makePoseStampedFromNode(node_on_path));
+          ROS_DEBUG("Node: %d", (int)node_on_path.id_);
+
+          if (node_on_path.getParent()->id_ == 0) {
+            break;
+          }
+          node_on_path = *(node_on_path.getParent());
+        }
+
         pub_goal_.publish(current_frontier_goal_);
+        pub_goal_path_.publish(goal_path);
       }
     }
 
@@ -310,7 +341,7 @@ void UGVFrontierExplorer::extendTreeRRTstar(geometry_msgs::Point candidate_point
       if (isPositionUnmapped(candidate_point.x, candidate_point.y) and node_cost > planner_min_distance_to_frontier_ and node_cost < planner_max_distance_to_frontier_) {
         frontier_nodes_.insert(std::pair<double, Node>(node_cost, new_node));
         ROS_DEBUG("UGVPlanner: Frontier found. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
-      } else if(!node_is_goal) {
+      } else {
         tree_.push_back(new_node);
         ROS_DEBUG("UGVPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       }
@@ -452,9 +483,11 @@ bool UGVFrontierExplorer::isPositionCollisionFree(double world_x, double world_y
   ROS_DEBUG("UGVFrontierExplorer: isPositionCollisionFree");
   int gridCost = map_.data[getGridIndex(world_x, world_y)];
   if (gridCost > collision_threshold_) {
+    ROS_DEBUG("Position NOT collision free: grid cost %d above collision threshold %d", gridCost, collision_threshold_);
     return false;
   }
-  else if ((gridCost == -1 or isPositionOutsideMap(world_x, world_y)) and unmapped_is_collision_) {
+  else if (isPositionUnmapped(world_x, world_y) and unmapped_is_collision_) {
+    ROS_DEBUG("Position NOT collision free: position is unmapped");
     return false;
   }
   return true;

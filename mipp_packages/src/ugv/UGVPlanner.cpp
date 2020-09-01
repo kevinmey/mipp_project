@@ -56,6 +56,7 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
   pub_viz_subgoal_node_ = n.advertise<visualization_msgs::MarkerArray>(robot_namespace_+"/UGVPlanner/subgoal_node", 1);
   pub_viz_frontier_nodes_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/frontier_nodes", 1);
 
+  sub_initial_path_ = n.subscribe("/ugv/UGVFrontierExplorer/goal_path", 1, &UGVPlanner::subInitialPath, this);
   sub_odometry_ = n.subscribe("/odometry/filtered", 1, &UGVPlanner::subOdometry, this);
 
   // Init. random number generator distributions
@@ -78,12 +79,23 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
 *  Subscriber callbacks
 */
 
+void UGVPlanner::subInitialPath(const nav_msgs::Path& path_msg)
+{
+  ROS_INFO("UGVPlanner: subInitialPath");
+
+  initial_path_.clear();
+  for (auto path_it = path_msg.poses.begin(); path_it != path_msg.poses.end(); ++path_it) {
+    ROS_INFO("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
+    initial_path_.insert(initial_path_.begin(), makePoint(path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z));
+  }
+}
+
 void UGVPlanner::subOdometry(const nav_msgs::Odometry& odometry_msg)
 {
-  ROS_DEBUG("RRTPlanner: subOdometry");
+  ROS_DEBUG("UGVPlanner: subOdometry");
   if(path_.size() != 0){
     if(getDistanceBetweenPoints(odometry_msg.pose.pose.position, *path_.begin()) < 3.0){
-      ROS_DEBUG("RRTPlanner: Getting new subgoal");
+      ROS_DEBUG("UGVPlanner: Getting new subgoal");
       path_.pop_front();
     }
     visualizeSubgoal(*path_.begin(), 1.0, 1.0, 0.0);
@@ -98,7 +110,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
                 const geometry_msgs::PoseStamped& goal,
                 std::vector<geometry_msgs::PoseStamped>& plan)
 {
-  ROS_DEBUG("UGVPlanner: planPathToGoal");
+  ROS_DEBUG("UGVPlanner: makePlan");
 
   // From global_planner plugin:
   if(!initialized_){
@@ -207,10 +219,15 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     
     geometry_msgs::Point sample_point;
     bool sample_is_goal = false;
-    if(unit_distribution_(generator_) < goal_sample_probability_){
-      ROS_DEBUG("UGVPlanner: Sampling goal point");
+    if (!initial_path_.empty()){
+      sample_point = initial_path_.front();
+      initial_path_.erase(initial_path_.begin());
+      ROS_INFO("UGVPlanner: Sampling initial path point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
+    }
+    else if(unit_distribution_(generator_) < goal_sample_probability_){
       sample_point = goal_.position_;
       sample_is_goal = true;
+      ROS_DEBUG("UGVPlanner: Sampling goal point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
     } else {
       sample_point = generateRandomInformedPoint();
       ROS_DEBUG("UGVPlanner: Sampled informed point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);

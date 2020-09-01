@@ -14,6 +14,7 @@
 #include <map_msgs/OccupancyGridUpdate.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
@@ -55,6 +56,7 @@ private:
   geometry_msgs::PoseStamped makePoseStampedFromNode(Node node);
   
   ros::Publisher pub_goal_;
+  ros::Publisher pub_goal_path_;
   ros::Publisher pub_viz_tree_;
   ros::Publisher pub_viz_root_node_;
   ros::Publisher pub_viz_frontier_nodes_;

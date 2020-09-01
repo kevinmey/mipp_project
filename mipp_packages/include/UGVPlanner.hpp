@@ -21,6 +21,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
@@ -48,6 +49,7 @@ public:
   *  Subscriber callbacks
   */
 
+ void subInitialPath(const nav_msgs::Path& path_msg);
  void subOdometry(const nav_msgs::Odometry& odometry_msg);
   
   /* 
@@ -93,6 +95,8 @@ private:
   ros::Publisher pub_viz_goal_node_;
   ros::Publisher pub_viz_subgoal_node_;
   ros::Publisher pub_viz_frontier_nodes_;
+
+  ros::Subscriber sub_initial_path_;
   ros::Subscriber sub_odometry_;
   tf::TransformListener tf_listener_;
   // Planner variables
@@ -100,6 +104,7 @@ private:
   Node goal_;
   std::list<Node> tree_;
   std::vector<geometry_msgs::Point> collision_tree_;
+  std::list<geometry_msgs::Point> initial_path_;
   std::list<geometry_msgs::Point> path_;
   std::list<geometry_msgs::Point> path_remaining_;
   // For global_planner plugin:
