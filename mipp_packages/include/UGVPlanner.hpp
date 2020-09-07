@@ -68,6 +68,12 @@ public:
                            double distance = -1.0);
   
   /* 
+  *  Planner functions
+  */
+  void replanCheck();
+  void replan();
+
+  /* 
   *  Utility functions
   */
   void getParams(ros::NodeHandle np);
@@ -88,6 +94,8 @@ public:
   void visualizeSubgoal(geometry_msgs::Point point, double red, double green, double blue);
 
 private:
+  ros::Timer timer_replan_checker_;
+  ros::Publisher pub_goal_;
   ros::Publisher pub_viz_tree_;
   ros::Publisher pub_viz_collision_tree_;
   ros::Publisher pub_viz_path_to_goal_;
@@ -147,6 +155,8 @@ private:
   int planner_max_tree_nodes_;
   double planner_max_time_;
   double planner_max_ray_distance_;
+  bool planner_replan_enabled_;
+  int planner_replan_counter_;
 };
 
 };

@@ -5,7 +5,10 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /UGV1/Exploration1
+        - /UGV1
+        - /UGV1/Navigation1
+        - /UGV1/Navigation1/Global RRT planner1
+        - /UGV1/Navigation1/Global RRT planner1/PathToGoal1
         - /UAV01/Drone1
       Splitter Ratio: 0.3964401185512543
     Tree Height: 794
@@ -385,7 +388,7 @@ Visualization Manager:
                   Marker Topic: /ugv/UGVPlanner/root_node
                   Name: RootNode
                   Namespaces:
-                    "": true
+                    {}
                   Queue Size: 100
                   Value: true
                 - Class: rviz/MarkerArray
@@ -393,29 +396,37 @@ Visualization Manager:
                   Marker Topic: /ugv/UGVPlanner/goal_node
                   Name: GoalNode
                   Namespaces:
-                    "": true
+                    {}
                   Queue Size: 100
                   Value: true
                 - Class: rviz/Marker
-                  Enabled: false
-                  Marker Topic: /UGVPlanner/path_to_goal
+                  Enabled: true
+                  Marker Topic: /ugv/UGVPlanner/path_to_goal
                   Name: PathToGoal
                   Namespaces:
                     {}
                   Queue Size: 100
-                  Value: false
+                  Value: true
                 - Class: rviz/Marker
                   Enabled: true
                   Marker Topic: /ugv/UGVPlanner/viz_tree
                   Name: Tree
                   Namespaces:
-                    "": true
+                    {}
                   Queue Size: 100
                   Value: true
                 - Class: rviz/Marker
                   Enabled: true
                   Marker Topic: /ugv/UGVPlanner/viz_collision_tree
                   Name: CollisionTree
+                  Namespaces:
+                    {}
+                  Queue Size: 100
+                  Value: true
+                - Class: rviz/MarkerArray
+                  Enabled: true
+                  Marker Topic: /ugv/UGVPlanner/subgoal_node
+                  Name: CollisionPoint
                   Namespaces:
                     {}
                   Queue Size: 100
@@ -431,7 +442,7 @@ Visualization Manager:
               Marker Topic: /ugv/UGVFrontierExplorer/viz_tree
               Name: Frontier Tree
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -439,7 +450,7 @@ Visualization Manager:
               Marker Topic: /ugv/UGVFrontierExplorer/viz_frontier_nodes
               Name: Frontier Nodes
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/MarkerArray
@@ -447,7 +458,7 @@ Visualization Manager:
               Marker Topic: /ugv/UGVFrontierExplorer/viz_root_node
               Name: Frontier Root Node
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
           Enabled: true
@@ -461,7 +472,7 @@ Visualization Manager:
           Marker Topic: /uav0/uav_server/viz_uav
           Name: Drone
           Namespaces:
-            "": true
+            {}
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -469,7 +480,7 @@ Visualization Manager:
           Marker Topic: /uav0/viz_constraint
           Name: Communication constraint
           Namespaces:
-            "": true
+            {}
           Queue Size: 100
           Value: true
         - Class: rviz/Group
@@ -645,7 +656,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -653,7 +664,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_path
               Name: Viz Path
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -661,7 +672,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_fov
               Name: Viz FOV
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
           Enabled: true
@@ -750,7 +761,7 @@ Visualization Manager:
           Marker Topic: /uav1/uav_server/viz_uav
           Name: Drone
           Namespaces:
-            "": true
+            {}
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -758,7 +769,7 @@ Visualization Manager:
           Marker Topic: /uav1/viz_constraint
           Name: Communication constraint
           Namespaces:
-            "": true
+            {}
           Queue Size: 100
           Value: true
         - Class: rviz/Group
@@ -934,7 +945,7 @@ Visualization Manager:
               Marker Topic: /uav1/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -942,7 +953,7 @@ Visualization Manager:
               Marker Topic: /uav1/uav_server/viz_path
               Name: Viz Path
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -950,7 +961,7 @@ Visualization Manager:
               Marker Topic: /uav1/uav_server/viz_fov
               Name: Viz FOV
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
           Enabled: true
@@ -1039,7 +1050,7 @@ Visualization Manager:
           Marker Topic: /uav2/uav_server/viz_uav
           Name: Drone
           Namespaces:
-            "": true
+            {}
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -1047,7 +1058,7 @@ Visualization Manager:
           Marker Topic: /uav2/viz_constraint
           Name: Communication constraint
           Namespaces:
-            "": true
+            {}
           Queue Size: 100
           Value: true
         - Class: rviz/Group
@@ -1223,7 +1234,7 @@ Visualization Manager:
               Marker Topic: /uav2/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -1231,7 +1242,7 @@ Visualization Manager:
               Marker Topic: /uav2/uav_server/viz_path
               Name: Viz Path
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -1239,7 +1250,7 @@ Visualization Manager:
               Marker Topic: /uav2/uav_server/viz_fov
               Name: Viz FOV
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
           Enabled: true
@@ -1415,18 +1426,18 @@ Visualization Manager:
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 11.352442741394043
-        Y: -0.1105809211730957
-        Z: 3.167420072713867e-5
+        X: -2.4998779296875
+        Y: -1.099955439567566
+        Z: 2.7859503461513668e-5
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.764798104763031
+      Pitch: 0.6597982048988342
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 0.26045867800712585
+      Yaw: 2.88545823097229
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
