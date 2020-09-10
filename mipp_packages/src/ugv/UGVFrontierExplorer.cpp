@@ -2,6 +2,11 @@
 
 // Constructor
   
+UGVFrontierExplorer::UGVFrontierExplorer()
+{
+  ROS_INFO("UGVFrontierExplorer object is being created without ROS.");
+}
+  
 UGVFrontierExplorer::UGVFrontierExplorer(ros::NodeHandle n, ros::NodeHandle np)
 {
   ROS_INFO("UGVFrontierExplorer object is being created.");

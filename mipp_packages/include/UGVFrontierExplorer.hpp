@@ -1,3 +1,5 @@
+#pragma once
+
 #include <ros/ros.h>
 
 #include <Node.hpp>
@@ -25,6 +27,7 @@ class UGVFrontierExplorer
 {
 public:
   // Constructor
+  UGVFrontierExplorer();
   UGVFrontierExplorer(ros::NodeHandle n, ros::NodeHandle np);
   // Destructor
   ~UGVFrontierExplorer();
@@ -108,4 +111,6 @@ private:
   double planner_max_distance_to_frontier_;
   int collision_threshold_;
   bool unmapped_is_collision_;
+  // Friend class
+  friend class JointExplorer;
 };

@@ -543,38 +543,6 @@ void UGVPlanner::replanCheck()
     ROS_DEBUG("No collision detected.");
   }
 }
-  /*
-  std::list<geometry_msgs::Point>::reverse_iterator path_revit;
-  for (path_revit = path_.rbegin(); path_revit != path_.rend(); path_revit++) {
-    if (path_revit == path_.rend()) {
-      break;
-    }
-
-    ROS_INFO("Checking path from (%f, %f, %f) to (%f, %f, %f)", path_revit->x, path_revit->y, path_revit->z, std::next(path_revit,1)->x, std::next(path_revit,1)->y, std::next(path_revit,1)->z);
-
-    collision_point.x = std::next(path_revit,1)->x;
-    collision_point.y = std::next(path_revit,1)->y;
-    collision_point.z = std::next(path_revit,1)->z;
-    ROS_INFO("Point before: (%f, %f, %f)", collision_point.x, collision_point.y, collision_point.z);
-    ROS_INFO("Point before: (%f, %f, %f)", std::next(path_revit,1)->x, std::next(path_revit,1)->y, std::next(path_revit,1)->z);
-    if (!isPathCollisionFree(*path_revit, collision_point, true)) {
-      collision_detected = true;
-      visualizeSubgoal(collision_point, 1.0, 1.0, 0.0);
-      ROS_INFO("Point after: (%f, %f, %f)", collision_point.x, collision_point.y, collision_point.z);
-      ROS_INFO("Point after: (%f, %f, %f)", std::next(path_revit,1)->x, std::next(path_revit,1)->y, std::next(path_revit,1)->z);
-      break;
-    }
-  }
-
-  if (collision_detected) {
-    ROS_WARN("Collision detected, replanning.");
-    replan();
-
-  } else {
-    ROS_DEBUG("No collision detected.");
-  }
-}
-*/
 
 void UGVPlanner::replan()
 {

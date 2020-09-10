@@ -1,6 +1,11 @@
 #include <UAVInformativeExplorer.hpp>
 
-// Constructor
+// Constructor  
+
+UAVInformativeExplorer::UAVInformativeExplorer()
+{
+  ROS_INFO("UAVInformativeExplorer object is being created without ROS.");
+}
   
 UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandle np)
 {
@@ -161,6 +166,35 @@ void UAVInformativeExplorer::getParams(ros::NodeHandle np) {
   np.param<double>("planner_max_neighbor_distance", planner_max_neighbor_distance_, planner_max_ray_distance_);
   np.param<double>("planner_max_neighbor_yaw", planner_max_neighbor_yaw_, angles::from_degrees(90.0));
   np.param<bool>("planner_unmapped_is_collision", planner_unmapped_is_collision_, true);
+}
+
+void UAVInformativeExplorer::initVariables() {
+  // Initialize values
+  uav_position_goal_.header.frame_id = uav_local_frame_;
+  uav_position_goal_.header.stamp = ros::Time::now();
+  uav_position_goal_.pose.position.x = uav_start_x_;
+  uav_position_goal_.pose.position.y = uav_start_y_;
+  uav_position_goal_.pose.position.z = uav_takeoff_z_;
+  uav_position_goal_.pose.orientation.w = 1.0;
+  uav_running_exploration_ = false;
+  // Set variables
+  double uav_camera_vfov_ = (uav_camera_height_/uav_camera_width_)*uav_camera_hfov_;
+  tf2::Matrix3x3 ray_rot_mat;
+  tf2::Vector3 unit_ray_direction(1.0, 0.0, 0.0);
+  for (double img_y = -uav_camera_height_/2.0; img_y <= uav_camera_height_/2.0+uav_camera_ray_resolution_/2.0; img_y+=uav_camera_ray_resolution_){
+    for (double img_x = -uav_camera_width_/2.0; img_x <= uav_camera_width_/2.0+uav_camera_ray_resolution_/2.0; img_x+=uav_camera_ray_resolution_){
+      double ray_yaw = (img_x/uav_camera_width_)*uav_camera_hfov_;
+      double ray_pitch = (img_y/uav_camera_height_)*uav_camera_vfov_;
+      ray_rot_mat.setEulerYPR(ray_yaw, ray_pitch, 0.0);
+      tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
+      uav_camera_rays_.push_back(ray_direction);
+      ROS_DEBUG("UAVInformativeExplorer: YPR: (%f, %f, %f)", ray_yaw, ray_pitch, 0.0);
+      ROS_DEBUG("UAVInformativeExplorer: Ray: (%f, %f, %f)", ray_direction.getX(), ray_direction.getY(), ray_direction.getZ());
+      if (abs(img_y) == uav_camera_height_/2.0 and abs(img_x) == uav_camera_width_/2.0) {
+        uav_camera_corner_rays_.push_back(ray_direction);
+      }
+    }
+  }
 }
 
 /* 
@@ -406,7 +440,7 @@ geometry_msgs::Point UAVInformativeExplorer::generateRandomPoint()
   double theta = unit_distribution_(generator_)*2.0*M_PI;
   sample_point.x = radius*cos(theta);
   sample_point.y = radius*sin(theta);
-  sample_point.z = uav_takeoff_z_;
+  sample_point.z = uav_takeoff_z_ + 0.5*(2*unit_distribution_(generator_) - 1);
   ROS_DEBUG("UAVInformativeExplorer: Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
 
   return sample_point;

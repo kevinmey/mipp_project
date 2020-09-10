@@ -263,7 +263,7 @@ void UAVServer::takeoff() {
       ros::spinOnce();
       rate.sleep();
     }
-    clearing_rotation_angle += 90;
+    clearing_rotation_angle += 60;
     ros::Duration(0.5).sleep();
   }
   ROS_INFO("UAVServer: Clearing rotations complete");

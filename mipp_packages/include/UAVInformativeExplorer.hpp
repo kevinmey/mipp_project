@@ -28,16 +28,13 @@ class UAVInformativeExplorer
 {
 public:
   // Constructor
+  UAVInformativeExplorer();
   UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandle np);
   // Destructor
   ~UAVInformativeExplorer();
   
   /* 
   *  Publish functions for publishers
-  */
- 
-  /**
-  * @brief Publishes uav_desired_pose_ to mavros setpoint.
   */
   void pubMavrosSetpoint();
   
@@ -47,42 +44,17 @@ public:
 
   void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   void subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg);
-  
-  /**
-  * @brief Callback for global goal, which avoidance is setting.
-  * @param position_goal_msg Message sent to topic.
-  */
   void subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& position_goal_msg);
-  
-  /**
-  * @brief Callback for local goal/setpoint, which avoidance is setting.
-  * @param local_goal_msg Message sent to topic.
-  */
   void subLocalGoal(const geometry_msgs::PoseStamped::ConstPtr& local_goal_msg);
-  
-  /**
-  * @brief Callback for mavros drone state, f.ex. OFFBOARD.
-  * @param mavros_state_msg Message sent to topic.
-  */
   void subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_msg);
-  
-  /**
-  * @brief Callback for ground truth odometry of UAV from gazebo.
-  * @param odometry_msg Message sent to topic.
-  */
   void subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg);
-
   void subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg);
   
   /* 
   *  Utility functions
   */
-  
-  /**
-  * @brief Get parameters from rosparam in launch.
-  * @param np Private nodehandle.
-  */
   void getParams(ros::NodeHandle np);
+  void initVariables();
   
   /**
   * @brief Mavros procedure to takeoff the drone. Done on init.
@@ -175,4 +147,6 @@ private:
   std::vector<tf2::Vector3> uav_camera_rays_;
   std::vector<tf2::Vector3> uav_camera_corner_rays_;
   std::vector<std::pair<double, geometry_msgs::Point>> uav_camera_information_points_;
+  // Friend class
+  friend class JointExplorer;
 };

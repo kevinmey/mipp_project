@@ -1,8 +1,4 @@
-/**
-* @file Node.hpp
-* @author Kevinmey, based on code from Sondreab and vss2sn
-* @brief Contains the Node class
-*/
+#pragma once
 
 #include <geometry_msgs/Point.h>
 

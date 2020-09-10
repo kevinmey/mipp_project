@@ -42,6 +42,37 @@ add_library(
     src/common/utils.cpp
 )
 
+add_library(
+    explorer_libs
+    src/common/utils.cpp
+    src/ugv/UGVFrontierExplorer.cpp
+    src/uav/UAVInformativeExplorer.cpp
+)
+
+###   ###
+# Joint #
+###   ###
+
+## joint_explorer_node
+
+add_executable(
+    joint_explorer_node
+    src/joint/joint_explorer_node.cpp
+    src/joint/JointExplorer.cpp
+)
+
+add_dependencies(
+    joint_explorer_node
+    ${joint_explorer_node_EXPORTED_TARGETS} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    joint_explorer_node
+    explorer_libs
+    ${catkin_LIBRARIES}
+)
+
 ### ###
 # UGV #
 ### ###
