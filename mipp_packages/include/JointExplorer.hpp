@@ -26,8 +26,8 @@ public:
   *  Utility functions
   */
   void getParams(ros::NodeHandle np);
-  void initUGVExplorer();
-  void initUAVExplorer(int uav_id);
+  void initUGVExplorer(ros::NodeHandle n, ros::NodeHandle np);
+  void initUAVExplorer(ros::NodeHandle n, ros::NodeHandle np, int uav_id);
   
 private:
   // Publishers
@@ -36,11 +36,11 @@ private:
   // Subscribers
   ros::Subscriber sub_clicked_point_;
   // TF
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener* tf_listener_; 
+  // tf2_ros::Buffer tf_buffer_;
+  // tf2_ros::TransformListener* tf_listener_; 
   // Random nr. generator and distributions
-  std::default_random_engine generator_;
-  std::uniform_real_distribution<double> unit_distribution_;
+  // std::default_random_engine generator_;
+  // std::uniform_real_distribution<double> unit_distribution_;
   // Parameters
   int nr_of_uavs_;
   // Common planner
