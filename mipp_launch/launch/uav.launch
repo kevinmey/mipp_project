@@ -30,7 +30,6 @@
   <arg name="octomap_throttle_rate" default="1.0"/>
 
   <arg name="use_ground_truth"   default="true"/>
-  <arg name="running_joint_explorer"    default="false"/>
 
   <remap from="/mavros/companion_process/status"              to="$(arg ns)/mavros/companion_process/status" />
   <remap from="/mavros/altitude"                              to="$(arg ns)/mavros/altitude" />
@@ -99,7 +98,7 @@
     
     <!-- Launch UAV Informative Explorer -->
 
-    <include file="$(find mipp_packages)/launch/uav_informative_explorer.launch" unless="$(arg running_joint_explorer)">
+    <include file="$(find mipp_packages)/launch/uav_informative_explorer.launch">
       <arg name="uav_id"          value="$(arg uav_id)"/>
       <arg name="uav_start_x"     value="$(arg initial_x)"/>
       <arg name="uav_start_y"     value="$(arg initial_y)"/>

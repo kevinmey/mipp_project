@@ -13,7 +13,6 @@
   <arg name="urdf_extras" default="$(find mipp_description)/urdf/accessories/extras.urdf.xacro"/>
   <arg name="republish_pointcloud"    default="true"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
-  <arg name="run_frontier_explorer"    default="true"/>
   
   <group ns="$(arg robot_namespace)">
     <!-- K: Husky Control launch -->
@@ -135,7 +134,7 @@
     <remap from="/odometry/filtered" to="odometry/filtered"/>
   </group>
 
-  <include file="$(find mipp_packages)/launch/ugv_frontier_explorer.launch" if="$(arg run_frontier_explorer)">
+  <include file="$(find mipp_packages)/launch/ugv_frontier_explorer.launch">
     <arg name="robot_namespace"        value="$(arg robot_namespace)"/>
   </include>
 

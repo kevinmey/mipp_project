@@ -8,7 +8,6 @@
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
   <arg name="nr_of_uavs"  default="1"/>
-  <arg name="run_joint_explorer"  default="true"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
 
   <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  10"/>
@@ -40,7 +39,6 @@
     <arg name="initial_x"     value="-1"/>
     <arg name="initial_y"     value="-2"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
-    <arg name="running_joint_explorer"    value="$(arg run_joint_explorer)"/>
   </include>
 
   <!--- 
@@ -51,7 +49,6 @@
     <arg name="initial_x"     value="-1"/>
     <arg name="initial_y"     value="2"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
-    <arg name="running_joint_explorer"    value="$(arg run_joint_explorer)"/>
   </include>
 
   <!--- 
@@ -62,7 +59,6 @@
     <arg name="initial_x"     value="-3"/>
     <arg name="initial_y"     value="0"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
-    <arg name="running_joint_explorer"    value="$(arg run_joint_explorer)"/>
   </include>
 
   <!-- Load custom console configuration -->
@@ -90,16 +86,8 @@
   <arg name="ugv_ns"  default="/ugv"/>
   <group if="$(arg run_husky)">
     <include file="$(find mipp_launch)/launch/husky.launch">
-      <arg name="run_frontier_explorer"  value="false"/>
       <arg name="robot_namespace"        value="$(arg ugv_ns)"/>
     </include>
   </group>
-
-  <!--- 
-    Joint exploration
-  <include file="$(find mipp_packages)/launch/joint_explorer.launch" if="$(arg run_joint_explorer)">
-    <arg name="nr_of_uavs"  value="$(arg nr_of_uavs)"/>
-  </include>
-  -->
 
 </launch>
