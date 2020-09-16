@@ -37,6 +37,7 @@ UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandl
   std::random_device rd;  // Non-deterministic random nr. to seed generator
   generator_ = std::default_random_engine(rd());
   unit_distribution_ = std::uniform_real_distribution<double>(0.0, 1.0);
+  
   // Set variables
   double uav_camera_vfov_ = (uav_camera_height_/uav_camera_width_)*uav_camera_hfov_;
   tf2::Matrix3x3 ray_rot_mat;
@@ -580,7 +581,6 @@ bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, g
 }
 
 bool UAVInformativeExplorer::isGoalReached() {
-
   // Calculate distance to global goal in 2D
   uav_position_goal_euc_dist_ = sqrt( pow(uav_position_goal_.pose.position.x - uav_pose_.pose.position.x, 2.0 ) +
                                     pow(uav_position_goal_.pose.position.y - uav_pose_.pose.position.y, 2.0 ) );

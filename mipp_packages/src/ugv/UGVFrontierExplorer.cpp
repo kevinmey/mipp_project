@@ -385,7 +385,7 @@ void UGVFrontierExplorer::getParams(ros::NodeHandle np)
   np.param<double>("y_range_min", y_range_min_, -10.0);
   np.param<double>("y_range_max", y_range_max_,  10.0);
   np.param<std::string>("planner_world_frame", planner_world_frame_, "map");
-  np.param<double>("planner_rate", planner_rate_, 2.0);
+  np.param<double>("planner_rate", planner_rate_, 10.0);
   np.param<double>("planner_max_time", planner_max_time_, 5.0);
   np.param<double>("planner_max_ray_distance", planner_max_ray_distance_, 2.0);
   np.param<double>("planner_min_distance_to_frontier", planner_min_distance_to_frontier_, 4.0);

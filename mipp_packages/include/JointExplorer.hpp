@@ -21,6 +21,12 @@ public:
   *  Callback functions for subscriptions
   */
   void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
+
+  /* 
+  *  Planner functions
+  */
+ bool startUGVExploration();
+ bool startUAVExploration();
   
   /* 
   *  Utility functions
@@ -77,6 +83,7 @@ private:
   // Variables
   //// UGV
   UGVFrontierExplorer* ugv_explorer_;
+  bool running_joint_exploration_;
   //// UAV
   std::vector<UAVInformativeExplorer*> uav_explorers_;
 };
