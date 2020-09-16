@@ -95,9 +95,11 @@
     </include>
   </group>
 
-
+  <!--- 
+    Joint exploration
   <include file="$(find mipp_packages)/launch/joint_explorer.launch" if="$(arg run_joint_explorer)">
     <arg name="nr_of_uavs"  value="$(arg nr_of_uavs)"/>
   </include>
+  -->
 
 </launch>
