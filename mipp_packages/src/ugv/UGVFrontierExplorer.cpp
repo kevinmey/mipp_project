@@ -2,12 +2,8 @@
 
 // Constructor
   
-UGVFrontierExplorer::UGVFrontierExplorer()
-{
-  ROS_INFO("UGVFrontierExplorer object is being created without ROS.");
-}
-  
 UGVFrontierExplorer::UGVFrontierExplorer(ros::NodeHandle n, ros::NodeHandle np)
+  : act_exploration_server_(n, "exploration_action", boost::bind(&UGVFrontierExplorer::actStartExploration, this, _1), false) 
 {
   ROS_INFO("UGVFrontierExplorer object is being created.");
 
@@ -19,6 +15,14 @@ UGVFrontierExplorer::UGVFrontierExplorer(ros::NodeHandle n, ros::NodeHandle np)
   pub_viz_root_node_ = n.advertise<visualization_msgs::MarkerArray>("UGVFrontierExplorer/viz_root_node", 1);
   pub_viz_frontier_nodes_ = n.advertise<visualization_msgs::Marker>("UGVFrontierExplorer/viz_frontier_nodes", 1);
 
+  map_initialized_ = false;
+  sub_start_exploration_indiv_ = n.subscribe("/exploration/start_individual", 1, &UGVFrontierExplorer::subStartExploration, this);
+  sub_map_ = n.subscribe("move_base/global_costmap/costmap", 1, &UGVFrontierExplorer::subMap, this);
+  sub_map_update_ = n.subscribe("move_base/global_costmap/costmap_updates", 1, &UGVFrontierExplorer::subMapUpdate, this);
+  sub_odometry_ = n.subscribe("odometry/filtered", 1, &UGVFrontierExplorer::subOdometry, this);
+
+  act_exploration_server_.start();
+
   tf_listener_ = new tf2_ros::TransformListener(tf_buffer_);
 
   // Init. random number generator distributions
@@ -28,11 +32,7 @@ UGVFrontierExplorer::UGVFrontierExplorer(ros::NodeHandle n, ros::NodeHandle np)
   y_distribution_ = std::uniform_real_distribution<double>(y_range_min_, y_range_max_);
   unit_distribution_ = std::uniform_real_distribution<double>(0.0, 1.0);
 
-  map_initialized_ = false;
-  sub_clicked_point_ = n.subscribe("/clicked_point", 1, &UGVFrontierExplorer::subClickedPoint, this);
-  sub_map_ = n.subscribe("move_base/global_costmap/costmap", 1, &UGVFrontierExplorer::subMap, this);
-  sub_map_update_ = n.subscribe("move_base/global_costmap/costmap_updates", 1, &UGVFrontierExplorer::subMapUpdate, this);
-  sub_odometry_ = n.subscribe("odometry/filtered", 1, &UGVFrontierExplorer::subOdometry, this);
+  // Wait for map
   ros::Rate wait_rate(1.0);
   while (!map_initialized_) {
     ros::spinOnce();
@@ -41,7 +41,7 @@ UGVFrontierExplorer::UGVFrontierExplorer(ros::NodeHandle n, ros::NodeHandle np)
 
   running_frontier_exploration_ = false;
 
-  ROS_INFO("UGVFrontierExplorer: Initialization done.");
+  ROS_INFO("Initialization done.");
 }
 
 // Destructor
@@ -56,9 +56,9 @@ UGVFrontierExplorer::~UGVFrontierExplorer()
 *  Subscriber callbacks
 */
 
-void UGVFrontierExplorer::subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg)
+void UGVFrontierExplorer::subStartExploration(const geometry_msgs::PointStampedConstPtr& clicked_point_msg)
 {
-  ROS_DEBUG("UGVFrontierExplorer: subClickedPoint");
+  ROS_DEBUG("subStartExploration");
   int mx;
   int my;
   double wx = clicked_point_msg->point.x;
@@ -130,7 +130,7 @@ void UGVFrontierExplorer::subClickedPoint(const geometry_msgs::PointStampedConst
 
 void UGVFrontierExplorer::subMap(const nav_msgs::OccupancyGridConstPtr& map_msg)
 {
-  ROS_DEBUG("UGVFrontierExplorer: subMap");
+  ROS_DEBUG("subMap");
   // If map in use by others, have to wait until they release it
   ros::Rate wait_rate(5.0);
   if (map_in_use_) {
@@ -154,7 +154,7 @@ void UGVFrontierExplorer::subMap(const nav_msgs::OccupancyGridConstPtr& map_msg)
 
   // Set map data
   map_.data = map_msg->data;
-  ROS_DEBUG("UGVFrontierExplorer: Map size %d", (int)map_.data.size());
+  ROS_DEBUG("Map size %d", (int)map_.data.size());
 
   // Release lock
   map_in_use_ = false;
@@ -165,7 +165,7 @@ void UGVFrontierExplorer::subMap(const nav_msgs::OccupancyGridConstPtr& map_msg)
 
 void UGVFrontierExplorer::subMapUpdate(const map_msgs::OccupancyGridUpdateConstPtr& map_msg)
 {
-  ROS_DEBUG("UGVFrontierExplorer: subMapUpdate");
+  ROS_DEBUG("subMapUpdate");
   // If map not initialized or in use by others, wait
   ros::Rate wait_rate(5.0);
   if (!map_initialized_ or map_in_use_) {
@@ -178,7 +178,7 @@ void UGVFrontierExplorer::subMapUpdate(const map_msgs::OccupancyGridUpdateConstP
 
   // Set map data
   map_.data = map_msg->data;
-  ROS_DEBUG("UGVFrontierExplorer: Map size %d", (int)map_.data.size());
+  ROS_DEBUG("Map size %d", (int)map_.data.size());
 
   // Release lock
   map_in_use_ = false;
@@ -186,8 +186,37 @@ void UGVFrontierExplorer::subMapUpdate(const map_msgs::OccupancyGridUpdateConstP
 
 void UGVFrontierExplorer::subOdometry(const nav_msgs::Odometry odometry_msg)
 {
-  //ROS_DEBUG("UGVFrontierExplorer: subOdometry");
+  //ROS_DEBUG("subOdometry");
   ugv_odometry_ = odometry_msg;
+}
+
+void UGVFrontierExplorer::actStartExploration(const mipp_msgs::StartExplorationGoalConstPtr &goal)
+{
+  ROS_DEBUG("actStartExploration");
+
+  planner_action_in_progress_ = true;
+  planner_max_time_ = goal->max_time;
+  runFrontierExploration();
+
+  act_exploration_result_.result.header = current_frontier_goal_.header;
+  std::map<double, Node>::iterator frontier_node_it = frontier_nodes_.begin();
+  while (frontier_node_it != frontier_nodes_.end()) {
+    mipp_msgs::ExplorationPath frontier_path;
+    Node node_on_path = *frontier_node_it->second.getParent();
+    while (node_on_path.getParent() != nullptr) {
+      mipp_msgs::ExplorationPose frontier_path_pose;
+      frontier_path_pose.gain = 0;
+      frontier_path_pose.pose = makePoseFromNode(node_on_path);
+      frontier_path.poses.push_back(frontier_path_pose);
+      if (node_on_path.getParent()->id_ == 0) {
+        break;
+      }
+      node_on_path = *(node_on_path.getParent());
+    }
+    act_exploration_result_.result.paths.push_back(frontier_path);
+  }
+  act_exploration_server_.setSucceeded(act_exploration_result_);
+  planner_action_in_progress_ = false;
 }
 
 /* 
@@ -196,7 +225,7 @@ void UGVFrontierExplorer::subOdometry(const nav_msgs::Odometry odometry_msg)
 
 void UGVFrontierExplorer::runFrontierExploration()
 {
-  ROS_DEBUG("UGVPlanner: planPathToGoal");
+  ROS_DEBUG("planPathToGoal");
   // If map not initialized or in use by others, wait
   ros::Rate wait_rate(5.0);
   if (!map_initialized_ or map_in_use_) {
@@ -209,7 +238,7 @@ void UGVFrontierExplorer::runFrontierExploration()
   frontier_nodes_.clear();
 
   if(use_dynamic_range_){
-    ROS_DEBUG("UGVPlanner: Changing point-sampling bounds to costmap bounds + padding.");
+    ROS_DEBUG("Changing point-sampling bounds to costmap bounds + padding.");
     // Costmap origin is in lower left corner
     double map_x_min = map_origin_x_;
     double map_x_max = map_origin_x_ + map_width_;
@@ -239,7 +268,7 @@ void UGVFrontierExplorer::runFrontierExploration()
     ros::Time begin = ros::Time::now();
     
     geometry_msgs::Point sample_point = generateRandomPoint();
-    ROS_DEBUG("UGVPlanner: Sampled random point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
+    ROS_DEBUG("Sampled random point: (x,y,z) = (%f,%f,%f)",sample_point.x,sample_point.y,sample_point.z);
 
     // Start finding nearest node in the tree to the sampled point (init. as root)
     Node* nearest_neighbor = &root_;
@@ -293,6 +322,11 @@ void UGVFrontierExplorer::runFrontierExploration()
     visualizeRoot(root_.position_, 0.0, 1.0, 0.0);
     visualizeFrontierNodes(0.0, 0.0, 1.0);
 
+    if(planner_action_in_progress_){
+      act_exploration_feedback_.nodes_found = tree_.size();
+      act_exploration_server_.publishFeedback(act_exploration_feedback_);
+    }
+
     ros::spinOnce();
     rate.sleep();
   }
@@ -300,7 +334,7 @@ void UGVFrontierExplorer::runFrontierExploration()
 
 void UGVFrontierExplorer::extendTreeRRTstar(geometry_msgs::Point candidate_point)
 {
-  ROS_DEBUG("UGVPlanner: extendTreeRRTstar");
+  ROS_DEBUG("extendTreeRRTstar");
 
   // Make a neighbor list of nodes close enough to the candidate point
   // Store combined cost and Node pointer in map
@@ -345,10 +379,10 @@ void UGVFrontierExplorer::extendTreeRRTstar(geometry_msgs::Point candidate_point
 
       if (isPositionUnmapped(candidate_point.x, candidate_point.y) and node_cost > planner_min_distance_to_frontier_ and node_cost < planner_max_distance_to_frontier_) {
         frontier_nodes_.insert(std::pair<double, Node>(node_cost, new_node));
-        ROS_DEBUG("UGVPlanner: Frontier found. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+        ROS_DEBUG("Frontier found. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       } else {
         tree_.push_back(new_node);
-        ROS_DEBUG("UGVPlanner: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+        ROS_DEBUG("New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       }
       
       // Since neighbor map is already sorted, the first collision free candidate is best candidate. Therefore break.
@@ -356,14 +390,14 @@ void UGVFrontierExplorer::extendTreeRRTstar(geometry_msgs::Point candidate_point
     }
     else
     {
-      ROS_DEBUG("UGVPlanner: Collision detected when trying to add node at (x,y,z) = (%f,%f,%f)",candidate_point.x,candidate_point.y,candidate_point.z);
+      ROS_DEBUG("Collision detected when trying to add node at (x,y,z) = (%f,%f,%f)",candidate_point.x,candidate_point.y,candidate_point.z);
     }
   }
 }
 
 geometry_msgs::Point UGVFrontierExplorer::generateRandomPoint()
 {
-  ROS_DEBUG("UGVPlanner: generateRandomPoint");
+  ROS_DEBUG("generateRandomPoint");
   geometry_msgs::Point sample_point;
   sample_point.x = x_distribution_(generator_);
   sample_point.y = y_distribution_(generator_);
@@ -377,7 +411,7 @@ geometry_msgs::Point UGVFrontierExplorer::generateRandomPoint()
 
 void UGVFrontierExplorer::getParams(ros::NodeHandle np)
 {
-  ROS_DEBUG("UGVFrontierExplorer: getParams");
+  ROS_DEBUG("getParams");
   np.param<bool>("use_dynamic_range", use_dynamic_range_, true);
   np.param<double>("dynamic_range_padding", dynamic_range_padding_, 2.0);
   np.param<double>("x_range_min", x_range_min_, -10.0);
@@ -400,14 +434,14 @@ void UGVFrontierExplorer::getParams(ros::NodeHandle np)
 
 void UGVFrontierExplorer::convMapToWorld(int map_x, int map_y, double& world_x, double& world_y)
 {
-  ROS_DEBUG("UGVFrontierExplorer: convMapToWorld");
+  ROS_DEBUG("convMapToWorld");
   world_x = (map_x + 0.5)*map_resolution_ + map_origin_x_;
   world_y = (map_y + 0.5)*map_resolution_ + map_origin_y_;
 }
 
 void UGVFrontierExplorer::convWorldToMap(double world_x, double world_y, int& map_x, int& map_y)
 {
-  ROS_DEBUG("UGVFrontierExplorer: convWorldToMap");
+  ROS_DEBUG("convWorldToMap");
 
   if (world_x < map_origin_x_) {
     map_x = 0;
@@ -432,13 +466,13 @@ void UGVFrontierExplorer::convWorldToMap(double world_x, double world_y, int& ma
 
 int UGVFrontierExplorer::getGridIndex(int map_x, int map_y)
 {
-  ROS_DEBUG("UGVFrontierExplorer: getGridIndex");
+  ROS_DEBUG("getGridIndex");
   return map_y*map_grid_width_ + map_x;
 }
 
 int UGVFrontierExplorer::getGridIndex(double world_x, double world_y)
 {
-  ROS_DEBUG("UGVFrontierExplorer: getGridIndex");
+  ROS_DEBUG("getGridIndex");
   int map_x, map_y;
   convWorldToMap(world_x, world_y, map_x, map_y);
   return map_y*map_grid_width_ + map_x;
@@ -446,7 +480,7 @@ int UGVFrontierExplorer::getGridIndex(double world_x, double world_y)
 
 bool UGVFrontierExplorer::isPathCollisionFree(double world_x_a, double world_y_a, double world_x_b, double world_y_b)
 {
-  ROS_DEBUG("UGVFrontierExplorer: isPathCollisionFree");
+  ROS_DEBUG("isPathCollisionFree");
 
   geometry_msgs::Point point_a = makePoint(world_x_a, world_y_b, 0.0);
   geometry_msgs::Point point_b = makePoint(world_x_b, world_y_b, 0.0);
@@ -456,7 +490,7 @@ bool UGVFrontierExplorer::isPathCollisionFree(double world_x_a, double world_y_a
   
   // Check first if point_b is collision free configuration
   if (!isPositionCollisionFree(world_x_b, world_y_b)) {
-    ROS_DEBUG("UGVFrontierExplorer: Path endpoint is in collision");
+    ROS_DEBUG("Path endpoint is in collision");
     return false;
   }
 
@@ -476,7 +510,7 @@ bool UGVFrontierExplorer::isPathCollisionFree(double world_x_a, double world_y_a
 
 bool UGVFrontierExplorer::isPositionOutsideMap(double world_x, double world_y)
 {
-  ROS_DEBUG("UGVFrontierExplorer: isPositionOutsideMap");
+  ROS_DEBUG("isPositionOutsideMap");
   return (world_x < map_origin_x_ or 
           world_x >= world_x >= map_width_ + map_origin_x_ or
           world_y < map_origin_y_ or 
@@ -485,7 +519,7 @@ bool UGVFrontierExplorer::isPositionOutsideMap(double world_x, double world_y)
 
 bool UGVFrontierExplorer::isPositionCollisionFree(double world_x, double world_y)
 {
-  ROS_DEBUG("UGVFrontierExplorer: isPositionCollisionFree");
+  ROS_DEBUG("isPositionCollisionFree");
   int gridCost = map_.data[getGridIndex(world_x, world_y)];
   if (gridCost > collision_threshold_) {
     ROS_DEBUG("Position NOT collision free: grid cost %d above collision threshold %d", gridCost, collision_threshold_);
@@ -500,14 +534,14 @@ bool UGVFrontierExplorer::isPositionCollisionFree(double world_x, double world_y
 
 bool UGVFrontierExplorer::isPositionUnmapped(double world_x, double world_y)
 {
-  ROS_DEBUG("UGVFrontierExplorer: isPositionUnmapped");
+  ROS_DEBUG("isPositionUnmapped");
   int gridCost = map_.data[getGridIndex(world_x, world_y)];
   return (gridCost == -1 or isPositionOutsideMap(world_x, world_y));
 }
 
 geometry_msgs::PoseStamped UGVFrontierExplorer::makePoseStampedFromNode(Node node)
 {
-  ROS_DEBUG("UGVFrontierExplorer: makePoseStampedFromNode");
+  ROS_DEBUG("makePoseStampedFromNode");
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = planner_world_frame_;
   pose.header.stamp = ros::Time::now();
@@ -521,13 +555,27 @@ geometry_msgs::PoseStamped UGVFrontierExplorer::makePoseStampedFromNode(Node nod
   return pose;
 }
 
+geometry_msgs::Pose UGVFrontierExplorer::makePoseFromNode(Node node)
+{
+  ROS_DEBUG("makePoseFromNode");
+  geometry_msgs::Pose pose;
+  pose.position = node.position_;
+  tf2::Quaternion pose_quat;
+  pose_quat.setRPY(0, 0, node.yaw_);
+  pose.orientation.x = pose_quat.x();
+  pose.orientation.y = pose_quat.y();
+  pose.orientation.z = pose_quat.z();
+  pose.orientation.w = pose_quat.w();
+  return pose;
+}
+
 /* 
 *  Visualization functions
 */
 
 void UGVFrontierExplorer::visualizeTree()
 {
-  ROS_DEBUG("UGVFrontierExplorer: visualizeTree");
+  ROS_DEBUG("visualizeTree");
   visualization_msgs::Marker tree_marker;
   tree_marker.header.frame_id = planner_world_frame_;
   tree_marker.header.stamp = ros::Time::now();
@@ -553,7 +601,7 @@ void UGVFrontierExplorer::visualizeTree()
 
 void UGVFrontierExplorer::visualizeRoot(geometry_msgs::Point point, double red, double green, double blue)
 {
-  ROS_DEBUG("UGVFrontierExplorer: visualizeRoot");
+  ROS_DEBUG("visualizeRoot");
   visualization_msgs::MarkerArray marker_point;
   visualization_msgs::Marker m;
 
@@ -578,7 +626,7 @@ void UGVFrontierExplorer::visualizeRoot(geometry_msgs::Point point, double red, 
 
 void UGVFrontierExplorer::visualizeFrontierNodes(double red, double green, double blue)
 {
-  ROS_DEBUG("UGVFrontierExplorer: visualizeFrontierNodes");
+  ROS_DEBUG("visualizeFrontierNodes");
   visualization_msgs::Marker m;
 
   m.header.frame_id = planner_world_frame_;

@@ -42,7 +42,7 @@ public:
   *  Callback functions for subscriptions
   */
 
-  void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
+  void subStartExploration(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   void subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg);
   void subGlobalGoal(const geometry_msgs::PoseStamped::ConstPtr& position_goal_msg);
   void subLocalGoal(const geometry_msgs::PoseStamped::ConstPtr& local_goal_msg);
@@ -92,7 +92,7 @@ private:
   ros::Publisher pub_viz_tree_;
   ros::Publisher pub_viz_path_;
   // Subscribers
-  ros::Subscriber sub_clicked_point_;
+  ros::Subscriber sub_start_exploration_indiv_;
   ros::Subscriber sub_position_goal_;
   ros::Subscriber sub_odometry_;
   ros::Subscriber sub_octomap_;

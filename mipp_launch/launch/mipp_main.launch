@@ -8,11 +8,14 @@
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
   <arg name="nr_of_uavs"  default="1"/>
+  <arg name="run_exploration_server"    default="true"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
 
   <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  10"/>
   <node pkg="tf" type="static_transform_publisher" name="tf_world_map_link" args="0 0 0 0 0 0  /world /map  10"/>
   <node pkg="tf" type="static_transform_publisher" name="tf_base_frd_link" args="0 0 0 0 0 0  /world /base_link_frd  10"/>
+
+
 
   <!---
     Run OctoMap
@@ -87,6 +90,16 @@
   <group if="$(arg run_husky)">
     <include file="$(find mipp_launch)/launch/husky.launch">
       <arg name="robot_namespace"        value="$(arg ugv_ns)"/>
+    </include>
+  </group>
+
+  <!--- 
+    Exploration server
+  -->
+  <group if="$(arg run_exploration_server)">
+    <include file="$(find mipp_packages)/launch/exploration_server.launch">
+      <arg name="nr_of_uavs"    value="$(arg nr_of_uavs)"/>
+      <arg name="ugv_ns"        value="$(arg ugv_ns)"/>
     </include>
   </group>
 

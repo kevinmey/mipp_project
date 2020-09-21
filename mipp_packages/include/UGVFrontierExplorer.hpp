@@ -5,6 +5,12 @@
 #include <Node.hpp>
 #include <utils.hpp>
 
+#include <actionlib/server/simple_action_server.h>
+#include <mipp_msgs/StartExplorationAction.h>
+#include "mipp_msgs/ExplorationResult.h"
+#include "mipp_msgs/ExplorationPath.h"
+#include "mipp_msgs/ExplorationPose.h"
+
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -27,22 +33,24 @@ class UGVFrontierExplorer
 {
 public:
   // Constructor
-  UGVFrontierExplorer();
   UGVFrontierExplorer(ros::NodeHandle n, ros::NodeHandle np);
   // Destructor
   ~UGVFrontierExplorer();
   
 private:
-  void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
+  void subStartExploration(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   void subMap(const nav_msgs::OccupancyGridConstPtr& map_msg);
   void subMapUpdate(const map_msgs::OccupancyGridUpdateConstPtr& map_update_msg);
   void subOdometry(const nav_msgs::Odometry odometry_msg);
+  void actStartExploration(const mipp_msgs::StartExplorationGoalConstPtr &goal);
   // Frontier exploration functions
   void runFrontierExploration();
   void extendTreeRRTstar(geometry_msgs::Point candidate_point);
   geometry_msgs::Point generateRandomPoint();
   // Gen. util functions
   void getParams(ros::NodeHandle np);
+  geometry_msgs::PoseStamped makePoseStampedFromNode(Node node);
+  geometry_msgs::Pose makePoseFromNode(Node node);
   // Map util. functions
   void convMapToWorld(int map_x, int map_y, double& world_x, double& world_y);
   void convWorldToMap(double world_x, double world_y, int& map_x, int& map_y);
@@ -56,17 +64,20 @@ private:
   void visualizeTree();
   void visualizeRoot(geometry_msgs::Point point, double red, double green, double blue);
   void visualizeFrontierNodes(double red, double green, double blue);
-  geometry_msgs::PoseStamped makePoseStampedFromNode(Node node);
   
+  // Class parameters/variables
   ros::Publisher pub_goal_;
   ros::Publisher pub_goal_path_;
   ros::Publisher pub_viz_tree_;
   ros::Publisher pub_viz_root_node_;
   ros::Publisher pub_viz_frontier_nodes_;
-  ros::Subscriber sub_clicked_point_;
+  ros::Subscriber sub_start_exploration_indiv_;
   ros::Subscriber sub_map_;
   ros::Subscriber sub_map_update_;
   ros::Subscriber sub_odometry_;
+  actionlib::SimpleActionServer<mipp_msgs::StartExplorationAction> act_exploration_server_;
+  mipp_msgs::StartExplorationFeedback act_exploration_feedback_;
+  mipp_msgs::StartExplorationResult act_exploration_result_;
   // TF
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener* tf_listener_; 
@@ -80,6 +91,7 @@ private:
   std::map<double, Node> frontier_nodes_;
   geometry_msgs::PoseStamped current_frontier_goal_;
   bool running_frontier_exploration_;
+  bool planner_action_in_progress_;
   // Map variables
   bool map_initialized_;
   bool map_in_use_;

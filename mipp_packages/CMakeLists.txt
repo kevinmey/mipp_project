@@ -21,14 +21,27 @@ find_package(
     tf2_geometry_msgs
     nav_core
     base_local_planner
+    message_generation
+    actionlib_msgs
+    mipp_msgs
 )
+
+###################################
+## catkin specific configuration ##
+###################################
+
 ## Includes headers in include folder
 catkin_package(
     INCLUDE_DIRS include
-    CATKIN_DEPENDS roscpp
+    CATKIN_DEPENDS roscpp message_runtime actionlib_msgs mipp_msgs
     DEPENDS
     LIBRARIES base_local_planner
 )
+
+###########
+## Build ##
+###########
+
 ## Includes headers in include folder
 include_directories(
     include
@@ -42,34 +55,27 @@ add_library(
     src/common/utils.cpp
 )
 
-add_library(
-    explorer_libs
-    src/common/utils.cpp
-    src/ugv/UGVFrontierExplorer.cpp
-    src/uav/UAVInformativeExplorer.cpp
-)
+###                ###
+# Exploration Server #
+###                ###
 
-###   ###
-# Joint #
-###   ###
-
-## joint_explorer_node
+## exploration_server_node
 
 add_executable(
-    joint_explorer_node
-    src/joint/joint_explorer_node.cpp
-    src/joint/JointExplorer.cpp
+    exploration_server_node
+    src/joint/exploration_server_node.cpp
+    src/joint/ExplorationServer.cpp
 )
 
 add_dependencies(
-    joint_explorer_node
-    ${joint_explorer_node_EXPORTED_TARGETS} 
+    exploration_server_node
+    ${exploration_server_node_EXPORTED_TARGETS} 
     ${catkin_EXPORTED_TARGETS}
 )
 
 target_link_libraries(
-    joint_explorer_node
-    explorer_libs
+    exploration_server_node
+    common_libs
     ${catkin_LIBRARIES}
 )
 

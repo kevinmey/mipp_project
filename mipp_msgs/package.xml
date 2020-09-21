@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>mipp_packages</name>
+  <name>mipp_msgs</name>
   <version>0.0.0</version>
-  <description>The mipp_packages package</description>
+  <description>The mipp_msgs package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -19,7 +19,7 @@
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/mipp_packages</url> -->
+  <!-- <url type="website">http://wiki.ros.org/mipp_msgs</url> -->
 
 
   <!-- Author tags are optional, multiple are allowed, one per tag -->
@@ -49,31 +49,35 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>actionlib</build_depend>
+  <build_depend>actionlib_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>nav_msgs</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
+  <build_export_depend>actionlib</build_export_depend>
+  <build_export_depend>actionlib_msgs</build_export_depend>
+  <build_export_depend>geometry_msgs</build_export_depend>
+  <build_export_depend>nav_msgs</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>rospy</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
+  <exec_depend>actionlib</exec_depend>
+  <exec_depend>actionlib_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
-  <!-- For nav_core planner plugin: -->
-  <build_depend>nav_core</build_depend>
-  <exec_depend>nav_core</exec_depend>
-  <!-- For srv and msg generation: -->
-  <build_depend>message_generation</build_depend>
+  <exec_depend>message_generation</exec_depend>
   <exec_depend>message_runtime</exec_depend>
-  <!-- For action generation: -->
-  <build_depend>actionlib_msgs</build_depend>
-  <exec_depend>actionlib_msgs</exec_depend>
-  <!-- For custom messages: -->
-  <build_depend>mipp_msgs</build_depend>
-  <exec_depend>mipp_msgs</exec_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <!-- For nav_core planner plugin: -->
-    <nav_core plugin="${prefix}/ugv_planner_plugin.xml" />
+    <!-- Other tools can request additional information be placed here -->
+
   </export>
 </package>

@@ -97,7 +97,7 @@
     </include>
     
     <!-- Launch UAV Informative Explorer -->
-
+    
     <include file="$(find mipp_packages)/launch/uav_informative_explorer.launch">
       <arg name="uav_id"          value="$(arg uav_id)"/>
       <arg name="uav_start_x"     value="$(arg initial_x)"/>
