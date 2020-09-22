@@ -5,4 +5,4 @@ int32 max_time
 mipp_msgs/ExplorationResult result
 ---
 #feedback
-int16 nodes_found
+int16 nodes_in_tree

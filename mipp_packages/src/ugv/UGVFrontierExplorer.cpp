@@ -214,8 +214,10 @@ void UGVFrontierExplorer::actStartExploration(const mipp_msgs::StartExplorationG
       node_on_path = *(node_on_path.getParent());
     }
     act_exploration_result_.result.paths.push_back(frontier_path);
+    frontier_node_it++;
   }
   act_exploration_server_.setSucceeded(act_exploration_result_);
+  ROS_WARN("Succeeded with %d paths", act_exploration_result_.result.paths.size());
   planner_action_in_progress_ = false;
 }
 
@@ -323,7 +325,7 @@ void UGVFrontierExplorer::runFrontierExploration()
     visualizeFrontierNodes(0.0, 0.0, 1.0);
 
     if(planner_action_in_progress_){
-      act_exploration_feedback_.nodes_found = tree_.size();
+      act_exploration_feedback_.nodes_in_tree = tree_.size();
       act_exploration_server_.publishFeedback(act_exploration_feedback_);
     }
 

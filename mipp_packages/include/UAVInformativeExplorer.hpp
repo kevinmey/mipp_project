@@ -3,6 +3,12 @@
 #include <utils.hpp>
 #include <Node.hpp>
 
+#include <actionlib/server/simple_action_server.h>
+#include <mipp_msgs/StartExplorationAction.h>
+#include "mipp_msgs/ExplorationResult.h"
+#include "mipp_msgs/ExplorationPath.h"
+#include "mipp_msgs/ExplorationPose.h"
+
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>

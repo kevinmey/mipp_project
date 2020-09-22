@@ -34,21 +34,24 @@ ExplorationServer::~ExplorationServer() {
 */
 
 void ExplorationServer::subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg) {
-  ROS_WARN("YEET");
+  ROS_WARN("Starting collaborative exploration with 1 UGV and %d UAVs", nr_of_uavs_);
 
   mipp_msgs::StartExplorationGoal exploration_goal;
-  exploration_goal.max_time = 2.0;
+  exploration_goal.max_time = 4.0;
   act_ugv_exploration_client_->sendGoal(exploration_goal);
 
-  bool finished_before_timeout = act_ugv_exploration_client_->waitForResult(ros::Duration(4.0));
+  actionlib::SimpleClientGoalState ugv_state = act_ugv_exploration_client_->getState();
 
-  if (finished_before_timeout)
-  {
-    actionlib::SimpleClientGoalState state = act_ugv_exploration_client_->getState();
-    ROS_INFO("Action finished: %s", state.toString().c_str());
+  ros::Rate check_rate(10);
+  while (!ugv_state.isDone()) {
+    ROS_INFO_THROTTLE(1, "UGV not finished, state: %s", ugv_state.toString().c_str());
+    ugv_state = act_ugv_exploration_client_->getState();
+
+    ros::spinOnce();
+    check_rate.sleep();
   }
-  else
-    ROS_INFO("Action did not finish before the time out.");
+
+  ROS_INFO("UGV finished, state: %s", ugv_state.toString().c_str());
 }
 
 // Utility functions
