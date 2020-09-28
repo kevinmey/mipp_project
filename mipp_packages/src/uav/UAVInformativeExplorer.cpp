@@ -1,13 +1,9 @@
 #include <UAVInformativeExplorer.hpp>
 
-// Constructor  
-
-UAVInformativeExplorer::UAVInformativeExplorer()
-{
-  ROS_INFO("UAVInformativeExplorer object is being created without ROS.");
-}
+// Constructor
   
 UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandle np)
+  : act_exploration_server_(n, "exploration_action", boost::bind(&UAVInformativeExplorer::actStartExploration, this, _1), false) 
 {
   ROS_INFO("UAVInformativeExplorer object is being created.");
 
@@ -21,7 +17,7 @@ UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandl
   uav_position_goal_.pose.orientation.w = 1.0;
   uav_running_exploration_ = false;
   // Establish publish timers and publishers
-  pub_position_goal_            = n.advertise<geometry_msgs::PoseStamped>("uav_server/position_goal", 10);
+  pub_position_goal_          = n.advertise<geometry_msgs::PoseStamped>("uav_server/position_goal", 10);
   pub_viz_uav_fov_            = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav_fov", 1);
   pub_viz_fov_                = n.advertise<visualization_msgs::Marker>("uav_server/viz_fov", 1);
   pub_viz_information_points_ = n.advertise<visualization_msgs::Marker>("uav_server/viz_information_points", 1);
@@ -31,6 +27,8 @@ UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandl
   sub_start_exploration_indiv_  = n.subscribe("/exploration/start_individual", 1, &UAVInformativeExplorer::subStartExploration, this);
   sub_odometry_       = n.subscribe("uav_server/ground_truth_uav", 1, &UAVInformativeExplorer::subOdometry, this);
   sub_octomap_        = n.subscribe("/octomap_binary", 1, &UAVInformativeExplorer::subOctomap, this);
+  // Actionlib
+  act_exploration_server_.start();
   // TF
   tf_listener_ = new tf2_ros::TransformListener(tf_buffer_);
   // Random nr. generator and distributions
@@ -57,6 +55,8 @@ UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandl
     }
   }
   ROS_DEBUG("Camera rays has %d rays", (int)uav_camera_rays_.size());\
+
+  planner_action_in_progress_ = false;
 
   // Wait for map
   ros::Rate rate_wait_map(1.0);
@@ -97,6 +97,26 @@ void UAVInformativeExplorer::subStartExploration(const geometry_msgs::PointStamp
     ROS_INFO("Starting exploration.");
     uav_running_exploration_ = true;
       runExploration();
+
+      path_.clear();
+      Node node_on_path = exploration_nodes_.rbegin()->second;
+      while (node_on_path.getParent() != nullptr) {
+        path_.push_front(makePoseStampedFromNode(node_on_path));
+        ROS_DEBUG("Node: %d", (int)node_on_path.id_);
+
+        if (node_on_path.getParent()->id_ == 0) {
+          uav_position_goal_.header.frame_id = uav_world_frame_;
+          uav_position_goal_.header.stamp = ros::Time::now();
+          uav_position_goal_.pose.position = node_on_path.position_;
+          uav_position_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, node_on_path.yaw_);
+          break;
+        }
+        node_on_path = *(node_on_path.getParent());
+      }
+      ROS_INFO("Done");
+      visualizePath();
+      visualizePathFOVs(1.0);
+
       pub_position_goal_.publish(uav_position_goal_);
   }
 
@@ -104,6 +124,26 @@ void UAVInformativeExplorer::subStartExploration(const geometry_msgs::PointStamp
   while (uav_running_exploration_) {
     if (isGoalReached()) {
       runExploration();
+
+      path_.clear();
+      Node node_on_path = exploration_nodes_.rbegin()->second;
+      while (node_on_path.getParent() != nullptr) {
+        path_.push_front(makePoseStampedFromNode(node_on_path));
+        ROS_DEBUG("Node: %d", (int)node_on_path.id_);
+
+        if (node_on_path.getParent()->id_ == 0) {
+          uav_position_goal_.header.frame_id = uav_world_frame_;
+          uav_position_goal_.header.stamp = ros::Time::now();
+          uav_position_goal_.pose.position = node_on_path.position_;
+          uav_position_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, node_on_path.yaw_);
+          break;
+        }
+        node_on_path = *(node_on_path.getParent());
+      }
+      ROS_INFO("Done");
+      visualizePath();
+      visualizePathFOVs(1.0);
+      
       pub_position_goal_.publish(uav_position_goal_);
     }
 
@@ -142,6 +182,40 @@ void UAVInformativeExplorer::subOctomap(const octomap_msgs::Octomap::ConstPtr& o
   ROS_DEBUG("subOctomap");
   map_ = std::shared_ptr<octomap::OcTree> (dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(*octomap_msg)));
   received_map_ = true;
+}
+
+// Actionlib callback
+
+void UAVInformativeExplorer::actStartExploration(const mipp_msgs::StartExplorationGoalConstPtr &goal)
+{
+  ROS_DEBUG("actStartExploration");
+
+  planner_action_in_progress_ = true;
+  planner_max_time_ = goal->max_time;
+  runExploration();
+
+  act_exploration_result_.result.header.frame_id = uav_world_frame_;
+  act_exploration_result_.result.header.stamp = ros::Time::now();
+  act_exploration_result_.result.paths.clear();
+  // Reverse iterate through exploration nodes, since most informational nodes are listed last
+  std::map<double, Node>::reverse_iterator node_rit;
+  for (node_rit = exploration_nodes_.rbegin(); node_rit != exploration_nodes_.rend(); ++node_rit) {
+    mipp_msgs::ExplorationPath exploration_path;
+    Node node_on_path = node_rit->second;
+    while (node_on_path.getParent() != nullptr) {
+      mipp_msgs::ExplorationPose exploration_pose;
+      exploration_pose.pose = makePoseFromNode(node_on_path);
+      exploration_pose.gain = node_on_path.gain_;
+      exploration_path.poses.insert(exploration_path.poses.begin(), exploration_pose);
+
+      node_on_path = *(node_on_path.getParent());
+    }
+    act_exploration_result_.result.paths.push_back(exploration_path);
+  }
+
+  act_exploration_server_.setSucceeded(act_exploration_result_);
+  ROS_WARN("Succeeded with %d paths", (int)act_exploration_result_.result.paths.size());
+  planner_action_in_progress_ = false;
 }
 
 // Utility functions
@@ -217,7 +291,7 @@ void UAVInformativeExplorer::runExploration() {
   double start_y = uav_pose_.pose.position.y;
   double start_z = uav_pose_.pose.position.z;
 
-  bool root_from_position_goal = true;
+  bool root_from_position_goal = false;
   if (root_from_position_goal) {
     start_x = uav_position_goal_.pose.position.x;
     start_y = uav_position_goal_.pose.position.y;
@@ -301,6 +375,11 @@ void UAVInformativeExplorer::runExploration() {
     }
 
     visualizeTree();
+
+    if (planner_action_in_progress_) {
+      act_exploration_feedback_.nodes_in_tree = tree_.size();
+      act_exploration_server_.publishFeedback(act_exploration_feedback_);
+    }
 
     ros::spinOnce();
     rate.sleep();
@@ -595,6 +674,19 @@ bool UAVInformativeExplorer::isGoalReached() {
 /* 
 *  Utility functions
 */
+
+geometry_msgs::Pose UAVInformativeExplorer::makePoseFromNode(Node node) {
+  ROS_DEBUG("makePoseStampedFromNode");
+  geometry_msgs::Pose pose;
+  pose.position = node.position_;
+  tf2::Quaternion pose_quat;
+  pose_quat.setRPY(0, 0, node.yaw_);
+  pose.orientation.x = pose_quat.x();
+  pose.orientation.y = pose_quat.y();
+  pose.orientation.z = pose_quat.z();
+  pose.orientation.w = pose_quat.w();
+  return pose;
+}
 
 geometry_msgs::PoseStamped UAVInformativeExplorer::makePoseStampedFromNode(Node node) {
   ROS_DEBUG("makePoseStampedFromNode");

@@ -3,6 +3,7 @@
 // Constructor
   
 UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
+  : act_move_vehicle_server_(n, "move_vehicle_action", boost::bind(&UAVServer::actMoveVehicle, this, _1), false) 
 {
   ROS_INFO("UAVServer object is being created.");
 
@@ -25,6 +26,8 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   sub_position_goal_  = n.subscribe("uav_server/position_goal", 1, &UAVServer::subPositionGoal, this);
   sub_mavros_state_   = n.subscribe("uav_server/mavros_state", 1, &UAVServer::subMavrosState, this);
   sub_odometry_       = n.subscribe("uav_server/ground_truth_uav", 1, &UAVServer::subOdometry, this);
+  // Start service server
+  act_move_vehicle_server_.start();
   // Establish service clients
   cli_arm_ =      n.serviceClient<mavros_msgs::CommandBool>("uav_server/arm");
   cli_set_mode_ = n.serviceClient<mavros_msgs::SetMode>("uav_server/set_mode");
@@ -171,6 +174,36 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg) {
   }
 }
 
+// Actionlib callback
+
+void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
+{
+  ROS_DEBUG("actMoveVehicle");
+  try{
+    geometry_msgs::TransformStamped position_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, goal->goal_pose.header.frame_id, ros::Time(0));
+    tf2::doTransform(goal->goal_pose, uav_position_goal_, position_goal_tf);
+    uav_position_goal_.pose.position.z = uav_takeoff_z_;
+
+    tf2::Quaternion tf_quat;
+    tf2::fromMsg(uav_position_goal_.pose.orientation, tf_quat);
+    tf2::Matrix3x3(tf_quat).getRPY(uav_position_goal_rpy_.x, 
+                                   uav_position_goal_rpy_.y, 
+                                   uav_position_goal_rpy_.z);
+    ROS_INFO("UAVServer: New global goal: [%f,%f,%f,%f]",
+              uav_position_goal_.pose.position.x, 
+              uav_position_goal_.pose.position.y,
+              uav_position_goal_.pose.position.z,
+              uav_position_goal_rpy_.z);  
+
+    uav_position_goal_.header.frame_id = uav_world_frame_;
+    uav_position_goal_.header.stamp = ros::Time::now();
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
+    ros::Duration(0.1).sleep();
+  }
+}
+
 // Utility functions
 
 void UAVServer::getParams(ros::NodeHandle np) {
@@ -182,6 +215,7 @@ void UAVServer::getParams(ros::NodeHandle np) {
   np.param<double>("uav_start_x", uav_start_x_, 0.0);
   np.param<double>("uav_start_y", uav_start_y_, 0.0);
   np.param<double>("uav_takeoff_z", uav_takeoff_z_, 2.0);
+  np.param<bool>("uav_do_clearing_rotation", uav_do_clearing_rotation_, false);
 }
 
 void UAVServer::takeoff() {
@@ -249,24 +283,27 @@ void UAVServer::takeoff() {
   }
   ROS_INFO("UAVServer: Vehicle takeoff procedure complete");
 
-  ROS_INFO("UAVServer: Performing clearing rotation");
   uav_position_goal_.pose.position.x = 0.0;
   uav_position_goal_.pose.position.y = 0.0;
   uav_position_goal_.pose.position.z = uav_takeoff_z_;
-  double clearing_rotation_angle = 0.0;
-  while (clearing_rotation_angle <= 360.0) {
-    double clearing_rotation = angles::from_degrees(clearing_rotation_angle);
-    double angle_threshold = angles::from_degrees(10.0);
-    uav_position_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, clearing_rotation);
-    while (angles::shortest_angular_distance(uav_rpy_.vector.z, clearing_rotation) > angle_threshold) {
-      pub_mavros_setpoint_.publish(uav_position_goal_);
-      ros::spinOnce();
-      rate.sleep();
+  if (uav_do_clearing_rotation_) {
+    ROS_INFO("UAVServer: Performing clearing rotation");
+    double clearing_rotation_angle = 0.0;
+    while (clearing_rotation_angle <= 360.0) {
+      double clearing_rotation = angles::from_degrees(clearing_rotation_angle);
+      double angle_threshold = angles::from_degrees(10.0);
+      uav_position_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, clearing_rotation);
+      while (angles::shortest_angular_distance(uav_rpy_.vector.z, clearing_rotation) > angle_threshold) {
+        pub_mavros_setpoint_.publish(uav_position_goal_);
+        ros::spinOnce();
+        rate.sleep();
+      }
+      clearing_rotation_angle += 60;
+      ros::Duration(0.5).sleep();
     }
-    clearing_rotation_angle += 60;
-    ros::Duration(0.5).sleep();
+    ROS_INFO("UAVServer: Clearing rotations complete");
+    uav_clearing_rotation_complete_ = true;
   }
-  ROS_INFO("UAVServer: Clearing rotations complete");
   uav_clearing_rotation_complete_ = true;
   /*
   geometry_msgs::Twist test_cmd_vel;

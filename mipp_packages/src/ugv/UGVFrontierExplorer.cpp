@@ -190,6 +190,8 @@ void UGVFrontierExplorer::subOdometry(const nav_msgs::Odometry odometry_msg)
   ugv_odometry_ = odometry_msg;
 }
 
+// Actionlib
+
 void UGVFrontierExplorer::actStartExploration(const mipp_msgs::StartExplorationGoalConstPtr &goal)
 {
   ROS_DEBUG("actStartExploration");
@@ -200,6 +202,7 @@ void UGVFrontierExplorer::actStartExploration(const mipp_msgs::StartExplorationG
 
   act_exploration_result_.result.header = current_frontier_goal_.header;
   std::map<double, Node>::iterator frontier_node_it = frontier_nodes_.begin();
+  act_exploration_result_.result.paths.clear();
   while (frontier_node_it != frontier_nodes_.end()) {
     mipp_msgs::ExplorationPath frontier_path;
     Node node_on_path = *frontier_node_it->second.getParent();
@@ -207,7 +210,7 @@ void UGVFrontierExplorer::actStartExploration(const mipp_msgs::StartExplorationG
       mipp_msgs::ExplorationPose frontier_path_pose;
       frontier_path_pose.gain = 0;
       frontier_path_pose.pose = makePoseFromNode(node_on_path);
-      frontier_path.poses.push_back(frontier_path_pose);
+      frontier_path.poses.insert(frontier_path.poses.begin(), frontier_path_pose);
       if (node_on_path.getParent()->id_ == 0) {
         break;
       }
@@ -217,7 +220,7 @@ void UGVFrontierExplorer::actStartExploration(const mipp_msgs::StartExplorationG
     frontier_node_it++;
   }
   act_exploration_server_.setSucceeded(act_exploration_result_);
-  ROS_WARN("Succeeded with %d paths", act_exploration_result_.result.paths.size());
+  ROS_WARN("Succeeded with %d paths", (int)act_exploration_result_.result.paths.size());
   planner_action_in_progress_ = false;
 }
 

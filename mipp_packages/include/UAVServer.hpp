@@ -3,6 +3,9 @@
 #include <utils.hpp>
 #include <Node.hpp>
 
+#include <actionlib/server/simple_action_server.h>
+#include <mipp_msgs/MoveVehicleAction.h>
+
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -31,53 +34,22 @@ public:
   UAVServer(ros::NodeHandle n, ros::NodeHandle np);
   // Destructor
   ~UAVServer();
-  
-  /* 
-  *  Publish functions for publishers
-  */
- 
-  /**
-  * @brief Publishes uav_desired_pose_ to mavros setpoint.
-  */
+  // Publish functions
   void pubMavrosSetpoint();
-  
-  /* 
-  *  Callback functions for subscriptions
-  */
-
+  // Callback functions
   void subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg);
-  
-  /**
-  * @brief Callback for global goal, which avoidance is setting.
-  * @param position_goal_msg Message sent to topic.
-  */
   void subPositionGoal(const geometry_msgs::PoseStamped::ConstPtr& position_goal_msg);
-  
-  /**
-  * @brief Callback for mavros drone state, f.ex. OFFBOARD.
-  * @param mavros_state_msg Message sent to topic.
-  */
   void subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_msg);
-  
-  /**
-  * @brief Callback for ground truth odometry of UAV from gazebo.
-  * @param odometry_msg Message sent to topic.
-  */
   void subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg);
+  // Actionlib
+  void actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal);
+
   
   /* 
   *  Utility functions
   */
   
-  /**
-  * @brief Get parameters from rosparam in launch.
-  * @param np Private nodehandle.
-  */
   void getParams(ros::NodeHandle np);
-  
-  /**
-  * @brief Mavros procedure to takeoff the drone. Done on init.
-  */
   void takeoff();
 
   void visualizeUAVFOV();
@@ -101,6 +73,10 @@ private:
   ros::Subscriber sub_position_goal_;
   ros::Subscriber sub_mavros_state_;
   ros::Subscriber sub_odometry_;
+  // Service servers
+  actionlib::SimpleActionServer<mipp_msgs::MoveVehicleAction> act_move_vehicle_server_;
+  mipp_msgs::MoveVehicleFeedback act_move_vehicle_feedback_;
+  mipp_msgs::MoveVehicleResult act_move_vehicle_result_;
   // Service clients
   ros::ServiceClient cli_arm_;
   ros::ServiceClient cli_set_mode_;
@@ -115,6 +91,7 @@ private:
   double uav_start_x_;
   double uav_start_y_;
   double uav_takeoff_z_;
+  bool uav_do_clearing_rotation_;
   // Variables
   //   Map
   octomap::OcTree* map_;
