@@ -60,7 +60,7 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
   pub_viz_frontier_nodes_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/frontier_nodes", 1);
 
   sub_initial_path_ = n.subscribe("/ugv/UGVFrontierExplorer/goal_path", 1, &UGVPlanner::subInitialPath, this);
-  sub_odometry_ = n.subscribe("/odometry/filtered", 1, &UGVPlanner::subOdometry, this);
+  sub_odometry_ = n.subscribe("odometry/filtered", 1, &UGVPlanner::subOdometry, this);
 
   // Init. random number generator distributions
   std::random_device rd;  // Non-deterministic random nr. to seed generator
@@ -86,23 +86,29 @@ void UGVPlanner::subInitialPath(const nav_msgs::Path& path_msg)
 {
   ROS_INFO("subInitialPath()");
 
+  bool path_poses_ordered = true; // Some implementations send path in reverse order (frontier node, ..., root node), if so this is false
+  //path_poses_ordered = getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, path_msg.poses.begin()->pose.position) 
+  //                     < getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, path_msg.poses.begin()->pose.position)
+
   initial_path_.clear();
-  for (auto path_it = path_msg.poses.begin(); path_it != path_msg.poses.end(); ++path_it) {
-    ROS_INFO("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
-    initial_path_.insert(initial_path_.begin(), makePoint(path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z));
+  if (path_poses_ordered) {
+    for (auto path_it = path_msg.poses.begin(); path_it != path_msg.poses.end(); ++path_it) {
+      ROS_INFO("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
+      initial_path_.push_back(makePoint(path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z));
+    }
+  }
+  else {
+    for (auto path_it = path_msg.poses.begin(); path_it != path_msg.poses.end(); ++path_it) {
+      ROS_INFO("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
+      initial_path_.push_front(makePoint(path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z));
+    }
   }
 }
 
 void UGVPlanner::subOdometry(const nav_msgs::Odometry& odometry_msg)
 {
   ROS_DEBUG("subOdometry()");
-  /*if(path_.size() != 0){
-    if(getDistanceBetweenPoints(odometry_msg.pose.pose.position, *path_.begin()) < 3.0){
-      ROS_DEBUG("Getting new subgoal");
-      path_.pop_front();
-    }
-    //visualizeSubgoal(*path_.begin(), 1.0, 1.0, 0.0);
-  }*/
+  ugv_odometry_ = odometry_msg;
 }
 
 /* 
