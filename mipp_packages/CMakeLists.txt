@@ -56,25 +56,25 @@ add_library(
 )
 
 ###                ###
-# Exploration Server #
+# Exploration Planner #
 ###                ###
 
-## exploration_server_node
+## exploration_planner_node
 
 add_executable(
-    exploration_server_node
-    src/joint/exploration_server_node.cpp
-    src/joint/ExplorationServer.cpp
+    exploration_planner_node
+    src/joint/exploration_planner_node.cpp
+    src/joint/ExplorationPlanner.cpp
 )
 
 add_dependencies(
-    exploration_server_node
-    ${exploration_server_node_EXPORTED_TARGETS} 
+    exploration_planner_node
+    ${exploration_planner_node_EXPORTED_TARGETS} 
     ${catkin_EXPORTED_TARGETS}
 )
 
 target_link_libraries(
-    exploration_server_node
+    exploration_planner_node
     common_libs
     ${catkin_LIBRARIES}
 )
