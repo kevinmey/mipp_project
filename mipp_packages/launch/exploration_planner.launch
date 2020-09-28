@@ -5,7 +5,7 @@
   <arg name="nr_of_uavs"        default="0"/>
   <arg name="ugv_ns"            default="/ugv/"/>
 
-  <node pkg="mipp_packages" type="exploration_server_node" name="exploration_server_node" output="screen">
+  <node pkg="mipp_packages" type="exploration_planner_node" name="exploration_planner_node" output="screen">
     <param name="nr_of_uavs"                        value="$(arg nr_of_uavs)"/>
     <param name="ugv_ns"                            value="$(arg ugv_ns)"/>
   </node>

@@ -137,6 +137,9 @@ private:
   std::uniform_real_distribution<double> unit_distribution_;
   // Collision check variables
   std::vector<geometry_msgs::Point> collision_points_;
+  // Vehicle state variables
+  nav_msgs::Odometry ugv_odometry_;
+
   // Parameters
   std::string planner_world_frame_;
   std::string robot_namespace_;

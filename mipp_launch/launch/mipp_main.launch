@@ -9,6 +9,7 @@
   <arg name="run_uavs"    default="true"/>
   <arg name="nr_of_uavs"  default="1"/>
   <arg name="run_exploration_server"    default="true"/>
+  <arg name="octomap_rate"    default="2.0"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
 
   <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  10"/>
@@ -41,6 +42,7 @@
     <arg name="uav_id"        value="0"/>
     <arg name="initial_x"     value="-1"/>
     <arg name="initial_y"     value="-2"/>
+    <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
   </include>
 
@@ -51,6 +53,7 @@
     <arg name="uav_id"        value="1"/>
     <arg name="initial_x"     value="-1"/>
     <arg name="initial_y"     value="2"/>
+    <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
   </include>
 
@@ -61,6 +64,7 @@
     <arg name="uav_id"        value="2"/>
     <arg name="initial_x"     value="-3"/>
     <arg name="initial_y"     value="0"/>
+    <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
   </include>
 
@@ -97,9 +101,9 @@
     Exploration server
   -->
   <group if="$(arg run_exploration_server)">
-    <include file="$(find mipp_packages)/launch/exploration_server.launch">
+    <include file="$(find mipp_packages)/launch/exploration_planner.launch">
       <arg name="nr_of_uavs"    value="$(arg nr_of_uavs)"/>
-      <arg name="ugv_ns"        value="$(arg ugv_ns)"/>
+      <arg name="ugv_ns"        value="/ugv/"/>
     </include>
   </group>
 
