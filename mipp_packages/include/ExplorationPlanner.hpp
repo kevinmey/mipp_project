@@ -16,6 +16,7 @@
 
 #include <geometry_msgs/PointStamped.h>
 #include <nav_msgs/Path.h>
+#include <std_msgs/Bool.h>
 
 #include <string>
 #include <cmath> /* sqrt, pow */
@@ -31,6 +32,7 @@ public:
 private:
   // Functions
   // Publish functions for publishers
+  void pubUGVPauseNavigation();
   // Callback functions for subscriptions
   void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   // Planner functions
@@ -42,6 +44,8 @@ private:
   // Publishers
   ros::Publisher pub_ugv_goal_;
   ros::Publisher pub_ugv_goal_path_;
+  ros::Publisher pub_ugv_pause_navigation_;
+  ros::Timer pub_timer_pause_navigation_;
   //// UGV
   //// UAVs
   // Subscribers
@@ -56,4 +60,5 @@ private:
   std::string ugv_ns_;
   // Variable
   bool running_exploration_;
+  bool ugv_pause_navigation_;
 };
