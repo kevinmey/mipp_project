@@ -87,19 +87,20 @@ void UGVPlanner::subInitialPath(const nav_msgs::Path& path_msg)
   ROS_INFO("subInitialPath()");
 
   bool path_poses_ordered = true; // Some implementations send path in reverse order (frontier node, ..., root node), if so this is false
-  //path_poses_ordered = getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, path_msg.poses.begin()->pose.position) 
-  //                     < getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, path_msg.poses.begin()->pose.position)
+  path_poses_ordered = getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, path_msg.poses.begin()->pose.position) 
+                       < getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, path_msg.poses.rbegin()->pose.position);
 
   initial_path_.clear();
   if (path_poses_ordered) {
     for (auto path_it = path_msg.poses.begin(); path_it != path_msg.poses.end(); ++path_it) {
-      ROS_INFO("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
+      ROS_WARN("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
       initial_path_.push_back(makePoint(path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z));
     }
   }
   else {
     for (auto path_it = path_msg.poses.begin(); path_it != path_msg.poses.end(); ++path_it) {
-      ROS_INFO("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
+      ROS_WARN("Initial path unordered");
+      ROS_WARN("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
       initial_path_.push_front(makePoint(path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z));
     }
   }
@@ -208,7 +209,8 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   }*/
 
   // Init. values for informed RRT*
-  goal_euclidean_distance_ = getDistanceBetweenPoints(root_.position_,goal_.position_);
+  goal_euclidean_distance_ = getDistanceBetweenPoints(root_.position_, goal_.position_);
+  ROS_WARN("Euc dist %f", goal_euclidean_distance_);
   goal_grow_distance_ = 1.1*goal_euclidean_distance_;
   goal_path_distance_ = goal_.cost_;
   goal_root_midpoint_ = makePoint((goal_.position_.x + root_.position_.x)/2.0, (goal_.position_.y + root_.position_.y)/2.0, (goal_.position_.z + root_.position_.z)/2.0);
@@ -284,6 +286,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
       // RRTstar algorithm
       extendTreeRRTstar(new_point);
     }
+
     goal_path_distance_ = goal_.cost_;
 
     visualizeTree();
@@ -301,6 +304,12 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
         last_check_time = ros::Time::now();
         last_check_cost = goal_.cost_;
       }
+    }
+
+    // Check if path distance is close to euvlidean distance (straight line found)
+    if(std::abs(goal_path_distance_ - goal_euclidean_distance_) < 0.01){
+      ROS_DEBUG("Finishing plan early (%f/%f s), straight line path found.", (ros::Time::now() - start_time).toSec(), planner_max_time_);
+      break;
     }
 
     ros::spinOnce();
@@ -356,21 +365,22 @@ geometry_msgs::Point UGVPlanner::generateRandomInformedPoint()
   double theta = unit_distribution_(generator_)*2.0*M_PI;
   double unit_circle_x = radius*cos(theta);
   double unit_circle_y = radius*sin(theta);
-  ROS_DEBUG("Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
+  ROS_DEBUG("Unit circle point (x,y) = (%f,%f)", unit_circle_x, unit_circle_y);
 
   // Define ellipse dimensions according to root, goal and minimum found goal path length
   double path_distance;
   if (goal_path_distance_ < INFINITY) {
     path_distance = goal_path_distance_;
+    ROS_DEBUG("Path dist is found: %f", path_distance);
   }
   else {
     path_distance = goal_grow_distance_;
+    ROS_DEBUG("Path dist is grow: %f", path_distance);
   }
   
-
   double r1 = path_distance/2.0;
-  double r2 = sqrt(pow(path_distance,2.0) - pow(goal_euclidean_distance_,2.0))/2.0;
-  ROS_DEBUG("Ellipse dimensions (r1,r2) = (%f,%f)",r1,r2);
+  double r2 = sqrt(std::max(pow(path_distance,2.0) - pow(goal_euclidean_distance_,2.0),0.0))/2.0; // max in case value in sqrt is negative
+  ROS_INFO("Ellipse dimensions (r1,r2) = (%f,%f)", r1, r2);
 
   // Scale, rotate and translate the unit circle point to rotated ellipse point with center between
   // goal and root
@@ -390,7 +400,7 @@ geometry_msgs::Point UGVPlanner::generateRandomInformedPoint()
 
 void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
 {
-  ROS_DEBUG("extendTreeRRTstar()");
+  ROS_DEBUG("extendTreeRRTstar(%f, %f, %f)", candidate_point.x, candidate_point.y, candidate_point.z);
 
   // Make a neighbor list of nodes close enough to the candidate point
   // Store combined cost and Node pointer in map
@@ -525,18 +535,18 @@ void UGVPlanner::replanCheck()
       break;
     }
 
-    ROS_INFO("Checking path from (%f, %f) to (%f, %f)", path_it->x, path_it->y, std::next(path_it,1)->x, std::next(path_it,1)->y);
+    ROS_DEBUG("Checking path from (%f, %f) to (%f, %f)", path_it->x, path_it->y, std::next(path_it,1)->x, std::next(path_it,1)->y);
 
     collision_point.x = std::next(path_it,1)->x;
     collision_point.y = std::next(path_it,1)->y;
     collision_point.z = std::next(path_it,1)->z;
-    ROS_INFO("Point before: (%f, %f)", collision_point.x, collision_point.y);
-    ROS_INFO("Point before: (%f, %f)", std::next(path_it,1)->x, std::next(path_it,1)->y);
+    ROS_DEBUG("Point before: (%f, %f)", collision_point.x, collision_point.y);
+    ROS_DEBUG("Point before: (%f, %f)", std::next(path_it,1)->x, std::next(path_it,1)->y);
     if (!isPathCollisionFree(*path_it, collision_point, true)) {
       collision_detected = true;
       visualizeSubgoal(collision_point, 1.0, 1.0, 0.0);
-      ROS_INFO("Point after: (%f, %f)", collision_point.x, collision_point.y);
-      ROS_INFO("Point after: (%f, %f)", std::next(path_it,1)->x, std::next(path_it,1)->y);
+      ROS_DEBUG("Point after: (%f, %f)", collision_point.x, collision_point.y);
+      ROS_DEBUG("Point after: (%f, %f)", std::next(path_it,1)->x, std::next(path_it,1)->y);
       break;
     }
   }
