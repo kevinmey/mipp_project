@@ -132,6 +132,36 @@ void UGVPlanner::visualizePathToGoal()
   pub_viz_path_to_goal_.publish(tree_marker);
 }
 
+void UGVPlanner::visualizePath(std::list<geometry_msgs::Point> path) 
+{
+  ROS_DEBUG("UGVPlanner: visualizePathToGoal");
+  
+  visualization_msgs::Marker tree_marker;
+  tree_marker.header.frame_id = planner_world_frame_;
+  tree_marker.header.stamp = ros::Time::now();
+  tree_marker.id = 0;
+  tree_marker.type = visualization_msgs::Marker::LINE_LIST;
+  tree_marker.action = visualization_msgs::Marker::ADD;
+  tree_marker.pose.orientation.w = 1.0;
+  tree_marker.scale.x = 0.05;
+  tree_marker.color.a = 1.0;
+  tree_marker.color.r = 0.1;
+  tree_marker.color.g = 1.0;
+  tree_marker.color.b = 0.1;
+
+  for (auto path_it = path.begin(); path_it != path.end(); ++path_it) {
+    auto path_it_next = path_it;
+    ++path_it_next;
+    if (path_it_next == path.end()) {
+      break;
+    }
+    tree_marker.points.push_back(*path_it);
+    tree_marker.points.push_back(*path_it_next);
+  }
+  
+  pub_viz_path_to_goal_.publish(tree_marker);
+}
+
 void UGVPlanner::visualizeRoot(geometry_msgs::Point point, double red, double green, double blue)
 {
   ROS_DEBUG("UGVPlanner: visualizeRoot");

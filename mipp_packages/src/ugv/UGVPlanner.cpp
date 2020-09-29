@@ -167,7 +167,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 
   // Check first if goal can be reached with straight line
   bool return_collision_free_point = false;
-  /*if(isPathCollisionFree(root_.position_, goal_.position_, return_collision_free_point)){
+  if(isPathCollisionFree(root_.position_, goal_.position_, return_collision_free_point)){
     ROS_INFO("No collision between root and goal detected. Returning straight line plan.");
     // Create "tree" of interpolated nodes on straight line between root and goal
     plan.push_back(makePoseStampedFromNode(root_));
@@ -206,7 +206,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     visualizeGoal(goal_.position_, 1.0, 0.0, 0.0);
 
     return true;
-  }*/
+  }
 
   // Init. values for informed RRT*
   goal_euclidean_distance_ = getDistanceBetweenPoints(root_.position_, goal_.position_);
@@ -324,7 +324,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 
   ROS_DEBUG("Finished planning. Final goal cost: %f",  goal_.cost_);
 
-  // Iterate through path from goal
+  // Iterate through path from goal to root and construct path variable
   Node node_on_goal_path = goal_;
   plan.insert(plan.begin(), makePoseStampedFromNode(node_on_goal_path));
   path_.insert(path_.begin(), node_on_goal_path.position_);
@@ -332,6 +332,27 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     node_on_goal_path = *node_on_goal_path.getParent();
     plan.insert(plan.begin(), makePoseStampedFromNode(node_on_goal_path));
     path_.insert(path_.begin(), node_on_goal_path.position_);
+  }
+
+  // Optimize path from goal, making it shorter if possible
+  double optimization_resolution = 0.5;
+  optimizePath(optimization_resolution);
+  optimizePath(0.5*optimization_resolution);
+  optimizePath(0.2*optimization_resolution);
+  visualizePath(path_);
+  plan.clear();
+  for (auto path_it = path_.begin(); path_it != path_.end(); ++path_it) {
+    geometry_msgs::PoseStamped path_pose;
+    path_pose.header.frame_id = planner_world_frame_;
+    path_pose.header.stamp = ros::Time::now();
+    path_pose.pose.position = *path_it;
+    tf2::Quaternion path_pose_quat;
+    path_pose_quat.setRPY(0, 0, goal_.yaw_);
+    path_pose.pose.orientation.x = path_pose_quat.x();
+    path_pose.pose.orientation.y = path_pose_quat.y();
+    path_pose.pose.orientation.z = path_pose_quat.z();
+    path_pose.pose.orientation.w = path_pose_quat.w();
+    plan.push_back(path_pose);
   }
 
   return true;
@@ -516,6 +537,73 @@ bool UGVPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs
   }
 
   return true;
+}
+
+void UGVPlanner::optimizePath(float optimization_resolution)
+{
+  ROS_DEBUG("optimizePath");
+  // Iterate through nodes from goal to root, trying to iteratively get a straight line path as far back as possible
+  std::list<geometry_msgs::Point>::iterator point_a_it = path_.begin();
+  std::list<geometry_msgs::Point>::iterator point_b_it = ++path_.begin();
+  std::list<geometry_msgs::Point> optimized_path;
+  optimized_path.push_back(*path_.begin());
+
+  ROS_DEBUG("Init: Point A (%.2f, %.2f) and B (%.2f, %.2f)", point_a_it->x, point_a_it->y, point_b_it->x, point_b_it->y);
+
+  while (point_b_it != path_.end()) {
+    // If straigth path to parent of node_a is collision free, make it the new node_a
+    geometry_msgs::Point point_a = *point_a_it;
+    geometry_msgs::Point point_b = *point_b_it;
+    ROS_DEBUG("Point A (%.2f, %.2f) and B (%.2f, %.2f)", point_a_it->x, point_a_it->y, point_b_it->x, point_b_it->y);
+    if (isPathCollisionFree(point_a, point_b, false)) {
+      ROS_DEBUG("Col. free");
+      ++point_b_it;
+      if (point_b_it == path_.end()) {
+        // We iterated past the goal, go back and make a straight line to point_b (goal) from point_a
+        --point_b_it;
+        point_b = *point_b_it;
+        // Have to interpolate points on straight line path
+        geometry_msgs::Point point_on_path = point_a;
+        geometry_msgs::Vector3 path_direction = getDirection(point_a, point_b);
+        while (getDistanceBetweenPoints(point_on_path, point_b) > planner_max_ray_distance_) {
+          point_on_path.x += optimization_resolution*planner_max_ray_distance_*path_direction.x;
+          point_on_path.y += optimization_resolution*planner_max_ray_distance_*path_direction.y;
+          point_on_path.z += optimization_resolution*planner_max_ray_distance_*path_direction.z;
+          optimized_path.push_back(point_on_path);
+          ROS_DEBUG("Made new point (%.2f, %.2f)", point_on_path.x, point_on_path.y);
+        }
+        // Add point_b (goal) in the end
+        optimized_path.push_back(point_b);
+        // move point_a and point_b "up the path" though this will end the process
+        point_a_it = point_b_it;
+        ++point_b_it;
+      }
+    }
+    else {
+      ROS_DEBUG("Collision");
+      // New point_b was in collision, go back one and start optimizing
+      --point_b_it;
+      point_b = *point_b_it;
+        // Have to interpolate points on straight line path
+      geometry_msgs::Point point_on_path = point_a;
+      geometry_msgs::Vector3 path_direction = getDirection(point_a, point_b);
+      while (getDistanceBetweenPoints(point_on_path, point_b) > planner_max_ray_distance_) {
+        point_on_path.x += planner_max_ray_distance_*path_direction.x;
+        point_on_path.y += planner_max_ray_distance_*path_direction.y;
+        point_on_path.z += planner_max_ray_distance_*path_direction.z;
+        optimized_path.push_back(point_on_path);
+        ROS_DEBUG("Made new point (%.2f, %.2f)", point_on_path.x, point_on_path.y);
+      }
+      // Add point_b in the end
+      optimized_path.push_back(point_b);
+      // move point_a and point_b "up the path" and repeat process
+      point_a_it = point_b_it;
+      ++point_b_it;
+    }
+  }
+
+  // Use optimized path
+  path_ = optimized_path;
 }
 
 void UGVPlanner::replanCheck()

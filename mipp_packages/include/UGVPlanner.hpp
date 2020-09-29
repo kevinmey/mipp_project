@@ -66,10 +66,7 @@ public:
                            bool return_collision_free_point,
                            geometry_msgs::Vector3 direction_ab = makeVector3(0.0,0.0,0.0), 
                            double distance = -1.0);
-  
-  /* 
-  *  Planner functions
-  */
+  void optimizePath(float optimization_resolution);
   void replanCheck();
   void replan();
 
@@ -88,6 +85,7 @@ public:
   void visualizeTreeColored();
   void visualizeCollisionTree();
   void visualizeCollisionTree(std::vector<geometry_msgs::Point> collision_tree);
+  void visualizePath(std::list<geometry_msgs::Point> path);
   void visualizePathToGoal();
   void visualizeRoot(geometry_msgs::Point point, double red, double green, double blue);
   void visualizeGoal(geometry_msgs::Point point, double red, double green, double blue);
