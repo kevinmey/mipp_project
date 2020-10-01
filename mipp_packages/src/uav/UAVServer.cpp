@@ -197,6 +197,20 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
 
     uav_position_goal_.header.frame_id = uav_world_frame_;
     uav_position_goal_.header.stamp = ros::Time::now();
+
+    ros::Time start_time = ros::Time::now();
+    while ((ros::Time::now() - start_time).toSec() < goal->max_time) {
+      act_move_vehicle_feedback_.goal_euc_distance = getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position);
+      act_move_vehicle_feedback_.goal_yaw_distance = abs(angles::shortest_angular_distance(uav_rpy_.vector.z, uav_position_goal_rpy_.z));
+      act_move_vehicle_server_.publishFeedback(act_move_vehicle_feedback_);
+      if (act_move_vehicle_feedback_.goal_euc_distance < goal->goal_reached_radius and 
+          act_move_vehicle_feedback_.goal_yaw_distance < goal->goal_reached_yaw) {
+        act_move_vehicle_result_.time_used = (ros::Time::now() - start_time).toSec();
+        act_move_vehicle_server_.setSucceeded(act_move_vehicle_result_);
+      }
+      ros::spinOnce();
+      ros::Duration(0.1).sleep();
+    }
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
