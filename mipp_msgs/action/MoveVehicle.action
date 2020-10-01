@@ -8,4 +8,5 @@ float64 max_time
 float64 time_used
 ---
 #feedback
-float64 goal_distance
+float64 goal_euc_distance
+float64 goal_yaw_distance
