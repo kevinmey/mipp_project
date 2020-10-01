@@ -14,20 +14,29 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   pub_timer_pause_navigation_  = n.createTimer(ros::Duration(0.1), boost::bind(&ExplorationPlanner::pubUGVPauseNavigation, this));
 
   sub_clicked_point_ = n.subscribe("/exploration/start_collaborative", 1, &ExplorationPlanner::subClickedPoint, this);
-  act_ugv_exploration_client_ = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>("/ugv/exploration_action", true);
-  act_ugv_exploration_client_->waitForServer(ros::Duration(10.0));
+
+  // Make a UGVPlanner object as container for variables for the UGV
+  ugv_planner_.exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>("/ugv/exploration_action", true);
+  ugv_planner_.exploration_client->waitForServer(ros::Duration(10.0));
+  // Make a UAVPlanner object as container for variables for each UAV
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
+    // Declare new UAVPlanner object
+    UAVPlanner uav_planner;
+    // Exploration
     std::string uav_exploration_client_name = "/uav"+std::to_string(uav_id)+"/exploration_action";
+    uav_planner.exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>(uav_exploration_client_name, true);
+    uav_planner.exploration_client->waitForServer(ros::Duration(10.0));
+    // Navigation
     std::string uav_move_vehicle_client_name = "/uav"+std::to_string(uav_id)+"/move_vehicle_action";
-    actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>* act_uav_exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>(uav_exploration_client_name, true);
-    actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>* act_uav_move_vehicle_client = new actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>(uav_move_vehicle_client_name, true);
-    act_uav_exploration_clients_.push_back(act_uav_exploration_client);
-    act_uav_move_vehicle_clients_.push_back(act_uav_move_vehicle_client);
+    uav_planner.move_vehicle_client = new actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>(uav_move_vehicle_client_name, true);
+    uav_planner.move_vehicle_client->waitForServer(ros::Duration(10.0));
+    // Add object to list
+    uav_planners_.push_back(uav_planner);
   }
 
   // Set variables
   running_exploration_ = false;
-  ugv_pause_navigation_ = false;
+  ugv_planner_.navigation_paused = false;
 
   ROS_WARN("Done.");
 }
@@ -43,64 +52,83 @@ ExplorationPlanner::~ExplorationPlanner() {
 void ExplorationPlanner::pubUGVPauseNavigation() {
   ROS_DEBUG("pubUGVPauseNavigation");
   std_msgs::Bool pub_msg;
-  pub_msg.data = ugv_pause_navigation_;
+  pub_msg.data = ugv_planner_.navigation_paused;
   pub_ugv_pause_navigation_.publish(pub_msg);
 }
 
 // Callback functions for subscriptions
 
 void ExplorationPlanner::subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg) {
+  ROS_DEBUG("subClickedPoint");
+
+  makePlanSynchronous();
+}
+
+// Planner functions
+
+void ExplorationPlanner::makePlanSynchronous() {
+  ROS_DEBUG("makePlanSynchronous");
+
   ROS_WARN("Starting collaborative exploration with 1 UGV and %d UAVs", nr_of_uavs_);
 
-  ugv_pause_navigation_ = true;
+  // Pause UGV navigation so it does not move until everyone has plan
+  ugv_planner_.navigation_paused = true;
 
-  mipp_msgs::StartExplorationGoal exploration_goal;
-  exploration_goal.max_time = 2.0;
-  act_ugv_exploration_client_->sendGoal(exploration_goal);
+  // Set "start exploration" goal (max time to compute paths) and send to vehicle exploration servers
+  ugv_planner_.exploration_goal.max_time = 2.0;
+  ugv_planner_.exploration_client->sendGoal(ugv_planner_.exploration_goal);
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-    act_uav_exploration_clients_[uav_id]->sendGoal(exploration_goal);
+    uav_planners_[uav_id].exploration_goal.max_time = 2.0;
+    uav_planners_[uav_id].exploration_client->sendGoal(uav_planners_[uav_id].exploration_goal);
   }
 
-  actionlib::SimpleClientGoalState ugv_state = act_ugv_exploration_client_->getState();
-  bool vehicles_ready = ugv_state.isDone();
+  // Poll exploration servers and wait until every server is done
+  bool vehicles_ready = ugv_planner_.exploration_client->getState().isDone();
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-    vehicles_ready = vehicles_ready && act_uav_exploration_clients_[uav_id]->getState().isDone();
+    vehicles_ready = vehicles_ready && uav_planners_[uav_id].exploration_client->getState().isDone();
   }
-
-  // Check if exploration action is done
   ros::Rate check_rate(10);
   while (!vehicles_ready) {
-    ROS_INFO_THROTTLE(1, "UGV not finished, state: %s", ugv_state.toString().c_str());
-    vehicles_ready = act_ugv_exploration_client_->getState().isDone();
+    ROS_INFO_THROTTLE(1, "Vehicles not finished exploring, UGV state: %s", ugv_planner_.exploration_client->getState().toString().c_str());
+    vehicles_ready = ugv_planner_.exploration_client->getState().isDone();
     for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-      vehicles_ready = vehicles_ready && act_uav_exploration_clients_[uav_id]->getState().isDone();
+      vehicles_ready = vehicles_ready && uav_planners_[uav_id].exploration_client->getState().isDone();
     }
     ros::spinOnce();
     check_rate.sleep();
   }
 
   // Get results
-  mipp_msgs::ExplorationResult ugv_result = act_ugv_exploration_client_->getResult().get()->result;
-  ROS_INFO("First node on UGV path: (%f, %f, %f)", ugv_result.paths.begin()->poses.begin()->pose.position.x,
-                                                   ugv_result.paths.begin()->poses.begin()->pose.position.y,
-                                                   ugv_result.paths.begin()->poses.begin()->pose.position.z);
+  ugv_planner_.exploration_result = ugv_planner_.exploration_client->getResult().get()->result;
+  ROS_INFO("First node on UGV path: (%f, %f, %f)", ugv_planner_.exploration_result.paths.begin()->poses.begin()->pose.position.x,
+                                                   ugv_planner_.exploration_result.paths.begin()->poses.begin()->pose.position.y,
+                                                   ugv_planner_.exploration_result.paths.begin()->poses.begin()->pose.position.z);
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-    mipp_msgs::ExplorationResult uav_result = act_uav_exploration_clients_[uav_id]->getResult().get()->result;
+    uav_planners_[uav_id].exploration_result = uav_planners_[uav_id].exploration_client->getResult().get()->result;
     ROS_INFO("First node on UAV%d path: (%f, %f, %f)", uav_id,
-                                                    uav_result.paths.begin()->poses.begin()->pose.position.x,
-                                                    uav_result.paths.begin()->poses.begin()->pose.position.y,
-                                                    uav_result.paths.begin()->poses.begin()->pose.position.z);
+                                                    uav_planners_[uav_id].exploration_result.paths.begin()->poses.begin()->pose.position.x,
+                                                    uav_planners_[uav_id].exploration_result.paths.begin()->poses.begin()->pose.position.y,
+                                                    uav_planners_[uav_id].exploration_result.paths.begin()->poses.begin()->pose.position.z);
   }
   
-  // Send planning goal to UGV, UGV planner will make a plan first
-  nav_msgs::Path ugv_end_goal_path = makePathFromExpPath(*ugv_result.paths.begin());
-  geometry_msgs::PoseStamped ugv_end_goal = *ugv_end_goal_path.poses.rbegin();
-  
-  pub_ugv_goal_.publish(ugv_end_goal);
-  pub_ugv_goal_path_.publish(ugv_end_goal_path);
+  // UGV planner will make a plan first (but is still paused)
+  ugv_planner_.navigation_path = makePathFromExpPath(*(ugv_planner_.exploration_result.paths.begin()));
+  ugv_planner_.navigation_goal = *(ugv_planner_.navigation_path.poses.rbegin());
+  pub_ugv_goal_.publish(ugv_planner_.navigation_goal);
+  pub_ugv_goal_path_.publish(ugv_planner_.navigation_path);
 
-  ugv_pause_navigation_ = false;
+  // Go through UAVs and send navigation goals
+  for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
+    uav_planners_[uav_id].navigation_path = makePathFromExpPath(*(uav_planners_[uav_id].exploration_result.paths.begin()));
+    uav_planners_[uav_id].navigation_goal = *(uav_planners_[uav_id].navigation_path.poses.begin());
+    uav_planners_[uav_id].move_vehicle_goal.goal_pose = uav_planners_[uav_id].navigation_goal;
+    uav_planners_[uav_id].move_vehicle_goal.goal_reached_radius = 0.1;
+    uav_planners_[uav_id].move_vehicle_goal.goal_reached_yaw = 0.1;
+    uav_planners_[uav_id].move_vehicle_goal.max_time = 2.0;
+    uav_planners_[uav_id].move_vehicle_client->sendGoal(uav_planners_[uav_id].move_vehicle_goal);
+  }
 
+  ugv_planner_.navigation_paused = false;
 
   ROS_WARN("Done");
 }

@@ -20,6 +20,31 @@
 
 #include <string>
 #include <cmath> /* sqrt, pow */
+
+struct UGVPlanner
+{
+  // Exploration (Frontier exploration using RRT)
+  actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>* exploration_client;
+  mipp_msgs::StartExplorationGoal exploration_goal;
+  mipp_msgs::ExplorationResult exploration_result;
+  // Navigation
+  geometry_msgs::PoseStamped navigation_goal;
+  nav_msgs::Path navigation_path;
+  bool navigation_paused;
+};
+
+struct UAVPlanner
+{
+  // Exploration (Frontier exploration using RRT)
+  actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>* exploration_client;
+  mipp_msgs::StartExplorationGoal exploration_goal;
+  mipp_msgs::ExplorationResult exploration_result;
+  // Navigation
+  actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>* move_vehicle_client;
+  mipp_msgs::MoveVehicleGoal move_vehicle_goal;
+  geometry_msgs::PoseStamped navigation_goal;
+  nav_msgs::Path navigation_path;
+};
  
 class ExplorationPlanner
 {
@@ -36,6 +61,7 @@ private:
   // Callback functions for subscriptions
   void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   // Planner functions
+  void makePlanSynchronous();
   // Utility functions
   void getParams(ros::NodeHandle np);
   nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath);
@@ -51,14 +77,12 @@ private:
   // Subscribers
   ros::Subscriber sub_clicked_point_;
   // Actionlib
-  actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>* act_ugv_exploration_client_;
-  std::vector<actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>*> act_uav_exploration_clients_;
-  std::vector<actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>*> act_uav_move_vehicle_clients_;
   // Parameters
   int nr_of_uavs_;
   std::string uav_world_frame_;
   std::string ugv_ns_;
-  // Variable
+  // Variables
+  UGVPlanner ugv_planner_;
+  std::vector<UAVPlanner> uav_planners_;
   bool running_exploration_;
-  bool ugv_pause_navigation_;
 };
