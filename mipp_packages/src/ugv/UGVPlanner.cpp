@@ -401,7 +401,7 @@ geometry_msgs::Point UGVPlanner::generateRandomInformedPoint()
   
   double r1 = path_distance/2.0;
   double r2 = sqrt(std::max(pow(path_distance,2.0) - pow(goal_euclidean_distance_,2.0),0.0))/2.0; // max in case value in sqrt is negative
-  ROS_INFO("Ellipse dimensions (r1,r2) = (%f,%f)", r1, r2);
+  ROS_DEBUG("Ellipse dimensions (r1,r2) = (%f,%f)", r1, r2);
 
   // Scale, rotate and translate the unit circle point to rotated ellipse point with center between
   // goal and root
