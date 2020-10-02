@@ -407,8 +407,12 @@ void UAVInformativeExplorer::runExploration() {
     node_on_path = *(node_on_path.getParent());
   }
   ROS_INFO("Done");
-  visualizePath();
-  visualizePathFOVs(1.0);
+
+  // Visualize the paths if this isn't an action (aka called by the collaborative exploration planner)
+  if (!planner_action_in_progress_) {
+    visualizePath();
+    visualizePathFOVs(1.0);
+  }
 }
 
 double UAVInformativeExplorer::calculateInformationGain(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy) {
