@@ -14,6 +14,7 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   pub_timer_pause_navigation_  = n.createTimer(ros::Duration(0.1), boost::bind(&ExplorationPlanner::pubUGVPauseNavigation, this));
 
   sub_clicked_point_ = n.subscribe("/exploration/start_collaborative", 1, &ExplorationPlanner::subClickedPoint, this);
+  sub_ugv_goal_plan_ = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &ExplorationPlanner::subUGVPlan, this);
 
   // Make a UGVPlanner object as container for variables for the UGV
   ugv_planner_.exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>("/ugv/exploration_action", true);
@@ -36,6 +37,7 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
 
   // Set variables
   running_exploration_ = false;
+  ugv_planner_.naviation_beacon_max_dist = ugv_nav_waypoint_max_distance_;
   ugv_planner_.navigation_paused = false;
 
   ROS_WARN("Done.");
@@ -64,10 +66,17 @@ void ExplorationPlanner::subClickedPoint(const geometry_msgs::PointStampedConstP
   makePlanSynchronous();
 }
 
+void ExplorationPlanner::subUGVPlan(const nav_msgs::PathConstPtr& path_msg) {
+  ROS_DEBUG("subUGVPlan");
+
+  ugv_planner_.navigation_path = *path_msg;
+}
+
 // Planner functions
 
 void ExplorationPlanner::makePlanSynchronous() {
   ROS_DEBUG("makePlanSynchronous");
+  ros::Rate check_rate(10);
 
   ROS_WARN("Starting collaborative exploration with 1 UGV and %d UAVs", nr_of_uavs_);
 
@@ -87,7 +96,6 @@ void ExplorationPlanner::makePlanSynchronous() {
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
     vehicles_ready = vehicles_ready && uav_planners_[uav_id].exploration_client->getState().isDone();
   }
-  ros::Rate check_rate(10);
   while (!vehicles_ready) {
     ROS_INFO_THROTTLE(1, "Vehicles not finished exploring, UGV state: %s", ugv_planner_.exploration_client->getState().toString().c_str());
     vehicles_ready = ugv_planner_.exploration_client->getState().isDone();
@@ -112,10 +120,48 @@ void ExplorationPlanner::makePlanSynchronous() {
   }
   
   // UGV planner will make a plan first (but is still paused)
-  ugv_planner_.navigation_path = makePathFromExpPath(*(ugv_planner_.exploration_result.paths.begin()));
-  ugv_planner_.navigation_goal = *(ugv_planner_.navigation_path.poses.rbegin());
+  ugv_planner_.navigation_path_init = makePathFromExpPath(*(ugv_planner_.exploration_result.paths.begin()));
+  ugv_planner_.navigation_goal = *(ugv_planner_.navigation_path_init.poses.rbegin());
+  ugv_planner_.navigation_path.poses.clear(); // Clear path since we will wait for a new path from the UGV planner
   pub_ugv_goal_.publish(ugv_planner_.navigation_goal);
-  pub_ugv_goal_path_.publish(ugv_planner_.navigation_path);
+  pub_ugv_goal_path_.publish(ugv_planner_.navigation_path_init);
+
+  // Wait until we get the "optimized" path back 
+  while (ugv_planner_.navigation_path.poses.empty()) {
+    ros::spinOnce();
+    check_rate.sleep();
+  }
+
+  // Work on path made by UGV planner and create communication "beacons"
+  float dist_to_prev_beacon = 0.0;
+  ugv_planner_.navigation_waypoints.poses.clear();
+  for (auto path_it = ugv_planner_.navigation_path.poses.begin(); path_it != ugv_planner_.navigation_path.poses.end(); ++path_it) {
+    if (ugv_planner_.navigation_waypoints.poses.empty()) {
+      // Add first pose in plan (current pose) as com beacon
+      ugv_planner_.navigation_waypoints.poses.push_back(*path_it);
+      ROS_WARN("Added pose nr. %d as nav. waypoint at (%.2f, %.2f)", (int)(path_it - ugv_planner_.navigation_path.poses.begin()),
+                                                                   path_it->pose.position.x, path_it->pose.position.y);
+    }
+    else {
+      dist_to_prev_beacon += getDistanceBetweenPoints(path_it->pose.position, std::prev(path_it)->pose.position);
+      if (dist_to_prev_beacon > ugv_planner_.naviation_beacon_max_dist and ugv_planner_.navigation_waypoints.poses.size() < nr_of_ugv_com_beacons_) {
+        // Distance to previous beacon exceeds max distance, add PREVIOUS pose as beacon (since it was within max distance)
+        ugv_planner_.navigation_waypoints.poses.push_back(*(std::prev(path_it)));
+        dist_to_prev_beacon = getDistanceBetweenPoints(path_it->pose.position, std::prev(path_it)->pose.position);
+        ROS_WARN("Added pose nr. %d as nav. waypoint at (%.2f, %.2f), with distance %.2f to previous waypoint", 
+                 (int)(path_it - ugv_planner_.navigation_path.poses.begin() - 1),
+                 std::prev(path_it)->pose.position.x, std::prev(path_it)->pose.position.y,
+                 getDistanceBetweenPoints(ugv_planner_.navigation_waypoints.poses.end()[-1].pose.position, 
+                                          ugv_planner_.navigation_waypoints.poses.end()[-2].pose.position));
+      }
+    }
+  }
+  // Pad the com beacons with the goal position if path not long enough to fit all
+  while (ugv_planner_.navigation_waypoints.poses.size() < nr_of_ugv_com_beacons_) {
+    ugv_planner_.navigation_waypoints.poses.push_back(*ugv_planner_.navigation_path.poses.rbegin());
+    ROS_WARN("Padded with goal pose as nav. waypoint at (%.2f, %.2f)", ugv_planner_.navigation_path.poses.rbegin()->pose.position.x, 
+                                                                     ugv_planner_.navigation_path.poses.rbegin()->pose.position.y);
+  }
 
   // Go through UAVs and send navigation goals
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
@@ -139,6 +185,8 @@ void ExplorationPlanner::getParams(ros::NodeHandle np) {
   ROS_DEBUG("getParams");
   // General
   np.param<std::string>("ugv_ns", ugv_ns_, "/ugv/");
+  np.param<int>("nr_of_ugv_nav_beacons", nr_of_ugv_com_beacons_, 4);
+  np.param<float>("ugv_nav_beacon_max_distance", ugv_nav_waypoint_max_distance_, 3.0);
   np.param<int>("nr_of_uavs", nr_of_uavs_, 0);
   np.param<std::string>("uav_world_frame", uav_world_frame_, "world");
 }

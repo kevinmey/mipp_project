@@ -29,8 +29,12 @@ struct UGVPlanner
   mipp_msgs::ExplorationResult exploration_result;
   // Navigation
   geometry_msgs::PoseStamped navigation_goal;
-  nav_msgs::Path navigation_path;
+  nav_msgs::Path navigation_path_init;  // Initial RRT vertices making up "path" to frontier node goal
+  nav_msgs::Path navigation_path;       // Plan returned from UGVPlanner which optimizes the inital path
+  nav_msgs::Path navigation_waypoints;  // Waypoints created from poses on path which are within a set distance
+  float naviation_beacon_max_dist;
   bool navigation_paused;
+  // Communication
 };
 
 struct UAVPlanner
@@ -60,6 +64,7 @@ private:
   void pubUGVPauseNavigation();
   // Callback functions for subscriptions
   void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
+  void subUGVPlan(const nav_msgs::PathConstPtr& path_msg);
   // Planner functions
   void makePlanSynchronous();
   // Utility functions
@@ -72,15 +77,16 @@ private:
   ros::Publisher pub_ugv_goal_path_;
   ros::Publisher pub_ugv_pause_navigation_;
   ros::Timer pub_timer_pause_navigation_;
-  //// UGV
-  //// UAVs
   // Subscribers
   ros::Subscriber sub_clicked_point_;
+  ros::Subscriber sub_ugv_goal_plan_;
   // Actionlib
   // Parameters
+  std::string ugv_ns_;
+  int nr_of_ugv_com_beacons_;
+  float ugv_nav_waypoint_max_distance_;
   int nr_of_uavs_;
   std::string uav_world_frame_;
-  std::string ugv_ns_;
   // Variables
   UGVPlanner ugv_planner_;
   std::vector<UAVPlanner> uav_planners_;
