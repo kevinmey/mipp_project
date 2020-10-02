@@ -17,6 +17,8 @@
 #include <geometry_msgs/PointStamped.h>
 #include <nav_msgs/Path.h>
 #include <std_msgs/Bool.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include <string>
 #include <cmath> /* sqrt, pow */
@@ -31,7 +33,7 @@ struct UGVPlanner
   geometry_msgs::PoseStamped navigation_goal;
   nav_msgs::Path navigation_path_init;  // Initial RRT vertices making up "path" to frontier node goal
   nav_msgs::Path navigation_path;       // Plan returned from UGVPlanner which optimizes the inital path
-  nav_msgs::Path navigation_waypoints;  // Waypoints created from poses on path which are within a set distance
+  std::vector<geometry_msgs::Point> navigation_waypoints;  // Waypoints created from poses on path which are within a set distance
   float naviation_beacon_max_dist;
   bool navigation_paused;
   // Communication
@@ -48,6 +50,16 @@ struct UAVPlanner
   mipp_msgs::MoveVehicleGoal move_vehicle_goal;
   geometry_msgs::PoseStamped navigation_goal;
   nav_msgs::Path navigation_path;
+};
+
+struct SensorCircle
+{
+  // Details of which vehicle the sensor circle is assigned to
+  int vehicle_id;   // -1 for UGV, uav_id (0, 1, ...) for UAVs
+  geometry_msgs::Pose vehicle_pose; // For UGV, pose.position = circle center
+  // Geometric characteristics of circle
+  geometry_msgs::Point center;
+  float radius;
 };
  
 class ExplorationPlanner
@@ -70,25 +82,39 @@ private:
   // Utility functions
   void getParams(ros::NodeHandle np);
   nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath);
+  // Visualization functions
+  void visualizeSensorCircle(SensorCircle sensor_circle);
+  void visualizeSensorCoverages();
 
-  // Variables
   // Publishers
   ros::Publisher pub_ugv_goal_;
   ros::Publisher pub_ugv_goal_path_;
   ros::Publisher pub_ugv_pause_navigation_;
   ros::Timer pub_timer_pause_navigation_;
+  ros::Publisher pub_viz_sensor_circle_;
+  ros::Publisher pub_viz_sensor_coverages_;
   // Subscribers
   ros::Subscriber sub_clicked_point_;
   ros::Subscriber sub_ugv_goal_plan_;
   // Actionlib
   // Parameters
+  std::string planner_world_frame_;
+  //// General
+  bool do_visualization_;
+  //// UGV
   std::string ugv_ns_;
-  int nr_of_ugv_com_beacons_;
+  int nr_of_ugv_nav_waypoints_;
   float ugv_nav_waypoint_max_distance_;
+  float ugv_sensor_radius_;
+  //// UAV
   int nr_of_uavs_;
   std::string uav_world_frame_;
   // Variables
-  UGVPlanner ugv_planner_;
-  std::vector<UAVPlanner> uav_planners_;
   bool running_exploration_;
+  //// Collaborative
+  std::vector<SensorCircle> sensor_coverages_;
+  //// UGV
+  UGVPlanner ugv_planner_;
+  //// UAVs
+  std::vector<UAVPlanner> uav_planners_;
 };
