@@ -84,6 +84,7 @@ private:
   nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath);
   geometry_msgs::Vector3 makeRPYFromQuat(geometry_msgs::Quaternion quat);
   geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy);
+  SensorCircle makeSensorCircleFromUAVPose(geometry_msgs::Pose uav_pose, int uav_id, float sensor_range);
   // Visualization functions
   void visualizeSensorCircle(SensorCircle sensor_circle);
   void visualizeSensorCoverages();

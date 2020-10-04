@@ -190,6 +190,7 @@ void ExplorationPlanner::makePlanSynchronous() {
   // Create sensor coverage for UGV
   sensor_coverages_.clear();
   int vehicle_id = -1;
+  /*
   for (auto point_it = ugv_planner_.navigation_waypoints.begin(); point_it != ugv_planner_.navigation_waypoints.end(); ++point_it) {
     SensorCircle sensor_coverage;
     sensor_coverage.vehicle_id = vehicle_id;
@@ -199,7 +200,7 @@ void ExplorationPlanner::makePlanSynchronous() {
     visualizeSensorCoverages();
     ros::spinOnce();
     ros::Duration(0.5).sleep();
-  }
+  }*/
 
   // Go through UAVs and send navigation goals
   std::vector<nav_msgs::Path> uav_paths;    // Store all chosen UAV paths for visualization
@@ -215,6 +216,10 @@ void ExplorationPlanner::makePlanSynchronous() {
     uav_paths.push_back(uav_planners_[uav_id].navigation_path);
     visualizePaths(uav_paths);
     visualizePathFOVs(uav_paths, 1.0);
+    for (auto const& pose_it : uav_planners_[uav_id].navigation_path.poses) {
+      sensor_coverages_.push_back(makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range_));
+    }
+    visualizeSensorCoverages();
   }
 
   ugv_planner_.navigation_paused = false;
@@ -279,6 +284,21 @@ geometry_msgs::Quaternion ExplorationPlanner::makeQuatFromRPY(geometry_msgs::Vec
   quat.z = tf_quat.z();
   quat.w = tf_quat.w();
   return quat;
+}
+
+SensorCircle ExplorationPlanner::makeSensorCircleFromUAVPose(geometry_msgs::Pose uav_pose, int uav_id, float sensor_range) {
+  ROS_DEBUG("makeSensorCircleFromUAVPose");
+  SensorCircle sensor_circle;
+  sensor_circle.vehicle_pose = uav_pose;
+  sensor_circle.vehicle_id = uav_id;
+  sensor_circle.radius = sensor_range/2.0;
+  
+  float uav_yaw = makeRPYFromQuat(uav_pose.orientation).z;
+  sensor_circle.center.x = std::cos(uav_yaw)*(sensor_range/2.0) + uav_pose.position.x;
+  sensor_circle.center.y = std::sin(uav_yaw)*(sensor_range/2.0) + uav_pose.position.y;
+  sensor_circle.center.z = 0.0;
+
+  return sensor_circle;
 }
 
 // Visualization
