@@ -82,9 +82,13 @@ private:
   // Utility functions
   void getParams(ros::NodeHandle np);
   nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath);
+  geometry_msgs::Vector3 makeRPYFromQuat(geometry_msgs::Quaternion quat);
+  geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy);
   // Visualization functions
   void visualizeSensorCircle(SensorCircle sensor_circle);
   void visualizeSensorCoverages();
+  void visualizePaths(std::vector<nav_msgs::Path> paths);
+  void visualizePathFOVs(std::vector<nav_msgs::Path> paths, float ray_length);
 
   // Publishers
   ros::Publisher pub_ugv_goal_;
@@ -93,6 +97,8 @@ private:
   ros::Timer pub_timer_pause_navigation_;
   ros::Publisher pub_viz_sensor_circle_;
   ros::Publisher pub_viz_sensor_coverages_;
+  ros::Publisher pub_viz_uav_paths_;
+  ros::Publisher pub_viz_uav_path_fovs_;
   // Subscribers
   ros::Subscriber sub_clicked_point_;
   ros::Subscriber sub_ugv_goal_plan_;
@@ -109,6 +115,13 @@ private:
   //// UAV
   int nr_of_uavs_;
   std::string uav_world_frame_;
+  float uav_sensor_range_;
+  float uav_camera_width_;
+  float uav_camera_height_;
+  float uav_camera_hfov_;
+  float uav_camera_ray_resolution_;
+  float uav_camera_range_;
+  std::vector<tf2::Vector3> uav_camera_corner_rays_;
   // Variables
   bool running_exploration_;
   //// Collaborative

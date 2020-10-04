@@ -8,12 +8,14 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   // Initialize values
   getParams(np);
 
-  pub_ugv_goal_ = n.advertise<geometry_msgs::PoseStamped>(ugv_ns_+"move_base_simple/goal", 1);
-  pub_ugv_goal_path_ = n.advertise<nav_msgs::Path>(ugv_ns_+"UGVFrontierExplorer/goal_path", 1);
-  pub_ugv_pause_navigation_ = n.advertise<std_msgs::Bool>(ugv_ns_+"pause_navigation", 1);
-  pub_timer_pause_navigation_  = n.createTimer(ros::Duration(0.1), boost::bind(&ExplorationPlanner::pubUGVPauseNavigation, this));
-  pub_viz_sensor_circle_ = n.advertise<visualization_msgs::Marker>("ExplorationPlanner/viz_sensor_circle_", 1);
-  pub_viz_sensor_coverages_ = n.advertise<visualization_msgs::MarkerArray>("ExplorationPlanner/viz_sensor_coverages_", 1);
+  pub_ugv_goal_                 = n.advertise<geometry_msgs::PoseStamped>(ugv_ns_+"move_base_simple/goal", 1);
+  pub_ugv_goal_path_            = n.advertise<nav_msgs::Path>(ugv_ns_+"UGVFrontierExplorer/goal_path", 1);
+  pub_ugv_pause_navigation_     = n.advertise<std_msgs::Bool>(ugv_ns_+"pause_navigation", 1);
+  pub_timer_pause_navigation_   = n.createTimer(ros::Duration(0.1), boost::bind(&ExplorationPlanner::pubUGVPauseNavigation, this));
+  pub_viz_sensor_circle_        = n.advertise<visualization_msgs::Marker>("ExplorationPlanner/viz_sensor_circle_", 1);
+  pub_viz_sensor_coverages_     = n.advertise<visualization_msgs::MarkerArray>("ExplorationPlanner/viz_sensor_coverages_", 1);
+  pub_viz_uav_paths_            = n.advertise<visualization_msgs::MarkerArray>("ExplorationPlanner/viz_uav_paths", 1);
+  pub_viz_uav_path_fovs_        = n.advertise<visualization_msgs::MarkerArray>("ExplorationPlanner/viz_uav_path_fovs", 1);
 
   sub_clicked_point_ = n.subscribe("/exploration/start_collaborative", 1, &ExplorationPlanner::subClickedPoint, this);
   sub_ugv_goal_plan_ = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &ExplorationPlanner::subUGVPlan, this);
@@ -37,10 +39,30 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
     uav_planners_.push_back(uav_planner);
   }
 
-  // Set variables
+  // Set general variables
   running_exploration_ = false;
+
+  // Set UGV variables
   ugv_planner_.naviation_beacon_max_dist = ugv_nav_waypoint_max_distance_;
   ugv_planner_.navigation_paused = false;
+
+  // Set UAV variables
+  float uav_camera_vfov_ = (uav_camera_height_/uav_camera_width_)*uav_camera_hfov_;
+  tf2::Matrix3x3 ray_rot_mat;
+  tf2::Vector3 unit_ray_direction(1.0, 0.0, 0.0);
+  for (float img_y = -uav_camera_height_/2.0; img_y <= uav_camera_height_/2.0+uav_camera_ray_resolution_/2.0; img_y+=uav_camera_ray_resolution_){
+    for (float img_x = -uav_camera_width_/2.0; img_x <= uav_camera_width_/2.0+uav_camera_ray_resolution_/2.0; img_x+=uav_camera_ray_resolution_){
+      float ray_yaw = (img_x/uav_camera_width_)*uav_camera_hfov_;
+      float ray_pitch = (img_y/uav_camera_height_)*uav_camera_vfov_;
+      ray_rot_mat.setEulerYPR(ray_yaw, ray_pitch, 0.0);
+      tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
+      ROS_DEBUG("YPR: (%f, %f, %f)", ray_yaw, ray_pitch, 0.0);
+      ROS_DEBUG("Ray: (%f, %f, %f)", ray_direction.getX(), ray_direction.getY(), ray_direction.getZ());
+      if (abs(img_y) == uav_camera_height_/2.0 and abs(img_x) == uav_camera_width_/2.0) {
+        uav_camera_corner_rays_.push_back(ray_direction);
+      }
+    }
+  }
 
   ROS_WARN("Done.");
 }
@@ -180,6 +202,7 @@ void ExplorationPlanner::makePlanSynchronous() {
   }
 
   // Go through UAVs and send navigation goals
+  std::vector<nav_msgs::Path> uav_paths;    // Store all chosen UAV paths for visualization
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
     uav_planners_[uav_id].navigation_path = makePathFromExpPath(*(uav_planners_[uav_id].exploration_result.paths.begin()));
     uav_planners_[uav_id].navigation_goal = *(uav_planners_[uav_id].navigation_path.poses.begin());
@@ -188,6 +211,10 @@ void ExplorationPlanner::makePlanSynchronous() {
     uav_planners_[uav_id].move_vehicle_goal.goal_reached_yaw = 0.1;
     uav_planners_[uav_id].move_vehicle_goal.max_time = 2.0;
     uav_planners_[uav_id].move_vehicle_client->sendGoal(uav_planners_[uav_id].move_vehicle_goal);
+    // Visualize
+    uav_paths.push_back(uav_planners_[uav_id].navigation_path);
+    visualizePaths(uav_paths);
+    visualizePathFOVs(uav_paths, 1.0);
   }
 
   ugv_planner_.navigation_paused = false;
@@ -209,6 +236,11 @@ void ExplorationPlanner::getParams(ros::NodeHandle np) {
   // UAVS
   np.param<int>("nr_of_uavs", nr_of_uavs_, 0);
   np.param<std::string>("uav_world_frame", uav_world_frame_, "world");
+  np.param<float>("uav_camera_width", uav_camera_width_, 6.0);
+  np.param<float>("uav_camera_height", uav_camera_height_, 3.0);
+  np.param<float>("uav_camera_hfov", uav_camera_hfov_, 1.02974);
+  np.param<float>("uav_camera_ray_resolution", uav_camera_ray_resolution_, 1.0);
+  np.param<float>("uav_camera_range", uav_camera_range_, 7.5);
 }
 
 nav_msgs::Path ExplorationPlanner::makePathFromExpPath(mipp_msgs::ExplorationPath exp_path) {
@@ -225,6 +257,28 @@ nav_msgs::Path ExplorationPlanner::makePathFromExpPath(mipp_msgs::ExplorationPat
            path.poses.begin()->pose.position.x, path.poses.begin()->pose.position.y, path.poses.begin()->pose.position.z,
            path.poses.rbegin()->pose.position.x, path.poses.rbegin()->pose.position.y, path.poses.rbegin()->pose.position.z);
   return path;
+}
+
+geometry_msgs::Vector3 ExplorationPlanner::makeRPYFromQuat(geometry_msgs::Quaternion quat) {
+  ROS_DEBUG("makeRPYFromQuat");
+  tf2::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);
+  geometry_msgs::Vector3 rpy;
+  tf2::Matrix3x3(tf_quat).getRPY(rpy.x, 
+                                 rpy.y, 
+                                 rpy.z);
+  return rpy;
+}
+
+geometry_msgs::Quaternion ExplorationPlanner::makeQuatFromRPY(geometry_msgs::Vector3 rpy) {
+  ROS_DEBUG("makeQuatFromRPY");
+  tf2::Quaternion tf_quat;
+  tf_quat.setRPY(rpy.x, rpy.y, rpy.z);
+  geometry_msgs::Quaternion quat;
+  quat.x = tf_quat.x();
+  quat.y = tf_quat.y();
+  quat.z = tf_quat.z();
+  quat.w = tf_quat.w();
+  return quat;
 }
 
 // Visualization
@@ -283,3 +337,82 @@ void ExplorationPlanner::visualizeSensorCoverages() {
   pub_viz_sensor_coverages_.publish(marker_array);
 }
 
+void ExplorationPlanner::visualizePaths(std::vector<nav_msgs::Path> paths) {
+  ROS_DEBUG("visualizePaths");
+  if(paths.empty()){
+    return;
+  }
+
+  visualization_msgs::MarkerArray path_marker_array;
+  for (auto const& path_it : paths) {
+    visualization_msgs::Marker path_marker;
+    path_marker.header.frame_id = planner_world_frame_;
+    path_marker.header.stamp = ros::Time::now();
+    path_marker.id = path_marker_array.markers.size();
+    path_marker.type = visualization_msgs::Marker::LINE_STRIP;
+    path_marker.action = visualization_msgs::Marker::ADD;
+    path_marker.pose.orientation.w = 1.0;
+    path_marker.scale.x = 0.05;
+    path_marker.color.a = 1.0;
+    path_marker.color.r = 0.1;
+    path_marker.color.g = 1.0;
+    path_marker.color.b = 0.1;
+    for (auto const& pose_it : path_it.poses) {
+      path_marker.points.push_back(pose_it.pose.position);
+    }
+    path_marker_array.markers.push_back(path_marker);
+  }
+  
+  pub_viz_uav_paths_.publish(path_marker_array);
+}
+
+void ExplorationPlanner::visualizePathFOVs(std::vector<nav_msgs::Path> paths, float ray_length) {
+  ROS_DEBUG("visualizePathFOVs");
+  if(paths.empty()){
+    return;
+  }
+
+  visualization_msgs::MarkerArray fov_marker_array;
+  for (auto const& path_it : paths) {
+    visualization_msgs::Marker fov_marker;
+    fov_marker.header.frame_id = uav_world_frame_;
+    fov_marker.header.stamp = ros::Time::now();
+    fov_marker.id = fov_marker_array.markers.size();
+    fov_marker.type = visualization_msgs::Marker::LINE_LIST;
+    fov_marker.action = visualization_msgs::Marker::ADD;
+    fov_marker.pose.orientation.w = 1.0;
+    fov_marker.scale.x = 0.05;
+    fov_marker.color.a = 0.8;
+    fov_marker.color.r = 0.1;
+    fov_marker.color.g = 1.0;
+    fov_marker.color.b = 0.1;
+    bool show_all_rays = false;
+    tf2::Matrix3x3 ray_direction_rotmat;
+    for (auto const& path_pose : path_it.poses) {
+      geometry_msgs::Vector3 rpy_vector = makeRPYFromQuat(path_pose.pose.orientation);
+      geometry_msgs::Point origin = path_pose.pose.position;
+      ray_direction_rotmat.setEulerYPR(rpy_vector.z, rpy_vector.y, rpy_vector.x);
+      std::vector<geometry_msgs::Point> ray_endpoints;
+      for(tf2::Vector3 ray : uav_camera_corner_rays_) {
+        fov_marker.points.push_back(origin);
+        tf2::Vector3 ray_direction = ray_direction_rotmat*ray*ray_length;
+        geometry_msgs::Point ray_endpoint;
+        ray_endpoint.x = origin.x + ray_direction.getX();
+        ray_endpoint.y = origin.y + ray_direction.getY();
+        ray_endpoint.z = origin.z + ray_direction.getZ();
+        fov_marker.points.push_back(ray_endpoint);
+        ray_endpoints.push_back(ray_endpoint);
+      }
+      fov_marker.points.push_back(ray_endpoints[0]);
+      fov_marker.points.push_back(ray_endpoints[1]);
+      fov_marker.points.push_back(ray_endpoints[1]);
+      fov_marker.points.push_back(ray_endpoints[3]);
+      fov_marker.points.push_back(ray_endpoints[3]);
+      fov_marker.points.push_back(ray_endpoints[2]);
+      fov_marker.points.push_back(ray_endpoints[2]);
+      fov_marker.points.push_back(ray_endpoints[0]);
+    }
+    fov_marker_array.markers.push_back(fov_marker);
+  }
+  pub_viz_uav_path_fovs_.publish(fov_marker_array);
+}
