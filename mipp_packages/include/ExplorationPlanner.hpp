@@ -81,6 +81,7 @@ private:
   void makePlanSynchronous();
   // Utility functions
   void getParams(ros::NodeHandle np);
+  float calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_b);
   nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath);
   geometry_msgs::Vector3 makeRPYFromQuat(geometry_msgs::Quaternion quat);
   geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy);

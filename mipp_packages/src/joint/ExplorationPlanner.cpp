@@ -217,6 +217,13 @@ void ExplorationPlanner::makePlanSynchronous() {
     visualizePaths(uav_paths);
     visualizePathFOVs(uav_paths, 1.0);
     for (auto const& pose_it : uav_planners_[uav_id].navigation_path.poses) {
+      SensorCircle sensor_coverage = makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range_);
+      for (auto const& sensor_coverage_it : sensor_coverages_) {
+        float sensor_coverage_overlap = calculateSensorCoverageOverlap(sensor_coverage, sensor_coverage_it);
+        float sensor_coverage_overlap_ratio = sensor_coverage_overlap / (M_PI*pow(sensor_coverage.radius, 2));
+        ROS_WARN("Calculated %.2f overlap between circle (%.2f, %.2f) and (%.2f, %.2f)", sensor_coverage_overlap_ratio,
+                  sensor_coverage.center.x, sensor_coverage.center.y, sensor_coverage_it.center.x, sensor_coverage_it.center.y);
+      }
       sensor_coverages_.push_back(makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range_));
     }
     visualizeSensorCoverages();
@@ -246,6 +253,37 @@ void ExplorationPlanner::getParams(ros::NodeHandle np) {
   np.param<float>("uav_camera_hfov", uav_camera_hfov_, 1.02974);
   np.param<float>("uav_camera_ray_resolution", uav_camera_ray_resolution_, 1.0);
   np.param<float>("uav_camera_range", uav_camera_range_, 7.5);
+}
+
+float ExplorationPlanner::calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_b) {
+  ROS_DEBUG("calculateSensorCoverageOverlap");
+  
+  // First check easiest cases relating to the distance between the circles
+  float d = getDistanceBetweenPoints(circle_a.center, circle_b.center);
+  if (d >= circle_a.radius + circle_b.radius) {
+    // Circles are not overlapping, return 0 overlap
+    return 0.0;
+  } 
+  else if (circle_b.radius + d <= circle_a.radius) {
+    // Circle B is smaller than A and is entirely contained within it
+    return M_PI*pow(circle_b.radius, 2);
+  }
+  else if (circle_a.radius + d <= circle_b.radius) {
+    // Circle A is smaller than B and is entirely contained within it
+    return M_PI*pow(circle_a.radius, 2);
+  }
+
+  // Circles have partial overlap, must calculate overlap
+  // Source: https://diego.assencio.com/?index=8d6ca3d82151bad815f78addf9b5c1c6
+  float r_1 = (circle_a.radius > circle_b.radius) ? circle_a.radius : circle_b.radius;  // The larger circle radius
+  float r_2 = (circle_a.radius > circle_b.radius) ? circle_b.radius : circle_a.radius;  // The smaller circle radius
+  float d_1 = (pow(r_1, 2) - pow(r_2, 2) + pow(d, 2)) / (2.0*d);
+  float d_2 = d - d_1;
+
+  float a_intersection = pow(r_1, 2)*acos(d_1/r_1) - d_1*sqrt(pow(r_1, 2) - pow(d_1, 2))
+                       + pow(r_2, 2)*acos(d_2/r_2) - d_2*sqrt(pow(r_2, 2) - pow(d_2, 2));
+
+  return a_intersection;
 }
 
 nav_msgs::Path ExplorationPlanner::makePathFromExpPath(mipp_msgs::ExplorationPath exp_path) {
@@ -294,8 +332,8 @@ SensorCircle ExplorationPlanner::makeSensorCircleFromUAVPose(geometry_msgs::Pose
   sensor_circle.radius = sensor_range/2.0;
   
   float uav_yaw = makeRPYFromQuat(uav_pose.orientation).z;
-  sensor_circle.center.x = std::cos(uav_yaw)*(sensor_range/2.0) + uav_pose.position.x;
-  sensor_circle.center.y = std::sin(uav_yaw)*(sensor_range/2.0) + uav_pose.position.y;
+  sensor_circle.center.x = cos(uav_yaw)*(sensor_range/2.0) + uav_pose.position.x;
+  sensor_circle.center.y = sin(uav_yaw)*(sensor_range/2.0) + uav_pose.position.y;
   sensor_circle.center.z = 0.0;
 
   return sensor_circle;
