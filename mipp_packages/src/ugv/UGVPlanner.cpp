@@ -458,7 +458,11 @@ void UGVPlanner::extendTreeRRTstar(geometry_msgs::Point candidate_point)
   std::vector<geometry_msgs::Point> collision_tree;
   for (neighbor_itr = neighbor_list.begin(); neighbor_itr != neighbor_list.end(); ++neighbor_itr) { 
     bool pathIsCollisionFree = isPathCollisionFree(neighbor_itr->second->position_, candidate_point, return_collision_free_point);
-    if(pathIsCollisionFree) {
+    if (neighbor_itr->second->id_ == 0) {
+      // Neighbor is root, could be that UGV thinks it is an obstacle (observed by a UAV) and is stuck
+      pathIsCollisionFree = isPathFromRootCollisionFree(neighbor_itr->second->position_, candidate_point, return_collision_free_point);
+    }
+    if (pathIsCollisionFree) {
       int node_id = tree_.size();
       int node_rank = neighbor_itr->second->rank_ + 1;
       float node_yaw = atan2(candidate_point.y - neighbor_itr->second->position_.y, candidate_point.x - neighbor_itr->second->position_.x);
@@ -521,6 +525,50 @@ bool UGVPlanner::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs
   geometry_msgs::Point point_on_line = point_a;
   while(distance_on_line < distance_ab){
     if(footprintCost(point_on_line.x, point_on_line.y, angle_ab) == -1.0){
+      if (return_collision_free_point) {
+        point_b.x = point_on_line.x - step_size_*direction_ab.x;
+        point_b.y = point_on_line.y - step_size_*direction_ab.y;
+        return false;
+      }
+      else {
+        return false;
+      }
+    }
+
+    distance_on_line += step_size_;
+    point_on_line.x = point_on_line.x + step_size_*direction_ab.x;
+    point_on_line.y = point_on_line.y + step_size_*direction_ab.y;
+  }
+
+  return true;
+}
+
+bool UGVPlanner::isPathFromRootCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point& point_b, 
+                                     bool return_collision_free_point, double ignore_radius,
+                                     geometry_msgs::Vector3 direction_ab, double distance_ab)
+{
+  ROS_DEBUG("isPathFromRootCollisionFree()");
+
+  // Check if optional arguments are set (default/initialized values aren't valid)
+  if(direction_ab.x == 0.0 and direction_ab.y == 0.0 and direction_ab.z == 0.0){
+    direction_ab = getDirection(point_a, point_b);
+  }
+  if(distance_ab == -1.0){
+    distance_ab = getDistanceBetweenPoints(point_a, point_b);
+  }
+
+  double angle_ab = atan2(point_b.y - point_a.y, point_b.x - point_a.x);
+  
+  // Check first if point_b is collision free configuration
+  if(footprintCost(point_b.x, point_b.y, angle_ab) == -1.0){
+    return false;
+  }
+
+  double distance_on_line = 0.0;
+  geometry_msgs::Point point_on_line = point_a;
+  while(distance_on_line < distance_ab){
+    if((footprintCost(point_on_line.x, point_on_line.y, angle_ab) == -1.0)
+       and (distance_on_line > ignore_radius)){
       if (return_collision_free_point) {
         point_b.x = point_on_line.x - step_size_*direction_ab.x;
         point_b.y = point_on_line.y - step_size_*direction_ab.y;

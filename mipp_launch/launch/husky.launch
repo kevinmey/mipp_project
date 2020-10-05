@@ -120,12 +120,12 @@
     </node>
 
     <!-- Octomap clearer -->
-    <node pkg="mipp_packages" type="octomap_clearer_node" name="husky_octomap_clearer_node" output="screen">
+    <node pkg="mipp_packages" type="octomap_clearer_node" name="husky_octomap_clearer_node" respawn="true" output="screen">
       <param name="vehicle_name"                value="ugv" />
-      <param name="vehicle_ground_truth_topic"  value="/gazebo/ground_truth_ugv" />
+      <param name="vehicle_ground_truth_topic"  value="odometry/filtered" />
       <param name="vehicle_size_x"              value="1.5" />
       <param name="vehicle_size_y"              value="1.5" />
-      <param name="vehicle_size_z"              value="2.0" />
+      <param name="vehicle_size_z"              value="3.0" />
     </node>
     
     <!-- Relay/republish pointcloud to common cloud for OctoMap -->

@@ -66,6 +66,10 @@ public:
                            bool return_collision_free_point,
                            geometry_msgs::Vector3 direction_ab = makeVector3(0.0,0.0,0.0), 
                            double distance = -1.0);
+  bool isPathFromRootCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point& point_b, 
+                                   bool return_collision_free_point, double ignore_radius = 1.0,
+                                   geometry_msgs::Vector3 direction_ab  = makeVector3(0.0,0.0,0.0), 
+                                   double distance_ab  = -1.0);
   void optimizePath(float optimization_resolution);
   void replanCheck();
   void replan();
