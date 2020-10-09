@@ -205,13 +205,21 @@ void UAVInformativeExplorer::actStartExploration(const mipp_msgs::StartExplorati
     while (node_on_path.getParent() != nullptr) {
       mipp_msgs::ExplorationPose exploration_pose;
       exploration_pose.pose = makePoseFromNode(node_on_path);
-      exploration_pose.gain = node_on_path.gain_;
+      exploration_pose.gain = node_on_path.gain_indiv_;
       exploration_path.poses.insert(exploration_path.poses.begin(), exploration_pose);
 
       node_on_path = *(node_on_path.getParent());
     }
     act_exploration_result_.result.paths.push_back(exploration_path);
   }
+
+  // Append a path containing only the current pose as final pose
+  mipp_msgs::ExplorationPose current_pose;
+  current_pose.pose = makePoseFromNode(root_);
+  current_pose.gain = root_.gain_indiv_;
+  mipp_msgs::ExplorationPath current_pose_path;
+  current_pose_path.poses.push_back(current_pose);
+  act_exploration_result_.result.paths.push_back(current_pose_path);
 
   act_exploration_server_.setSucceeded(act_exploration_result_);
   ROS_WARN("Succeeded with %d paths", (int)act_exploration_result_.result.paths.size());

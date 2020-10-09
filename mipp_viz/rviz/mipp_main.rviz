@@ -388,7 +388,7 @@ Visualization Manager:
                   Marker Topic: /ugv/UGVPlanner/root_node
                   Name: RootNode
                   Namespaces:
-                    {}
+                    "": true
                   Queue Size: 100
                   Value: true
                 - Class: rviz/MarkerArray
@@ -396,7 +396,7 @@ Visualization Manager:
                   Marker Topic: /ugv/UGVPlanner/goal_node
                   Name: GoalNode
                   Namespaces:
-                    {}
+                    "": true
                   Queue Size: 100
                   Value: true
                 - Class: rviz/Marker
@@ -404,7 +404,7 @@ Visualization Manager:
                   Marker Topic: /ugv/UGVPlanner/path_to_goal
                   Name: PathToGoal
                   Namespaces:
-                    {}
+                    "": true
                   Queue Size: 100
                   Value: true
                 - Class: rviz/Marker
@@ -412,7 +412,7 @@ Visualization Manager:
                   Marker Topic: /ugv/UGVPlanner/viz_tree
                   Name: Tree
                   Namespaces:
-                    {}
+                    "": true
                   Queue Size: 100
                   Value: true
                 - Class: rviz/Marker
@@ -664,7 +664,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_path
               Name: Viz Path
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -672,7 +672,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_fov
               Name: Viz FOV
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
           Enabled: true
@@ -1392,6 +1392,38 @@ Visualization Manager:
         {}
       Update Interval: 0
       Value: false
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /ugv/UGVPlanner/subgoal_node
+      Name: MarkerArray
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /ExplorationPlanner/viz_sensor_coverages_
+      Name: MarkerArray
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /ExplorationPlanner/viz_uav_path_fovs
+      Name: MarkerArray
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /ExplorationPlanner/viz_uav_paths
+      Name: MarkerArray
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 89; 120; 76
@@ -1422,25 +1454,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 27.140335083007812
+      Distance: 22.866514205932617
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -2.4998779296875
-        Y: -1.099955439567566
+        X: -4.65852689743042
+        Y: 0.4355366826057434
         Z: 2.7859503461513668e-5
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6597982048988342
+      Pitch: 0.7697981595993042
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 2.88545823097229
+      Yaw: 3.165465831756592
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10

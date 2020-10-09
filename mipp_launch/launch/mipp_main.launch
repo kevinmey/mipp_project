@@ -7,7 +7,7 @@
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
-  <arg name="nr_of_uavs"  default="1"/>
+  <arg name="nr_of_uavs"  default="2"/>
   <arg name="run_exploration_server"    default="true"/>
   <arg name="octomap_rate"    default="2.0"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
@@ -40,7 +40,7 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(eval arg('nr_of_uavs') >= 1)">
     <arg name="uav_id"        value="0"/>
-    <arg name="initial_x"     value="-1"/>
+    <arg name="initial_x"     value="-2"/>
     <arg name="initial_y"     value="-2"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
@@ -51,7 +51,7 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(eval arg('nr_of_uavs') >= 2)">
     <arg name="uav_id"        value="1"/>
-    <arg name="initial_x"     value="-1"/>
+    <arg name="initial_x"     value="-2"/>
     <arg name="initial_y"     value="2"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
@@ -62,7 +62,7 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(eval arg('nr_of_uavs') >= 3)">
     <arg name="uav_id"        value="2"/>
-    <arg name="initial_x"     value="-3"/>
+    <arg name="initial_x"     value="-2"/>
     <arg name="initial_y"     value="0"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>

@@ -16,15 +16,18 @@
 
 #include <geometry_msgs/PointStamped.h>
 #include <nav_msgs/Path.h>
+#include <nav_msgs/Odometry.h>
 #include <std_msgs/Bool.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
 #include <string>
 #include <cmath> /* sqrt, pow */
+#include <algorithm>    // std::min
 
 struct UGVPlanner
 {
+  // Vehicle state
   // Exploration (Frontier exploration using RRT)
   actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>* exploration_client;
   mipp_msgs::StartExplorationGoal exploration_goal;
@@ -41,6 +44,11 @@ struct UGVPlanner
 
 struct UAVPlanner
 {
+  // General
+  int uav_id;
+  // Vehicle state
+  ros::Subscriber sub_uav_odom;
+  nav_msgs::Odometry uav_odom;
   // Exploration (Frontier exploration using RRT)
   actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>* exploration_client;
   mipp_msgs::StartExplorationGoal exploration_goal;
@@ -113,6 +121,7 @@ private:
   std::string ugv_ns_;
   int nr_of_ugv_nav_waypoints_;
   float ugv_nav_waypoint_max_distance_;
+  bool add_nav_waypoint_at_goal_;
   float ugv_sensor_radius_;
   //// UAV
   int nr_of_uavs_;
