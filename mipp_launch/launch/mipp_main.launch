@@ -7,7 +7,7 @@
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
-  <arg name="nr_of_uavs"  default="2"/>
+  <arg name="nr_of_uavs"  default="0"/>
   <arg name="run_exploration_server"    default="true"/>
   <arg name="octomap_rate"    default="2.0"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
