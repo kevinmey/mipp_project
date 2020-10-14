@@ -14,6 +14,7 @@
                 "/home/kevin/catkin_ws/src/husky/husky_base/include/**",
                 "/home/kevin/catkin_ws/src/avoidance/local_planner/include/**",
                 "/home/kevin/catkin_ws/src/mipp_project/mipp_packages/include/**",
+                "/home/kevin/catkin_ws/src/mipp_project/mipp_msgs/**",
                 "/home/kevin/catkin_ws/src/m-explore/map_merge/include/**",
                 "/home/kevin/catkin_ws/src/exploration_packages/octomap_msgs/include/**",
                 "/home/kevin/catkin_ws/src/exploration_packages/octomap_mapping/octomap_server/include/**",

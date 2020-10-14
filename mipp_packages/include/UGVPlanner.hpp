@@ -66,10 +66,11 @@ public:
                            bool return_collision_free_point,
                            geometry_msgs::Vector3 direction_ab = makeVector3(0.0,0.0,0.0), 
                            double distance = -1.0);
-  
-  /* 
-  *  Planner functions
-  */
+  bool isPathFromRootCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point& point_b, 
+                                   bool return_collision_free_point, double ignore_radius = 1.0,
+                                   geometry_msgs::Vector3 direction_ab  = makeVector3(0.0,0.0,0.0), 
+                                   double distance_ab  = -1.0);
+  void optimizePath(float optimization_resolution);
   void replanCheck();
   void replan();
 
@@ -88,6 +89,7 @@ public:
   void visualizeTreeColored();
   void visualizeCollisionTree();
   void visualizeCollisionTree(std::vector<geometry_msgs::Point> collision_tree);
+  void visualizePath(std::list<geometry_msgs::Point> path);
   void visualizePathToGoal();
   void visualizeRoot(geometry_msgs::Point point, double red, double green, double blue);
   void visualizeGoal(geometry_msgs::Point point, double red, double green, double blue);
@@ -137,6 +139,9 @@ private:
   std::uniform_real_distribution<double> unit_distribution_;
   // Collision check variables
   std::vector<geometry_msgs::Point> collision_points_;
+  // Vehicle state variables
+  nav_msgs::Odometry ugv_odometry_;
+
   // Parameters
   std::string planner_world_frame_;
   std::string robot_namespace_;

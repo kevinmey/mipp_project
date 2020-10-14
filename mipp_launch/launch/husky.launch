@@ -13,7 +13,6 @@
   <arg name="urdf_extras" default="$(find mipp_description)/urdf/accessories/extras.urdf.xacro"/>
   <arg name="republish_pointcloud"    default="true"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
-  <arg name="run_frontier_explorer"    default="true"/>
   
   <group ns="$(arg robot_namespace)">
     <!-- K: Husky Control launch -->
@@ -45,7 +44,7 @@
 
       <!-- Control mux -->
       <node pkg="twist_mux" type="twist_mux" name="twist_mux">
-        <rosparam command="load" file="$(find husky_control)/config/twist_mux.yaml" />
+        <rosparam command="load" file="$(find mipp_description)/config/husky_twist_mux.yaml" />
         <remap from="cmd_vel_out" to="husky_velocity_controller/cmd_vel"/>
       </node>
 
@@ -121,12 +120,12 @@
     </node>
 
     <!-- Octomap clearer -->
-    <node pkg="mipp_packages" type="octomap_clearer_node" name="husky_octomap_clearer_node" output="screen">
+    <node pkg="mipp_packages" type="octomap_clearer_node" name="husky_octomap_clearer_node" respawn="true" output="screen">
       <param name="vehicle_name"                value="ugv" />
-      <param name="vehicle_ground_truth_topic"  value="/gazebo/ground_truth_ugv" />
+      <param name="vehicle_ground_truth_topic"  value="odometry/filtered" />
       <param name="vehicle_size_x"              value="1.5" />
       <param name="vehicle_size_y"              value="1.5" />
-      <param name="vehicle_size_z"              value="1.8" />
+      <param name="vehicle_size_z"              value="3.0" />
     </node>
     
     <!-- Relay/republish pointcloud to common cloud for OctoMap -->
@@ -135,7 +134,7 @@
     <remap from="/odometry/filtered" to="odometry/filtered"/>
   </group>
 
-  <include file="$(find mipp_packages)/launch/ugv_frontier_explorer.launch" if="$(arg run_frontier_explorer)">
+  <include file="$(find mipp_packages)/launch/ugv_frontier_explorer.launch">
     <arg name="robot_namespace"        value="$(arg robot_namespace)"/>
   </include>
 

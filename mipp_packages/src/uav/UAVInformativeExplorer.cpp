@@ -1,13 +1,9 @@
 #include <UAVInformativeExplorer.hpp>
 
-// Constructor  
-
-UAVInformativeExplorer::UAVInformativeExplorer()
-{
-  ROS_INFO("UAVInformativeExplorer object is being created without ROS.");
-}
+// Constructor
   
 UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandle np)
+  : act_exploration_server_(n, "exploration_action", boost::bind(&UAVInformativeExplorer::actStartExploration, this, _1), false) 
 {
   ROS_INFO("UAVInformativeExplorer object is being created.");
 
@@ -21,16 +17,18 @@ UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandl
   uav_position_goal_.pose.orientation.w = 1.0;
   uav_running_exploration_ = false;
   // Establish publish timers and publishers
-  pub_position_goal_            = n.advertise<geometry_msgs::PoseStamped>("uav_server/position_goal", 10);
+  pub_position_goal_          = n.advertise<geometry_msgs::PoseStamped>("uav_server/position_goal", 10);
   pub_viz_uav_fov_            = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav_fov", 1);
   pub_viz_fov_                = n.advertise<visualization_msgs::Marker>("uav_server/viz_fov", 1);
   pub_viz_information_points_ = n.advertise<visualization_msgs::Marker>("uav_server/viz_information_points", 1);
   pub_viz_tree_               = n.advertise<visualization_msgs::Marker>("uav_server/viz_tree", 1);
   pub_viz_path_               = n.advertise<visualization_msgs::Marker>("uav_server/viz_path", 1);
   // Establish subscriptions
-  sub_clicked_point_  = n.subscribe("/clicked_point", 1, &UAVInformativeExplorer::subClickedPoint, this);
+  sub_start_exploration_indiv_  = n.subscribe("/exploration/start_individual", 1, &UAVInformativeExplorer::subStartExploration, this);
   sub_odometry_       = n.subscribe("uav_server/ground_truth_uav", 1, &UAVInformativeExplorer::subOdometry, this);
   sub_octomap_        = n.subscribe("/octomap_binary", 1, &UAVInformativeExplorer::subOctomap, this);
+  // Actionlib
+  act_exploration_server_.start();
   // TF
   tf_listener_ = new tf2_ros::TransformListener(tf_buffer_);
   // Random nr. generator and distributions
@@ -49,20 +47,22 @@ UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandl
       ray_rot_mat.setEulerYPR(ray_yaw, ray_pitch, 0.0);
       tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
       uav_camera_rays_.push_back(ray_direction);
-      ROS_DEBUG("UAVInformativeExplorer: YPR: (%f, %f, %f)", ray_yaw, ray_pitch, 0.0);
-      ROS_DEBUG("UAVInformativeExplorer: Ray: (%f, %f, %f)", ray_direction.getX(), ray_direction.getY(), ray_direction.getZ());
+      ROS_DEBUG("YPR: (%f, %f, %f)", ray_yaw, ray_pitch, 0.0);
+      ROS_DEBUG("Ray: (%f, %f, %f)", ray_direction.getX(), ray_direction.getY(), ray_direction.getZ());
       if (abs(img_y) == uav_camera_height_/2.0 and abs(img_x) == uav_camera_width_/2.0) {
         uav_camera_corner_rays_.push_back(ray_direction);
       }
     }
   }
-  ROS_DEBUG("UAVInformativeExplorer: Camera rays has %d rays", (int)uav_camera_rays_.size());\
+  ROS_DEBUG("Camera rays has %d rays", (int)uav_camera_rays_.size());\
+
+  planner_action_in_progress_ = false;
 
   // Wait for map
   ros::Rate rate_wait_map(1.0);
   while(!received_map_)
   {
-    ROS_WARN("UAVInformativeExplorer: No map received yet, waiting...");
+    ROS_WARN("No map received yet, waiting...");
     ros::spinOnce();
     rate_wait_map.sleep();
   }
@@ -81,8 +81,8 @@ UAVInformativeExplorer::~UAVInformativeExplorer()
 *  Callback functions for subscriptions
 */
 
-void UAVInformativeExplorer::subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg) {
-  ROS_INFO("UAVInformativeExplorer: subClickedPoint");
+void UAVInformativeExplorer::subStartExploration(const geometry_msgs::PointStampedConstPtr& clicked_point_msg) {
+  ROS_INFO("subStartExploration");
   // Block if UAV still initializing (taking off)
   /*if(!uav_takeoff_complete_ or !uav_clearing_rotation_complete_)
   {
@@ -90,13 +90,33 @@ void UAVInformativeExplorer::subClickedPoint(const geometry_msgs::PointStampedCo
   }*/
 
   if (uav_running_exploration_) { 
-    ROS_INFO("UAVInformativeExplorer: Stopping exploration.");
+    ROS_INFO("Stopping exploration.");
     uav_running_exploration_ = false;
   }
   else { 
-    ROS_INFO("UAVInformativeExplorer: Starting exploration.");
+    ROS_INFO("Starting exploration.");
     uav_running_exploration_ = true;
       runExploration();
+
+      path_.clear();
+      Node node_on_path = exploration_nodes_.rbegin()->second;
+      while (node_on_path.getParent() != nullptr) {
+        path_.push_front(makePoseStampedFromNode(node_on_path));
+        ROS_DEBUG("Node: %d", (int)node_on_path.id_);
+
+        if (node_on_path.getParent()->id_ == 0) {
+          uav_position_goal_.header.frame_id = uav_world_frame_;
+          uav_position_goal_.header.stamp = ros::Time::now();
+          uav_position_goal_.pose.position = node_on_path.position_;
+          uav_position_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, node_on_path.yaw_);
+          break;
+        }
+        node_on_path = *(node_on_path.getParent());
+      }
+      ROS_INFO("Done");
+      visualizePath();
+      visualizePathFOVs(1.0);
+
       pub_position_goal_.publish(uav_position_goal_);
   }
 
@@ -104,6 +124,26 @@ void UAVInformativeExplorer::subClickedPoint(const geometry_msgs::PointStampedCo
   while (uav_running_exploration_) {
     if (isGoalReached()) {
       runExploration();
+
+      path_.clear();
+      Node node_on_path = exploration_nodes_.rbegin()->second;
+      while (node_on_path.getParent() != nullptr) {
+        path_.push_front(makePoseStampedFromNode(node_on_path));
+        ROS_DEBUG("Node: %d", (int)node_on_path.id_);
+
+        if (node_on_path.getParent()->id_ == 0) {
+          uav_position_goal_.header.frame_id = uav_world_frame_;
+          uav_position_goal_.header.stamp = ros::Time::now();
+          uav_position_goal_.pose.position = node_on_path.position_;
+          uav_position_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, node_on_path.yaw_);
+          break;
+        }
+        node_on_path = *(node_on_path.getParent());
+      }
+      ROS_INFO("Done");
+      visualizePath();
+      visualizePathFOVs(1.0);
+      
       pub_position_goal_.publish(uav_position_goal_);
     }
 
@@ -113,7 +153,7 @@ void UAVInformativeExplorer::subClickedPoint(const geometry_msgs::PointStampedCo
 }
 
 void UAVInformativeExplorer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg) { 
-  ROS_DEBUG("UAVInformativeExplorer: subOdometry");
+  ROS_DEBUG("subOdometry");
   // Only need pose information (twist/velocities not needed)
   geometry_msgs::PoseStamped pose_msg;
   pose_msg.header = odometry_msg->header;
@@ -133,21 +173,63 @@ void UAVInformativeExplorer::subOdometry(const nav_msgs::Odometry::ConstPtr& odo
                                    uav_rpy_.vector.z);
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("UAVInformativeExplorer: subOdometry: %s",ex.what());
+    ROS_WARN("subOdometry: %s",ex.what());
     ros::Duration(1.0).sleep();
   }
 }
 
 void UAVInformativeExplorer::subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg) {
-  ROS_DEBUG("UAVInformativeExplorer: subOctomap");
+  ROS_DEBUG("subOctomap");
   map_ = std::shared_ptr<octomap::OcTree> (dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(*octomap_msg)));
   received_map_ = true;
+}
+
+// Actionlib callback
+
+void UAVInformativeExplorer::actStartExploration(const mipp_msgs::StartExplorationGoalConstPtr &goal)
+{
+  ROS_DEBUG("actStartExploration");
+
+  planner_action_in_progress_ = true;
+  planner_max_time_ = goal->max_time;
+  runExploration();
+
+  act_exploration_result_.result.header.frame_id = uav_world_frame_;
+  act_exploration_result_.result.header.stamp = ros::Time::now();
+  act_exploration_result_.result.paths.clear();
+  // Reverse iterate through exploration nodes, since most informational nodes are listed last
+  std::map<double, Node>::reverse_iterator node_rit;
+  for (node_rit = exploration_nodes_.rbegin(); node_rit != exploration_nodes_.rend(); ++node_rit) {
+    mipp_msgs::ExplorationPath exploration_path;
+    Node node_on_path = node_rit->second;
+    while (node_on_path.getParent() != nullptr) {
+      mipp_msgs::ExplorationPose exploration_pose;
+      exploration_pose.pose = makePoseFromNode(node_on_path);
+      exploration_pose.gain = node_on_path.gain_indiv_;
+      exploration_path.poses.insert(exploration_path.poses.begin(), exploration_pose);
+
+      node_on_path = *(node_on_path.getParent());
+    }
+    act_exploration_result_.result.paths.push_back(exploration_path);
+  }
+
+  // Append a path containing only the current pose as final pose
+  mipp_msgs::ExplorationPose current_pose;
+  current_pose.pose = makePoseFromNode(root_);
+  current_pose.gain = root_.gain_indiv_;
+  mipp_msgs::ExplorationPath current_pose_path;
+  current_pose_path.poses.push_back(current_pose);
+  act_exploration_result_.result.paths.push_back(current_pose_path);
+
+  act_exploration_server_.setSucceeded(act_exploration_result_);
+  ROS_WARN("Succeeded with %d paths", (int)act_exploration_result_.result.paths.size());
+  planner_action_in_progress_ = false;
 }
 
 // Utility functions
 
 void UAVInformativeExplorer::getParams(ros::NodeHandle np) {
-  ROS_DEBUG("UAVInformativeExplorer: getParams");
+  ROS_DEBUG("getParams");
   np.param<int>("uav_id", uav_id_, 0);
   np.param<std::string>("uav_world_frame", uav_world_frame_, "world");
   np.param<std::string>("uav_local_frame", uav_local_frame_, "odom_uav"+std::to_string(uav_id_));
@@ -189,8 +271,8 @@ void UAVInformativeExplorer::initVariables() {
       ray_rot_mat.setEulerYPR(ray_yaw, ray_pitch, 0.0);
       tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
       uav_camera_rays_.push_back(ray_direction);
-      ROS_DEBUG("UAVInformativeExplorer: YPR: (%f, %f, %f)", ray_yaw, ray_pitch, 0.0);
-      ROS_DEBUG("UAVInformativeExplorer: Ray: (%f, %f, %f)", ray_direction.getX(), ray_direction.getY(), ray_direction.getZ());
+      ROS_DEBUG("YPR: (%f, %f, %f)", ray_yaw, ray_pitch, 0.0);
+      ROS_DEBUG("Ray: (%f, %f, %f)", ray_direction.getX(), ray_direction.getY(), ray_direction.getZ());
       if (abs(img_y) == uav_camera_height_/2.0 and abs(img_x) == uav_camera_width_/2.0) {
         uav_camera_corner_rays_.push_back(ray_direction);
       }
@@ -203,7 +285,7 @@ void UAVInformativeExplorer::initVariables() {
 */
 
 void UAVInformativeExplorer::runExploration() {
-  ROS_DEBUG("UAVInformativeExplorer: planPathToGoal");
+  ROS_DEBUG("planPathToGoal");
   // If map not initialized or in use by others, wait
   ros::Rate wait_rate(5.0);
   if (!received_map_) {
@@ -217,7 +299,7 @@ void UAVInformativeExplorer::runExploration() {
   double start_y = uav_pose_.pose.position.y;
   double start_z = uav_pose_.pose.position.z;
 
-  bool root_from_position_goal = true;
+  bool root_from_position_goal = false;
   if (root_from_position_goal) {
     start_x = uav_position_goal_.pose.position.x;
     start_y = uav_position_goal_.pose.position.y;
@@ -226,8 +308,8 @@ void UAVInformativeExplorer::runExploration() {
   const double start_yaw = tf2::getYaw(uav_pose_.pose.orientation);
   root_ = Node(start_x, start_y, start_z, start_yaw, 0.0, 0.0, 0, nullptr, false);
   tree_.push_back(root_);
-  ROS_DEBUG("UAVInformativeExplorer: Root node added. ID: %d, Rank: %d, Cost: %f", root_.id_, root_.rank_, root_.cost_);
-  ROS_DEBUG("UAVInformativeExplorer: Gain indiv: %f, Gain combined: %f", root_.gain_indiv_, root_.gain_);
+  ROS_DEBUG("Root node added. ID: %d, Rank: %d, Cost: %f", root_.id_, root_.rank_, root_.cost_);
+  ROS_DEBUG("Gain indiv: %f, Gain combined: %f", root_.gain_indiv_, root_.gain_);
 
   // Grow exploration tree
   ros::Rate rate(planner_rate_);
@@ -242,14 +324,14 @@ void UAVInformativeExplorer::runExploration() {
       geometry_msgs::Vector3 sample_rpy = makeRPYFromQuat(path_.begin()->pose.orientation);
       sample_yaw = sample_rpy.z;
       path_.pop_front();
-      ROS_DEBUG("UAVInformativeExplorer: Sampled previous path point: (x,y,z,y) = (%.1f,%.1f,%.1f,%.1f)",sample_point.x,sample_point.y,sample_point.z,angles::to_degrees(sample_yaw));
+      ROS_DEBUG("Sampled previous path point: (x,y,z,y) = (%.1f,%.1f,%.1f,%.1f)",sample_point.x,sample_point.y,sample_point.z,angles::to_degrees(sample_yaw));
     }
     else {
       sample_point = generateRandomPoint();
       sample_point.x += uav_pose_.pose.position.x;
       sample_point.y += uav_pose_.pose.position.y;
       sample_yaw = M_PI - 2*M_PI*unit_distribution_(generator_);
-      ROS_DEBUG("UAVInformativeExplorer: Sampled random point: (x,y,z,y) = (%.1f,%.1f,%.1f,%.1f)",sample_point.x,sample_point.y,sample_point.z,angles::to_degrees(sample_yaw));
+      ROS_DEBUG("Sampled random point: (x,y,z,y) = (%.1f,%.1f,%.1f,%.1f)",sample_point.x,sample_point.y,sample_point.z,angles::to_degrees(sample_yaw));
     }
 
     // Start finding nearest node in the tree to the sampled point (init. as root)
@@ -302,6 +384,11 @@ void UAVInformativeExplorer::runExploration() {
 
     visualizeTree();
 
+    if (planner_action_in_progress_) {
+      act_exploration_feedback_.nodes_in_tree = tree_.size();
+      act_exploration_server_.publishFeedback(act_exploration_feedback_);
+    }
+
     ros::spinOnce();
     rate.sleep();
   }
@@ -328,12 +415,16 @@ void UAVInformativeExplorer::runExploration() {
     node_on_path = *(node_on_path.getParent());
   }
   ROS_INFO("Done");
-  visualizePath();
-  visualizePathFOVs(1.0);
+
+  // Visualize the paths if this isn't an action (aka called by the collaborative exploration planner)
+  if (!planner_action_in_progress_) {
+    visualizePath();
+    visualizePathFOVs(1.0);
+  }
 }
 
 double UAVInformativeExplorer::calculateInformationGain(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy) {
-  ROS_DEBUG("UAVInformativeExplorer: calculateInformationGain");
+  ROS_DEBUG("calculateInformationGain");
   uav_camera_information_points_.clear();
 
   double ray_distance = uav_camera_range_;
@@ -387,7 +478,7 @@ double UAVInformativeExplorer::calculateInformationGain(geometry_msgs::Point ori
 }
 
 double UAVInformativeExplorer::calculateInformationGain(geometry_msgs::Point origin, double yaw) {
-  ROS_DEBUG("UAVInformativeExplorer: calculateInformationGain");
+  ROS_DEBUG("calculateInformationGain");
   uav_camera_information_points_.clear();
 
   double ray_distance = uav_camera_range_;
@@ -432,7 +523,7 @@ double UAVInformativeExplorer::calculateInformationGain(geometry_msgs::Point ori
 
 geometry_msgs::Point UAVInformativeExplorer::generateRandomPoint()
 {
-  ROS_DEBUG("UAVInformativeExplorer: generateRandomPoint");
+  ROS_DEBUG("generateRandomPoint");
 
   geometry_msgs::Point sample_point;
 
@@ -442,13 +533,13 @@ geometry_msgs::Point UAVInformativeExplorer::generateRandomPoint()
   sample_point.x = radius*cos(theta);
   sample_point.y = radius*sin(theta);
   sample_point.z = uav_takeoff_z_ + 0.5*(2*unit_distribution_(generator_) - 1);
-  ROS_DEBUG("UAVInformativeExplorer: Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
+  ROS_DEBUG("Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
 
   return sample_point;
 }
 
 void UAVInformativeExplorer::extendTreeRRTstar(geometry_msgs::Point candidate_point, double candidate_yaw) {
-  ROS_DEBUG("UAVInformativeExplorer: extendTreeRRTstar");
+  ROS_DEBUG("extendTreeRRTstar");
 
   // Make a neighbor list of nodes close enough to the candidate point
   // Store combined cost and Node pointer in map
@@ -495,8 +586,8 @@ void UAVInformativeExplorer::extendTreeRRTstar(geometry_msgs::Point candidate_po
       new_node.gain_indiv_ = node_gain_indiv;
 
       tree_.push_back(new_node);
-      ROS_DEBUG("UAVInformativeExplorer: New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
-      ROS_DEBUG("UAVInformativeExplorer: Gain indiv: %f, Gain combined: %f", node_gain_indiv, node_gain);
+      ROS_DEBUG("New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
+      ROS_DEBUG("Gain indiv: %f, Gain combined: %f", node_gain_indiv, node_gain);
 
       exploration_nodes_.insert(std::pair<double, Node>(node_gain+node_cost, new_node));
       
@@ -510,7 +601,7 @@ void UAVInformativeExplorer::extendTreeRRTstar(geometry_msgs::Point candidate_po
 }
 
 bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b) {
-  ROS_DEBUG("UAVInformativeExplorer: isPathCollisionFree");
+  ROS_DEBUG("isPathCollisionFree");
 
   // Check first if end point is an occupied octomap node
   double occupancy_threshold = map_->getOccupancyThres();
@@ -543,7 +634,7 @@ bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, g
 
   // Check if direction is valid
   if(direction_ab.x == 0.0 and direction_ab.y == 0.0 and direction_ab.z == 0.0) {
-    ROS_WARN("UAVInformativeExplorer: Got request to cast ray in illegal direction.");
+    ROS_WARN("Got request to cast ray in illegal direction.");
     ROS_WARN("            Origin (x,y,z) = (%f,%f,%f)",point_a.x,point_a.y,point_a.z);
     ROS_WARN("            End    (x,y,z) = (%f,%f,%f)",point_b.x,point_b.y,point_b.z);
 
@@ -596,8 +687,21 @@ bool UAVInformativeExplorer::isGoalReached() {
 *  Utility functions
 */
 
+geometry_msgs::Pose UAVInformativeExplorer::makePoseFromNode(Node node) {
+  ROS_DEBUG("makePoseStampedFromNode");
+  geometry_msgs::Pose pose;
+  pose.position = node.position_;
+  tf2::Quaternion pose_quat;
+  pose_quat.setRPY(0, 0, node.yaw_);
+  pose.orientation.x = pose_quat.x();
+  pose.orientation.y = pose_quat.y();
+  pose.orientation.z = pose_quat.z();
+  pose.orientation.w = pose_quat.w();
+  return pose;
+}
+
 geometry_msgs::PoseStamped UAVInformativeExplorer::makePoseStampedFromNode(Node node) {
-  ROS_DEBUG("UAVInformativeExplorer: makePoseStampedFromNode");
+  ROS_DEBUG("makePoseStampedFromNode");
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = uav_world_frame_;
   pose.header.stamp = ros::Time::now();
@@ -612,7 +716,7 @@ geometry_msgs::PoseStamped UAVInformativeExplorer::makePoseStampedFromNode(Node 
 }
 
 geometry_msgs::Quaternion UAVInformativeExplorer::makeQuatFromRPY(geometry_msgs::Vector3 rpy) {
-  ROS_DEBUG("UAVInformativeExplorer: makeQuatFromRPY");
+  ROS_DEBUG("makeQuatFromRPY");
   tf2::Quaternion tf_quat;
   tf_quat.setRPY(rpy.x, rpy.y, rpy.z);
   geometry_msgs::Quaternion quat;
@@ -624,7 +728,7 @@ geometry_msgs::Quaternion UAVInformativeExplorer::makeQuatFromRPY(geometry_msgs:
 }
 
 geometry_msgs::Quaternion UAVInformativeExplorer::makeQuatFromRPY(double r, double p, double y) {
-  ROS_DEBUG("UAVInformativeExplorer: makeQuatFromRPY");
+  ROS_DEBUG("makeQuatFromRPY");
   tf2::Quaternion tf_quat;
   tf_quat.setRPY(r, p, y);
   geometry_msgs::Quaternion quat;
@@ -636,7 +740,7 @@ geometry_msgs::Quaternion UAVInformativeExplorer::makeQuatFromRPY(double r, doub
 }
 
 geometry_msgs::Vector3 UAVInformativeExplorer::makeRPYFromQuat(geometry_msgs::Quaternion quat) {
-  ROS_DEBUG("UAVInformativeExplorer: makeRPYFromQuat");
+  ROS_DEBUG("makeRPYFromQuat");
   tf2::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);
   geometry_msgs::Vector3 rpy;
   tf2::Matrix3x3(tf_quat).getRPY(rpy.x, 
@@ -650,7 +754,7 @@ geometry_msgs::Vector3 UAVInformativeExplorer::makeRPYFromQuat(geometry_msgs::Qu
 */
 
 void UAVInformativeExplorer::visualizeInformationPoints() {
-  ROS_DEBUG("UAVInformativeExplorer: visualizeInformationPoints");
+  ROS_DEBUG("visualizeInformationPoints");
   visualization_msgs::Marker information_marker;
   information_marker.header.frame_id = uav_world_frame_;
   information_marker.header.stamp = ros::Time::now();
@@ -674,7 +778,7 @@ void UAVInformativeExplorer::visualizeInformationPoints() {
 }
 
 void UAVInformativeExplorer::visualizeTree() {
-  ROS_DEBUG("UAVInformativeExplorer: visualizeTree");
+  ROS_DEBUG("visualizeTree");
   visualization_msgs::Marker tree_marker;
   tree_marker.header.frame_id = uav_world_frame_;
   tree_marker.header.stamp = ros::Time::now();
@@ -699,7 +803,7 @@ void UAVInformativeExplorer::visualizeTree() {
 }
 
 void UAVInformativeExplorer::visualizePath() {
-  ROS_DEBUG("UAVInformativeExplorer: visualizePath");
+  ROS_DEBUG("visualizePath");
   if(path_.empty()){
     return;
   }
@@ -728,7 +832,7 @@ void UAVInformativeExplorer::visualizePath() {
 }
 
 void UAVInformativeExplorer::visualizePathFOVs(double ray_length) {
-  ROS_DEBUG("UAVInformativeExplorer: visualizePathFOVs");
+  ROS_DEBUG("visualizePathFOVs");
 
   visualization_msgs::Marker fov_marker;
   fov_marker.header.frame_id = uav_world_frame_;

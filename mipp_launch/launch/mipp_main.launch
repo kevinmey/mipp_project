@@ -7,13 +7,16 @@
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
-  <arg name="nr_of_uavs"  default="1"/>
-  <arg name="run_joint_explorer"  default="true"/>
+  <arg name="nr_of_uavs"  default="0"/>
+  <arg name="run_exploration_server"    default="true"/>
+  <arg name="octomap_rate"    default="2.0"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
 
   <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  10"/>
   <node pkg="tf" type="static_transform_publisher" name="tf_world_map_link" args="0 0 0 0 0 0  /world /map  10"/>
   <node pkg="tf" type="static_transform_publisher" name="tf_base_frd_link" args="0 0 0 0 0 0  /world /base_link_frd  10"/>
+
+
 
   <!---
     Run OctoMap
@@ -37,10 +40,10 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(eval arg('nr_of_uavs') >= 1)">
     <arg name="uav_id"        value="0"/>
-    <arg name="initial_x"     value="-1"/>
+    <arg name="initial_x"     value="-2"/>
     <arg name="initial_y"     value="-2"/>
+    <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
-    <arg name="running_joint_explorer"    value="$(arg run_joint_explorer)"/>
   </include>
 
   <!--- 
@@ -48,10 +51,10 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(eval arg('nr_of_uavs') >= 2)">
     <arg name="uav_id"        value="1"/>
-    <arg name="initial_x"     value="-1"/>
+    <arg name="initial_x"     value="-2"/>
     <arg name="initial_y"     value="2"/>
+    <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
-    <arg name="running_joint_explorer"    value="$(arg run_joint_explorer)"/>
   </include>
 
   <!--- 
@@ -59,10 +62,10 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(eval arg('nr_of_uavs') >= 3)">
     <arg name="uav_id"        value="2"/>
-    <arg name="initial_x"     value="-3"/>
+    <arg name="initial_x"     value="-2"/>
     <arg name="initial_y"     value="0"/>
+    <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
-    <arg name="running_joint_explorer"    value="$(arg run_joint_explorer)"/>
   </include>
 
   <!-- Load custom console configuration -->
@@ -90,16 +93,18 @@
   <arg name="ugv_ns"  default="/ugv"/>
   <group if="$(arg run_husky)">
     <include file="$(find mipp_launch)/launch/husky.launch">
-      <arg name="run_frontier_explorer"  value="false"/>
       <arg name="robot_namespace"        value="$(arg ugv_ns)"/>
     </include>
   </group>
 
   <!--- 
-    Joint exploration
-  <include file="$(find mipp_packages)/launch/joint_explorer.launch" if="$(arg run_joint_explorer)">
-    <arg name="nr_of_uavs"  value="$(arg nr_of_uavs)"/>
-  </include>
+    Exploration server
   -->
+  <group if="$(arg run_exploration_server)">
+    <include file="$(find mipp_packages)/launch/exploration_planner.launch">
+      <arg name="nr_of_uavs"    value="$(arg nr_of_uavs)"/>
+      <arg name="ugv_ns"        value="/ugv/"/>
+    </include>
+  </group>
 
 </launch>

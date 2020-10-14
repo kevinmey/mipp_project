@@ -1,0 +1,8 @@
+#goal definition
+int32 max_time
+---
+#result definition
+mipp_msgs/ExplorationResult result
+---
+#feedback
+int16 nodes_in_tree
