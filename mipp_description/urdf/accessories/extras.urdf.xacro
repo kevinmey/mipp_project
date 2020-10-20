@@ -6,7 +6,7 @@
             <alwaysOn>true</alwaysOn>
             <updateRate>20.0</updateRate>
             <bodyName>base_link</bodyName>
-            <topicName>gazebo/ground_truth_ugv</topicName>
+            <topicName>/gazebo/ground_truth_ugv</topicName>
             <gaussianNoise>0.01</gaussianNoise>
             <frameName>world</frameName>
             <xyzOffset>0 0 -0.1</xyzOffset>
