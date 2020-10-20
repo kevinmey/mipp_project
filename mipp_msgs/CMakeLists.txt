@@ -38,6 +38,7 @@ add_message_files(
   ExplorationResult.msg
   ExplorationPath.msg
   ExplorationPose.msg
+  CommunicationState.msg
 )
 
 ## Generate services in the 'srv' folder
