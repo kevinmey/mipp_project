@@ -505,9 +505,10 @@ bool UGVFrontierExplorer::isPathCollisionFree(double world_x_a, double world_y_a
     if (!isPositionCollisionFree(point_on_line.x, point_on_line.y)) {
       return false;
     }
-    distance_on_line += map_resolution_;
-    point_on_line.x = point_on_line.x + map_resolution_*direction.x;
-    point_on_line.y = point_on_line.y + map_resolution_*direction.y;
+    double collision_resolution = map_resolution_/2.0;
+    distance_on_line += collision_resolution;
+    point_on_line.x = point_on_line.x + collision_resolution*direction.x;
+    point_on_line.y = point_on_line.y + collision_resolution*direction.y;
   }
 
   return true;
