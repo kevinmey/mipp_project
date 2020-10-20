@@ -24,6 +24,8 @@ find_package(
     message_generation
     actionlib_msgs
     mipp_msgs
+    image_transport
+    cv_bridge
 )
 
 ###################################
@@ -240,6 +242,25 @@ add_dependencies(
 
 target_link_libraries(
     communication_constraint_visualizer_node
+    common_libs
+    ${catkin_LIBRARIES}
+)
+
+## exploration_visualizer_node
+
+add_executable(
+    exploration_visualizer_node
+    src/common/exploration_visualizer.cpp
+)
+
+add_dependencies(
+    exploration_visualizer_node 
+    ${exploration_visualizer_node} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    exploration_visualizer_node
     common_libs
     ${catkin_LIBRARIES}
 )

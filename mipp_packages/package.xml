@@ -70,6 +70,11 @@
   <!-- For custom messages: -->
   <build_depend>mipp_msgs</build_depend>
   <exec_depend>mipp_msgs</exec_depend>
+  <!-- For opencv/image transport: -->
+  <build_depend>image_transport</build_depend>
+  <build_depend>opencv2</build_depend>
+  <exec_depend>image_transport</exec_depend> 
+  <exec_depend>opencv2</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
