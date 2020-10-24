@@ -41,6 +41,7 @@ public:
   void subPositionGoal(const geometry_msgs::PoseStamped::ConstPtr& position_goal_msg);
   void subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_msg);
   void subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg);
+  void subLocalGoal(const geometry_msgs::PoseStamped::ConstPtr& local_goal_msg);
   // Actionlib
   void actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal);
 
@@ -65,6 +66,7 @@ private:
   ros::Publisher pub_mavros_setpoint_;
   ros::Publisher pub_mavros_cmd_vel_;
   ros::Publisher pub_position_goal_;
+  ros::Publisher pub_global_goal_;
   ros::Publisher pub_viz_uav_fov_;
   ros::Publisher pub_viz_fov_;
   ros::Publisher pub_viz_uav_;
@@ -73,6 +75,7 @@ private:
   ros::Subscriber sub_position_goal_;
   ros::Subscriber sub_mavros_state_;
   ros::Subscriber sub_odometry_;
+  ros::Subscriber sub_local_goal_;
   // Service servers
   actionlib::SimpleActionServer<mipp_msgs::MoveVehicleAction> act_move_vehicle_server_;
   mipp_msgs::MoveVehicleFeedback act_move_vehicle_feedback_;
@@ -101,6 +104,8 @@ private:
   bool uav_clearing_rotation_complete_;
   geometry_msgs::PoseStamped uav_position_goal_;
   geometry_msgs::Vector3 uav_position_goal_rpy_;
+  geometry_msgs::PoseStamped uav_local_goal_;
+  bool uav_local_goal_received_;
   //   State
   geometry_msgs::PoseStamped uav_pose_;
   geometry_msgs::Vector3Stamped uav_rpy_;

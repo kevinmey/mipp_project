@@ -419,7 +419,7 @@
     </plugin>
     <plugin name='gps_plugin' filename='libgazebo_gps_plugin.so'>
       <robotNamespace/>
-      <gpsNoise>1</gpsNoise>
+      <gpsNoise>0.01</gpsNoise>
     </plugin>
     <plugin name='magnetometer_plugin' filename='libgazebo_magnetometer_plugin.so'>
       <robotNamespace/>

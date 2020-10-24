@@ -19,13 +19,15 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   pub_timer_mavros_setpoint_  = n.createTimer(ros::Duration(0.1), boost::bind(&UAVServer::pubMavrosSetpoint, this));
   pub_mavros_setpoint_        = n.advertise<geometry_msgs::PoseStamped>("uav_server/mavros_setpoint", 10);
   pub_mavros_cmd_vel_         = n.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 10);
+  pub_global_goal_            = n.advertise<geometry_msgs::PoseStamped>("uav_server/global_goal", 1);
   pub_viz_uav_fov_            = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav_fov", 1);
-  pub_viz_uav_              = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav", 1);
+  pub_viz_uav_                = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav", 1);
   // Establish subscriptions
   sub_clicked_pose_   = n.subscribe("uav_server/clicked_goal", 1, &UAVServer::subClickedPose, this);
   sub_position_goal_  = n.subscribe("uav_server/position_goal", 1, &UAVServer::subPositionGoal, this);
   sub_mavros_state_   = n.subscribe("uav_server/mavros_state", 1, &UAVServer::subMavrosState, this);
   sub_odometry_       = n.subscribe("uav_server/ground_truth_uav", 1, &UAVServer::subOdometry, this);
+  sub_local_goal_     = n.subscribe("uav_server/local_goal", 1, &UAVServer::subLocalGoal, this);
   // Start service server
   act_move_vehicle_server_.start();
   // Establish service clients
@@ -67,8 +69,16 @@ void UAVServer::pubMavrosSetpoint()
   */ 
   try{
     geometry_msgs::PoseStamped mavros_setpoint;
-    geometry_msgs::TransformStamped mavros_setpoint_tf = tf_buffer_.lookupTransform(uav_local_frame_, uav_position_goal_.header.frame_id, ros::Time(0));
-    tf2::doTransform(uav_position_goal_, mavros_setpoint, mavros_setpoint_tf);
+    if (uav_local_goal_received_) {
+      mavros_setpoint = uav_local_goal_;
+      if (getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position) < 1.5) {
+        mavros_setpoint.pose.orientation = uav_position_goal_.pose.orientation;
+      }
+    }
+    else {
+      geometry_msgs::TransformStamped mavros_setpoint_tf = tf_buffer_.lookupTransform(uav_local_frame_, uav_position_goal_.header.frame_id, ros::Time(0));
+      tf2::doTransform(uav_position_goal_, mavros_setpoint, mavros_setpoint_tf);
+    }
     
     pub_mavros_setpoint_.publish(mavros_setpoint);
   }
@@ -103,6 +113,8 @@ void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked
 
     uav_position_goal_.header.frame_id = uav_world_frame_;
     uav_position_goal_.header.stamp = ros::Time::now();
+
+    pub_global_goal_.publish(uav_position_goal_);
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
@@ -131,6 +143,8 @@ void UAVServer::subPositionGoal(const geometry_msgs::PoseStampedConstPtr& positi
 
     uav_position_goal_.header.frame_id = uav_world_frame_;
     uav_position_goal_.header.stamp = ros::Time::now();
+
+    pub_global_goal_.publish(uav_position_goal_);
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
@@ -174,6 +188,12 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg) {
   }
 }
 
+void UAVServer::subLocalGoal(const geometry_msgs::PoseStampedConstPtr& local_goal_msg) {
+  ROS_DEBUG("subLocalGoal");
+  if (!uav_local_goal_received_) { uav_local_goal_received_ = true; }
+  uav_local_goal_ = *local_goal_msg;
+}
+
 // Actionlib callback
 
 void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
@@ -198,7 +218,10 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
     uav_position_goal_.header.frame_id = uav_world_frame_;
     uav_position_goal_.header.stamp = ros::Time::now();
 
+    pub_global_goal_.publish(uav_position_goal_);
+
     ros::Time start_time = ros::Time::now();
+    bool goal_reached = false;
     while ((ros::Time::now() - start_time).toSec() < goal->max_time) {
       act_move_vehicle_feedback_.goal_euc_distance = getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position);
       act_move_vehicle_feedback_.goal_yaw_distance = abs(angles::shortest_angular_distance(uav_rpy_.vector.z, uav_position_goal_rpy_.z));
@@ -207,9 +230,16 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
           act_move_vehicle_feedback_.goal_yaw_distance < goal->goal_reached_yaw) {
         act_move_vehicle_result_.time_used = (ros::Time::now() - start_time).toSec();
         act_move_vehicle_server_.setSucceeded(act_move_vehicle_result_);
+        goal_reached = true;
+        ROS_INFO("UAV %d reached its navigation goal after %.2f seconds.", uav_id_, act_move_vehicle_result_.time_used);
       }
       ros::spinOnce();
       ros::Duration(0.1).sleep();
+    }
+    if (!goal_reached) {
+      act_move_vehicle_result_.time_used = (ros::Time::now() - start_time).toSec();
+      act_move_vehicle_server_.setAborted();
+      ROS_INFO("UAV %d didn't reach its navigation goal after %.2f seconds.", uav_id_, goal->max_time);
     }
   }
   catch (tf2::TransformException &ex) {

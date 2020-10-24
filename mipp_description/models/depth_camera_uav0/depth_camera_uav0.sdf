@@ -40,7 +40,7 @@
         <plugin filename="libgazebo_ros_openni_kinect.so" name="camera_controller">
           <cameraName>uav0/camera</cameraName>
           <alwaysOn>true</alwaysOn>
-          <updateRate>5</updateRate>
+          <updateRate>15</updateRate>
           <pointCloudCutoff>0.2</pointCloudCutoff>
           <pointCloudCutoffMax>20</pointCloudCutoffMax>
           <imageTopicName>rgb/image_raw</imageTopicName>
