@@ -21,12 +21,14 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   sub_ugv_goal_plan_ = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &ExplorationPlanner::subUGVPlan, this);
 
   // Make a UGVPlanner object as container for variables for the UGV
+  ugv_planner_.vehicle_state = INIT;
   ugv_planner_.exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>("/ugv/exploration_action", true);
   ugv_planner_.exploration_client->waitForServer(ros::Duration(10.0));
   // Make a UAVPlanner object as container for variables for each UAV
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
     // Declare new UAVPlanner object
     UAVPlanner uav_planner;
+    uav_planner.vehicle_state = INIT;
     // Exploration
     std::string uav_exploration_client_name = "/uav"+std::to_string(uav_id)+"/exploration_action";
     uav_planner.exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>(uav_exploration_client_name, true);
@@ -43,7 +45,7 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   running_exploration_ = false;
 
   // Set UGV variables
-  ugv_planner_.naviation_beacon_max_dist = ugv_nav_waypoint_max_distance_;
+  ugv_planner_.navigation_waypoint_max_dist = ugv_nav_waypoint_max_distance_;
   ugv_planner_.navigation_paused = false;
 
   // Set UAV variables
@@ -62,6 +64,13 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
         uav_camera_corner_rays_.push_back(ray_direction);
       }
     }
+  }
+
+  ugv_planner_.vehicle_previous_state = ugv_planner_.vehicle_state;
+  ugv_planner_.vehicle_state = IDLE;
+  for (auto& uav_planner_it : uav_planners_) {
+    uav_planner_it.vehicle_previous_state = uav_planner_it.vehicle_state;
+    uav_planner_it.vehicle_state = IDLE;
   }
 
   ROS_WARN("Done.");
@@ -97,6 +106,46 @@ void ExplorationPlanner::subUGVPlan(const nav_msgs::PathConstPtr& path_msg) {
 }
 
 // Planner functions
+/*
+void ExplorationPlanner::runStateMachine() {
+  ROS_DEBUG("runStateMachine");
+
+  // Check UGV first
+  switch (ugv_planner_.vehicle_state) {
+    case IDLE:
+      // UGV is IDLE
+      if (ugv_planner_.vehicle_previous_state == INIT or ugv_planner_.vehicle_previous_state == MOVING) {
+        // UGV needs a plan, start planning
+        ugv_planner_.exploration_goal.max_time = 2.0;
+        ugv_planner_.exploration_client->sendGoal(ugv_planner_.exploration_goal);
+        ugv_planner_.vehicle_previous_state = ugv_planner_.vehicle_state;
+        ugv_planner_.vehicle_state = PLANNING;
+      }
+      else if (ugv_planner_.vehicle_previous_state == PLANNING) {
+        // UGV has a plan, start moving
+        ugv_planner_.navigation_path_init = makePathFromExpPath(*(ugv_planner_.exploration_result.paths.begin()));
+        ugv_planner_.navigation_goal = *(ugv_planner_.navigation_path_init.poses.rbegin());
+        ugv_planner_.navigation_path.poses.clear(); // Clear path since we will wait for a new path from the UGV planner
+        pub_ugv_goal_path_.publish(ugv_planner_.navigation_path_init);
+        pub_ugv_goal_.publish(ugv_planner_.navigation_goal);
+        ugv_planner_.vehicle_previous_state = ugv_planner_.vehicle_state;
+        ugv_planner_.vehicle_state = MOVING;
+      }
+      else {
+        ROS_ERROR("Illegal state transition for UGV.");
+      }
+      break;
+    case PLANNING:
+      // UGV is PLANNING
+      if (ugv_planner_.exploration_client->getState().isDone()) {
+        // UGV has gotten a plan
+        ugv_planner_.exploration_result = ugv_planner_.exploration_client->getResult().get()->result;
+        ugv_planner_.vehicle_previous_state = ugv_planner_.vehicle_state;
+        ugv_planner_.vehicle_state = IDLE;
+      }
+      break;
+  }
+}*/
 
 void ExplorationPlanner::makePlanSynchronous() {
   ROS_DEBUG("makePlanSynchronous");
@@ -108,48 +157,38 @@ void ExplorationPlanner::makePlanSynchronous() {
   ugv_planner_.navigation_paused = true;
 
   // Set "start exploration" goal (max time to compute paths) and send to vehicle exploration servers
-  ugv_planner_.exploration_goal.max_time = 2.0;
-  ugv_planner_.exploration_client->sendGoal(ugv_planner_.exploration_goal);
+  float exploration_max_time = 2.0;
+  ugv_planner_.sendExplorationGoal(exploration_max_time);
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-    uav_planners_[uav_id].exploration_goal.max_time = 2.0;
-    uav_planners_[uav_id].exploration_client->sendGoal(uav_planners_[uav_id].exploration_goal);
+    uav_planners_[uav_id].sendExplorationGoal(exploration_max_time);
   }
+  ROS_INFO("UGV planner state after call: %s", ugv_planner_.exploration_client->getState().toString().c_str());
 
   // Poll exploration servers and wait until every server is done
-  bool vehicles_ready = ugv_planner_.exploration_client->getState().isDone();
+  bool vehicles_ready = ugv_planner_.isExplorationDone();
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-    vehicles_ready = vehicles_ready && uav_planners_[uav_id].exploration_client->getState().isDone();
+    vehicles_ready = vehicles_ready && uav_planners_[uav_id].isExplorationDone();
   }
   while (!vehicles_ready) {
     ROS_INFO_THROTTLE(1, "Vehicles not finished exploring, UGV state: %s", ugv_planner_.exploration_client->getState().toString().c_str());
-    vehicles_ready = ugv_planner_.exploration_client->getState().isDone();
+    vehicles_ready = ugv_planner_.isExplorationDone();
     for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-      vehicles_ready = vehicles_ready && uav_planners_[uav_id].exploration_client->getState().isDone();
+      vehicles_ready = vehicles_ready && uav_planners_[uav_id].isExplorationDone();
     }
     ros::spinOnce();
     check_rate.sleep();
   }
 
   // Get results
-  ugv_planner_.exploration_result = ugv_planner_.exploration_client->getResult().get()->result;
-  ROS_INFO("First node on UGV path: (%f, %f, %f)", ugv_planner_.exploration_result.paths.begin()->poses.begin()->pose.position.x,
-                                                   ugv_planner_.exploration_result.paths.begin()->poses.begin()->pose.position.y,
-                                                   ugv_planner_.exploration_result.paths.begin()->poses.begin()->pose.position.z);
+  ugv_planner_.exploration_result = ugv_planner_.getExplorationResult();
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-    uav_planners_[uav_id].exploration_result = uav_planners_[uav_id].exploration_client->getResult().get()->result;
-    ROS_INFO("First node on UAV%d path: (%f, %f, %f)", uav_id,
-                                                    uav_planners_[uav_id].exploration_result.paths.begin()->poses.begin()->pose.position.x,
-                                                    uav_planners_[uav_id].exploration_result.paths.begin()->poses.begin()->pose.position.y,
-                                                    uav_planners_[uav_id].exploration_result.paths.begin()->poses.begin()->pose.position.z);
+    uav_planners_[uav_id].exploration_result = uav_planners_[uav_id].getExplorationResult();
   }
   
   // UGV planner will make a plan first (but is still paused)
-  ugv_planner_.navigation_path_init = makePathFromExpPath(*(ugv_planner_.exploration_result.paths.begin()));
-  ugv_planner_.navigation_goal = *(ugv_planner_.navigation_path_init.poses.rbegin());
-  ugv_planner_.navigation_path.poses.clear(); // Clear path since we will wait for a new path from the UGV planner
+  ugv_planner_.createInitNavigationPlan();
   pub_ugv_goal_.publish(ugv_planner_.navigation_goal);
   pub_ugv_goal_path_.publish(ugv_planner_.navigation_path_init);
-
   // Wait until we get the "optimized" path back 
   while (ugv_planner_.navigation_path.poses.empty()) {
     ros::spinOnce();
@@ -157,123 +196,31 @@ void ExplorationPlanner::makePlanSynchronous() {
   }
 
   // Work on path made by UGV planner and create communication "beacons"
-  float dist_to_prev_beacon = 0.0;
-  ugv_planner_.navigation_waypoints.clear();
-  for (auto path_it = ugv_planner_.navigation_path.poses.begin(); path_it != ugv_planner_.navigation_path.poses.end(); ++path_it) {
-    if (ugv_planner_.navigation_waypoints.empty()) {
-      // Add first pose in plan (current pose) as com beacon
-      ugv_planner_.navigation_waypoints.push_back(path_it->pose.position);
-      ROS_WARN("Added pose nr. %d as nav. waypoint at (%.2f, %.2f)", (int)(path_it - ugv_planner_.navigation_path.poses.begin()),
-                                                                   path_it->pose.position.x, path_it->pose.position.y);
-    }
-    else {
-      dist_to_prev_beacon += getDistanceBetweenPoints(path_it->pose.position, std::prev(path_it)->pose.position);
-      if (dist_to_prev_beacon > ugv_planner_.naviation_beacon_max_dist and ugv_planner_.navigation_waypoints.size() < nr_of_ugv_nav_waypoints_) {
-        // Distance to previous beacon exceeds max distance, add PREVIOUS pose as beacon (since it was within max distance)
-        ugv_planner_.navigation_waypoints.push_back(std::prev(path_it)->pose.position);
-        dist_to_prev_beacon = getDistanceBetweenPoints(path_it->pose.position, std::prev(path_it)->pose.position);
-        ROS_WARN("Added pose nr. %d as nav. waypoint at (%.2f, %.2f), with distance %.2f to previous waypoint", 
-                 (int)(path_it - ugv_planner_.navigation_path.poses.begin() - 1),
-                 std::prev(path_it)->pose.position.x, std::prev(path_it)->pose.position.y,
-                 getDistanceBetweenPoints(ugv_planner_.navigation_waypoints.end()[-1], 
-                                          ugv_planner_.navigation_waypoints.end()[-2]));
-      }
-    }
-  }
-  // Pad the com beacons with the goal position if path not long enough to fit all
-  if (ugv_planner_.navigation_waypoints.size() < nr_of_ugv_nav_waypoints_ and add_nav_waypoint_at_goal_) {
-    ugv_planner_.navigation_waypoints.push_back(ugv_planner_.navigation_path.poses.rbegin()->pose.position);
-    ROS_WARN("Padded with goal pose as nav. waypoint at (%.2f, %.2f)", ugv_planner_.navigation_path.poses.rbegin()->pose.position.x, 
-                                                                     ugv_planner_.navigation_path.poses.rbegin()->pose.position.y);
-  }
+  ugv_planner_.createNavigationWaypoints(nr_of_ugv_nav_waypoints_, add_nav_waypoint_at_goal_);
+
+  // Create sensor coverage for vehicles
+  sensor_coverages_.clear();
 
   // Create sensor coverage for UGV
-  sensor_coverages_.clear();
-  int vehicle_id = -1;
-  for (auto point_it = ugv_planner_.navigation_waypoints.begin(); point_it != ugv_planner_.navigation_waypoints.end(); ++point_it) {
-    SensorCircle sensor_coverage;
-    sensor_coverage.vehicle_id = vehicle_id;
-    sensor_coverage.radius = ugv_sensor_radius_;
-    sensor_coverage.center = *point_it;
-    sensor_coverages_.push_back(sensor_coverage);
-    visualizeSensorCoverages();
-    ros::spinOnce();
-    ros::Duration(0.5).sleep();
-  }
+  sensor_coverages_ = ugv_planner_.getSensorCoverage(ugv_sensor_radius_);
 
   // Go through UAVs and create navigation plans
   std::vector<nav_msgs::Path> uav_paths;    // Store all chosen UAV paths for visualization
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
     // Go through paths from the UAV explorer and pick the "best" one (most gain)
-    nav_msgs::Path best_path;
-    float best_path_gain = 0.0;
-    for (auto const& path_it : uav_planners_[uav_id].exploration_result.paths) {
-      // Record this paths gain (will be sum of pose gains accounting for sensor overlap)
-      float path_gain = 0.0;
-      std::vector<SensorCircle> path_sensor_coverages;  // Will be filled with previous poses in the path
-      for (auto const& pose_it : path_it.poses) {
-        float pose_gain = pose_it.gain;
-        SensorCircle pose_sensor_coverage = makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range_);
-        float pose_sensor_coverage_overlap = 0.0; // Will record area of overlap
-        for (auto const& sensor_coverage_it : sensor_coverages_) {
-          pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
-        }
-        for (auto const& sensor_coverage_it : path_sensor_coverages) {
-          pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
-        }
-        // Need ratio of sensor coverage area to sensor overlap area (capped at max 1, aka 100%)
-        double pose_sensor_coverage_overlap_ratio = pose_sensor_coverage_overlap / (M_PI*pow(pose_sensor_coverage.radius, 2));
-        path_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain;
-        path_sensor_coverages.push_back(pose_sensor_coverage);
-      }
-      if (path_gain > best_path_gain) {
-        ROS_WARN("New path selected, gain increased from %.2f to %.2f", best_path_gain, path_gain);
-        std::vector<nav_msgs::Path> viz_path;
-        viz_path.push_back(makePathFromExpPath(path_it));
-        viz_path.push_back(makePathFromExpPath(*uav_planners_[uav_id].exploration_result.paths.rbegin()));
-        visualizePaths(viz_path);
-        visualizePathFOVs(viz_path, 1.0);
-        ros::spinOnce();
-        ros::Duration(1.0).sleep();
-
-        best_path_gain = path_gain;
-        best_path = makePathFromExpPath(path_it);
-      }
-    }
-    // Best path selected, add its coverages to sensor_coverages_ and make it this UAVs navigation path
-    for (auto const& pose_it : best_path.poses) {
-      sensor_coverages_.push_back(makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range_));
-      visualizeSensorCoverages();
-      ros::spinOnce();
-      ros::Duration(0.5).sleep();
-    }
-    uav_planners_[uav_id].navigation_path = best_path;
+    uav_planners_[uav_id].createNavigationPlan(sensor_coverages_, uav_camera_range_);
+    sensor_coverages_.insert(sensor_coverages_.end(), uav_planners_[uav_id].sensor_coverage.begin(), uav_planners_[uav_id].sensor_coverage.end());
     // Visualize
     uav_paths.push_back(uav_planners_[uav_id].navigation_path);
     visualizePaths(uav_paths);
     visualizePathFOVs(uav_paths, 1.0);
-    /*
-    for (auto const& pose_it : uav_planners_[uav_id].navigation_path.poses) {
-      SensorCircle sensor_coverage = makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range_);
-      for (auto const& sensor_coverage_it : sensor_coverages_) {
-        float sensor_coverage_overlap = calculateSensorCoverageOverlap(sensor_coverage, sensor_coverage_it);
-        float sensor_coverage_overlap_ratio = sensor_coverage_overlap / (M_PI*pow(sensor_coverage.radius, 2));
-        ROS_WARN("Calculated %.2f overlap between circle (%.2f, %.2f) and (%.2f, %.2f)", sensor_coverage_overlap_ratio,
-                  sensor_coverage.center.x, sensor_coverage.center.y, sensor_coverage_it.center.x, sensor_coverage_it.center.y);
-      }
-      sensor_coverages_.push_back(makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range_));
-    }*/
     visualizeSensorCoverages();
   }
 
   // Go through UAVs and send navigation goals
+  float move_vehicle_max_time = 10.0;
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-    uav_planners_[uav_id].navigation_goal = *(uav_planners_[uav_id].navigation_path.poses.begin());
-    uav_planners_[uav_id].move_vehicle_goal.goal_pose = uav_planners_[uav_id].navigation_goal;
-    uav_planners_[uav_id].move_vehicle_goal.goal_reached_radius = 0.1;
-    uav_planners_[uav_id].move_vehicle_goal.goal_reached_yaw = 0.1;
-    uav_planners_[uav_id].move_vehicle_goal.max_time = 2.0;
-    uav_planners_[uav_id].move_vehicle_client->sendGoal(uav_planners_[uav_id].move_vehicle_goal);
+    uav_planners_[uav_id].sendMoveVehicleGoal(move_vehicle_max_time);
   }
 
   ugv_planner_.navigation_paused = false;
@@ -301,90 +248,6 @@ void ExplorationPlanner::getParams(ros::NodeHandle np) {
   np.param<float>("uav_camera_hfov", uav_camera_hfov_, 1.02974);
   np.param<float>("uav_camera_ray_resolution", uav_camera_ray_resolution_, 1.0);
   np.param<float>("uav_camera_range", uav_camera_range_, 7.5);
-}
-
-float ExplorationPlanner::calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_b) {
-  ROS_DEBUG("calculateSensorCoverageOverlap");
-  
-  // First check easiest cases relating to the distance between the circles
-  float d = getDistanceBetweenPoints(circle_a.center, circle_b.center);
-  if (d >= circle_a.radius + circle_b.radius) {
-    // Circles are not overlapping, return 0 overlap
-    return 0.0;
-  } 
-  else if (circle_b.radius + d <= circle_a.radius) {
-    // Circle B is smaller than A and is entirely contained within it
-    return M_PI*pow(circle_b.radius, 2);
-  }
-  else if (circle_a.radius + d <= circle_b.radius) {
-    // Circle A is smaller than B and is entirely contained within it
-    return M_PI*pow(circle_a.radius, 2);
-  }
-
-  // Circles have partial overlap, must calculate overlap
-  // Source: https://diego.assencio.com/?index=8d6ca3d82151bad815f78addf9b5c1c6
-  float r_1 = (circle_a.radius > circle_b.radius) ? circle_a.radius : circle_b.radius;  // The larger circle radius
-  float r_2 = (circle_a.radius > circle_b.radius) ? circle_b.radius : circle_a.radius;  // The smaller circle radius
-  float d_1 = (pow(r_1, 2) - pow(r_2, 2) + pow(d, 2)) / (2.0*d);
-  float d_2 = d - d_1;
-
-  float a_intersection = pow(r_1, 2)*acos(d_1/r_1) - d_1*sqrt(pow(r_1, 2) - pow(d_1, 2))
-                       + pow(r_2, 2)*acos(d_2/r_2) - d_2*sqrt(pow(r_2, 2) - pow(d_2, 2));
-
-  return a_intersection;
-}
-
-nav_msgs::Path ExplorationPlanner::makePathFromExpPath(mipp_msgs::ExplorationPath exp_path) {
-  ROS_DEBUG("makePathFromExpPath");
-  nav_msgs::Path path;
-  for (auto exp_path_it = exp_path.poses.begin(); exp_path_it != exp_path.poses.end(); ++exp_path_it) {
-    geometry_msgs::PoseStamped path_pose;
-    path_pose.header.frame_id = "world";
-    path_pose.header.stamp = ros::Time::now();
-    path_pose.pose = exp_path_it->pose;
-    path.poses.push_back(path_pose);
-  }
-  ROS_INFO("Made path from: (%f, %f, %f) to (%f, %f, %f)", 
-           path.poses.begin()->pose.position.x, path.poses.begin()->pose.position.y, path.poses.begin()->pose.position.z,
-           path.poses.rbegin()->pose.position.x, path.poses.rbegin()->pose.position.y, path.poses.rbegin()->pose.position.z);
-  return path;
-}
-
-geometry_msgs::Vector3 ExplorationPlanner::makeRPYFromQuat(geometry_msgs::Quaternion quat) {
-  ROS_DEBUG("makeRPYFromQuat");
-  tf2::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);
-  geometry_msgs::Vector3 rpy;
-  tf2::Matrix3x3(tf_quat).getRPY(rpy.x, 
-                                 rpy.y, 
-                                 rpy.z);
-  return rpy;
-}
-
-geometry_msgs::Quaternion ExplorationPlanner::makeQuatFromRPY(geometry_msgs::Vector3 rpy) {
-  ROS_DEBUG("makeQuatFromRPY");
-  tf2::Quaternion tf_quat;
-  tf_quat.setRPY(rpy.x, rpy.y, rpy.z);
-  geometry_msgs::Quaternion quat;
-  quat.x = tf_quat.x();
-  quat.y = tf_quat.y();
-  quat.z = tf_quat.z();
-  quat.w = tf_quat.w();
-  return quat;
-}
-
-SensorCircle ExplorationPlanner::makeSensorCircleFromUAVPose(geometry_msgs::Pose uav_pose, int uav_id, float sensor_range) {
-  ROS_DEBUG("makeSensorCircleFromUAVPose");
-  SensorCircle sensor_circle;
-  sensor_circle.vehicle_pose = uav_pose;
-  sensor_circle.vehicle_id = uav_id;
-  sensor_circle.radius = sensor_range/2.0;
-  
-  float uav_yaw = makeRPYFromQuat(uav_pose.orientation).z;
-  sensor_circle.center.x = cos(uav_yaw)*(sensor_range/2.0) + uav_pose.position.x;
-  sensor_circle.center.y = sin(uav_yaw)*(sensor_range/2.0) + uav_pose.position.y;
-  sensor_circle.center.z = 0.0;
-
-  return sensor_circle;
 }
 
 // Visualization
