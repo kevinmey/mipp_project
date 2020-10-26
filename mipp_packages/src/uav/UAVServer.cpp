@@ -55,7 +55,7 @@ UAVServer::~UAVServer()
 
 void UAVServer::pubMavrosSetpoint()
 {
-  ROS_DEBUG("UAVServer: pubMavrosSetpoint");
+  ROS_DEBUG("pubMavrosSetpoint");
   // Block if UAV still initializing (taking off)
   if(!uav_takeoff_complete_ or !uav_clearing_rotation_complete_)
   {
@@ -83,7 +83,7 @@ void UAVServer::pubMavrosSetpoint()
     pub_mavros_setpoint_.publish(mavros_setpoint);
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("UAVServer: pubMavrosSetpoint: %s",ex.what());
+    ROS_WARN("pubMavrosSetpoint: %s",ex.what());
     ros::Duration(1.0).sleep();
   }
 }
@@ -93,7 +93,7 @@ void UAVServer::pubMavrosSetpoint()
 */
 
 void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked_pose_msg) {
-  ROS_INFO("UAVServer: subClickedPose");
+  ROS_INFO("subClickedPose");
 
   try{
     geometry_msgs::TransformStamped position_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, clicked_pose_msg->header.frame_id, ros::Time(0));
@@ -105,7 +105,7 @@ void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked
     tf2::Matrix3x3(tf_quat).getRPY(uav_position_goal_rpy_.x, 
                                    uav_position_goal_rpy_.y, 
                                    uav_position_goal_rpy_.z);
-    ROS_INFO("UAVServer: New global goal: [%f,%f,%f,%f]",
+    ROS_INFO("New global goal: [%f,%f,%f,%f]",
               uav_position_goal_.pose.position.x, 
               uav_position_goal_.pose.position.y,
               uav_position_goal_.pose.position.z,
@@ -117,13 +117,13 @@ void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked
     pub_global_goal_.publish(uav_position_goal_);
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
+    ROS_WARN("subGlobalGoal: %s",ex.what());
     ros::Duration(0.1).sleep();
   }
 }
 
 void UAVServer::subPositionGoal(const geometry_msgs::PoseStampedConstPtr& position_goal_msg) {
-  ROS_INFO("UAVServer: subPositionGoal");
+  ROS_INFO("subPositionGoal");
 
   try{
     geometry_msgs::TransformStamped position_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, position_goal_msg->header.frame_id, ros::Time(0));
@@ -135,7 +135,7 @@ void UAVServer::subPositionGoal(const geometry_msgs::PoseStampedConstPtr& positi
     tf2::Matrix3x3(tf_quat).getRPY(uav_position_goal_rpy_.x, 
                                    uav_position_goal_rpy_.y, 
                                    uav_position_goal_rpy_.z);
-    ROS_INFO("UAVServer: New global goal: [%f,%f,%f,%f]",
+    ROS_INFO("New global goal: [%f,%f,%f,%f]",
               uav_position_goal_.pose.position.x, 
               uav_position_goal_.pose.position.y,
               uav_position_goal_.pose.position.z,
@@ -147,18 +147,18 @@ void UAVServer::subPositionGoal(const geometry_msgs::PoseStampedConstPtr& positi
     pub_global_goal_.publish(uav_position_goal_);
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
+    ROS_WARN("subGlobalGoal: %s",ex.what());
     ros::Duration(0.1).sleep();
   }
 }
 
 void UAVServer::subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_msg) { 
-  ROS_DEBUG("UAVServer: subMavrosState");
+  ROS_DEBUG("subMavrosState");
   uav_state_ = *mavros_state_msg;
 }
 
 void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg) { 
-  ROS_DEBUG("UAVServer: subOdometry");
+  ROS_DEBUG("subOdometry");
   // Only need pose information (twist/velocities not needed)
   geometry_msgs::PoseStamped pose_msg;
   pose_msg.header = odometry_msg->header;
@@ -183,7 +183,7 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg) {
     }
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("UAVServer: subOdometry: %s",ex.what());
+    ROS_WARN("subOdometry: %s",ex.what());
     ros::Duration(1.0).sleep();
   }
 }
@@ -209,7 +209,7 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
     tf2::Matrix3x3(tf_quat).getRPY(uav_position_goal_rpy_.x, 
                                    uav_position_goal_rpy_.y, 
                                    uav_position_goal_rpy_.z);
-    ROS_INFO("UAVServer: New global goal: [%f,%f,%f,%f]",
+    ROS_INFO("New global goal: [%f,%f,%f,%f]",
               uav_position_goal_.pose.position.x, 
               uav_position_goal_.pose.position.y,
               uav_position_goal_.pose.position.z,
@@ -232,6 +232,7 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
         act_move_vehicle_server_.setSucceeded(act_move_vehicle_result_);
         goal_reached = true;
         ROS_INFO("UAV %d reached its navigation goal after %.2f seconds.", uav_id_, act_move_vehicle_result_.time_used);
+        break;
       }
       ros::spinOnce();
       ros::Duration(0.1).sleep();
@@ -243,7 +244,7 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
     }
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("UAVServer: subGlobalGoal: %s",ex.what());
+    ROS_WARN("subGlobalGoal: %s",ex.what());
     ros::Duration(0.1).sleep();
   }
 }
@@ -251,7 +252,7 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
 // Utility functions
 
 void UAVServer::getParams(ros::NodeHandle np) {
-  ROS_DEBUG("UAVServer: getParams");
+  ROS_DEBUG("getParams");
   np.param<int>("uav_id", uav_id_, 0);
   np.param<std::string>("uav_world_frame", uav_world_frame_, "world");
   np.param<std::string>("uav_local_frame", uav_local_frame_, "odom_uav"+std::to_string(uav_id_));
@@ -263,7 +264,7 @@ void UAVServer::getParams(ros::NodeHandle np) {
 }
 
 void UAVServer::takeoff() {
-  ROS_DEBUG("UAVServer: takeoff");
+  ROS_DEBUG("takeoff");
 
   ros::Rate rate(20.0);
 
@@ -272,7 +273,7 @@ void UAVServer::takeoff() {
     ros::spinOnce();
     rate.sleep();
   }
-  ROS_DEBUG("UAVServer: FCU connected");
+  ROS_DEBUG("FCU connected");
 
   ros::Duration(5.0).sleep();
 
@@ -282,7 +283,7 @@ void UAVServer::takeoff() {
     ros::spinOnce();
     rate.sleep();
   }
-  ROS_DEBUG("UAVServer: Initial setpoints sent");
+  ROS_DEBUG("Initial setpoints sent");
 
   // Keep track of when last request/command was issued for timing purposes
   ros::Time last_request = ros::Time::now();
@@ -301,7 +302,7 @@ void UAVServer::takeoff() {
       if( cli_set_mode_.call(offb_set_mode) &&
           offb_set_mode.response.mode_sent)
       {
-        ROS_INFO("UAVServer: Offboard enabled");
+        ROS_INFO("Offboard enabled");
       }
       last_request = ros::Time::now();
     } 
@@ -315,7 +316,7 @@ void UAVServer::takeoff() {
         if( cli_arm_.call(arm_cmd) &&
             arm_cmd.response.success)
         {
-          ROS_INFO("UAVServer: Vehicle armed");
+          ROS_INFO("Vehicle armed");
         }
         last_request = ros::Time::now();
         uav_takeoff_complete_ = true;
@@ -325,13 +326,13 @@ void UAVServer::takeoff() {
     ros::spinOnce();
     rate.sleep();
   }
-  ROS_INFO("UAVServer: Vehicle takeoff procedure complete");
+  ROS_INFO("Vehicle takeoff procedure complete");
 
   uav_position_goal_.pose.position.x = 0.0;
   uav_position_goal_.pose.position.y = 0.0;
   uav_position_goal_.pose.position.z = uav_takeoff_z_;
   if (uav_do_clearing_rotation_) {
-    ROS_INFO("UAVServer: Performing clearing rotation");
+    ROS_INFO("Performing clearing rotation");
     double clearing_rotation_angle = 0.0;
     while (clearing_rotation_angle <= 360.0) {
       double clearing_rotation = angles::from_degrees(clearing_rotation_angle);
@@ -345,7 +346,7 @@ void UAVServer::takeoff() {
       clearing_rotation_angle += 60;
       ros::Duration(0.5).sleep();
     }
-    ROS_INFO("UAVServer: Clearing rotations complete");
+    ROS_INFO("Clearing rotations complete");
     uav_clearing_rotation_complete_ = true;
   }
   uav_clearing_rotation_complete_ = true;
@@ -375,7 +376,7 @@ void UAVServer::takeoff() {
 }
 
 geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(geometry_msgs::Vector3 rpy) {
-  ROS_DEBUG("UAVServer: makeQuatFromRPY");
+  ROS_DEBUG("makeQuatFromRPY");
   tf2::Quaternion tf_quat;
   tf_quat.setRPY(rpy.x, rpy.y, rpy.z);
   geometry_msgs::Quaternion quat;
@@ -387,7 +388,7 @@ geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(geometry_msgs::Vector3 rpy)
 }
 
 geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(double r, double p, double y) {
-  ROS_DEBUG("UAVServer: makeQuatFromRPY");
+  ROS_DEBUG("makeQuatFromRPY");
   tf2::Quaternion tf_quat;
   tf_quat.setRPY(r, p, y);
   geometry_msgs::Quaternion quat;
