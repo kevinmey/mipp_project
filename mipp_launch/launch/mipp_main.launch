@@ -8,6 +8,7 @@
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
   <arg name="nr_of_uavs"  default="1"/>
+  <arg name="uav_planner_rate"          default="200.0"/>
   <arg name="run_exploration_server"    default="true"/>
   <arg name="com_range"                 default="15.0"/>
   <arg name="octomap_rate"              default="2.0"/>
@@ -40,10 +41,11 @@
     Spawn first uav
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(eval arg('nr_of_uavs') >= 1)">
-    <arg name="uav_id"        value="0"/>
-    <arg name="initial_x"     value="-3"/>
-    <arg name="initial_y"     value="-3"/>
-    <arg name="com_range"     value="$(arg com_range)"/>
+    <arg name="uav_id"                    value="0"/>
+    <arg name="initial_x"                 value="-3"/>
+    <arg name="initial_y"                 value="-3"/>
+    <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
+    <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
   </include>
@@ -55,7 +57,8 @@
     <arg name="uav_id"        value="1"/>
     <arg name="initial_x"     value="-3"/>
     <arg name="initial_y"     value="3"/>
-    <arg name="com_range"     value="$(arg com_range)"/>
+    <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
+    <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
   </include>
@@ -67,7 +70,8 @@
     <arg name="uav_id"        value="2"/>
     <arg name="initial_x"     value="-3"/>
     <arg name="initial_y"     value="0"/>
-    <arg name="com_range"     value="$(arg com_range)"/>
+    <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
+    <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
   </include>

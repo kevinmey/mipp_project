@@ -2,11 +2,12 @@
 <launch>
   <!-- Resolution in meter for the map when starting with an empty map.
         Otherwise the loaded file's resolution is used. -->
-  <arg name="uav_id"          default="0"/>
-  <arg name="uav_name"        default="uav$(arg uav_id)"/>
-  <arg name="uav_start_x"     default="0.0"/>
-  <arg name="uav_start_y"     default="0.0"/>
-  <arg name="uav_takeoff_z"   default="2.0"/>
+  <arg name="uav_id"              default="0"/>
+  <arg name="uav_name"            default="uav$(arg uav_id)"/>
+  <arg name="uav_start_x"         default="0.0"/>
+  <arg name="uav_start_y"         default="0.0"/>
+  <arg name="uav_takeoff_z"       default="2.0"/>
+  <arg name="uav_planner_rate"    default="100.0"/>
 
   <node pkg="mipp_packages" type="uav_informative_explorer_node" name="uav_informative_explorer_node" output="screen">
     <!-- Parameters -->
@@ -17,6 +18,8 @@
     <param name="uav_world_frame"   value="world"/>
     <param name="uav_local_frame"   value="odom_$(arg uav_name)"/>
     <param name="uav_body_frame"    value="base_link_$(arg uav_name)"/>
+
+    <param name="planner_rate"      value="$(arg uav_planner_rate)"/>
 
     <!-- Remap topics -->
     <!-- Published topics -->

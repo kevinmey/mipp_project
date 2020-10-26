@@ -10,6 +10,8 @@
   <arg name="initial_y"     default="0"/>
   <arg name="takeoff_z"     default="2.0"/>
 
+  <arg name="uav_planner_rate"     default="100.0"/>
+
   <arg name="com_range"     default="15.0"/>
 
   <arg name="fcu_ip"            default="$(eval 14540 + arg('uav_id'))"/>
@@ -115,10 +117,11 @@
     <!-- Launch UAV Informative Explorer -->
     
     <include file="$(find mipp_packages)/launch/uav_informative_explorer.launch">
-      <arg name="uav_id"          value="$(arg uav_id)"/>
-      <arg name="uav_start_x"     value="$(arg initial_x)"/>
-      <arg name="uav_start_y"     value="$(arg initial_y)"/>
-      <arg name="uav_takeoff_z"   value="$(arg takeoff_z)"/>
+      <arg name="uav_id"                value="$(arg uav_id)"/>
+      <arg name="uav_start_x"           value="$(arg initial_x)"/>
+      <arg name="uav_start_y"           value="$(arg initial_y)"/>
+      <arg name="uav_takeoff_z"         value="$(arg takeoff_z)"/>
+      <arg name="uav_planner_rate"      value="$(arg uav_planner_rate)"/>
     </include>
 
     <!-- Relay/republish pointcloud to common cloud for OctoMap -->
