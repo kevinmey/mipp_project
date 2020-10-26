@@ -260,7 +260,8 @@ void UAVServer::getParams(ros::NodeHandle np) {
   np.param<double>("uav_start_x", uav_start_x_, 0.0);
   np.param<double>("uav_start_y", uav_start_y_, 0.0);
   np.param<double>("uav_takeoff_z", uav_takeoff_z_, 2.0);
-  np.param<bool>("uav_do_clearing_rotation", uav_do_clearing_rotation_, false);
+  np.param<bool>("uav_do_clearing_rotation", uav_do_clearing_rotation_, true);
+  np.param<double>("uav_clearing_rotation_angle", uav_clearing_rotation_angle_, 120.0);
 }
 
 void UAVServer::takeoff() {
@@ -334,7 +335,7 @@ void UAVServer::takeoff() {
   if (uav_do_clearing_rotation_) {
     ROS_INFO("Performing clearing rotation");
     double clearing_rotation_angle = 0.0;
-    while (clearing_rotation_angle <= 360.0) {
+    while (clearing_rotation_angle < 360.0) {
       double clearing_rotation = angles::from_degrees(clearing_rotation_angle);
       double angle_threshold = angles::from_degrees(10.0);
       uav_position_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, clearing_rotation);
@@ -343,7 +344,7 @@ void UAVServer::takeoff() {
         ros::spinOnce();
         rate.sleep();
       }
-      clearing_rotation_angle += 60;
+      clearing_rotation_angle += uav_clearing_rotation_angle_;
       ros::Duration(0.5).sleep();
     }
     ROS_INFO("Clearing rotations complete");

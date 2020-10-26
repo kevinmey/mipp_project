@@ -95,6 +95,7 @@ private:
   double uav_start_y_;
   double uav_takeoff_z_;
   bool uav_do_clearing_rotation_;
+  double uav_clearing_rotation_angle_;
   // Variables
   //   Map
   octomap::OcTree* map_;
