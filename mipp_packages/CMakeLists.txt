@@ -67,6 +67,8 @@ add_executable(
     exploration_planner_node
     src/joint/exploration_planner_node.cpp
     src/joint/ExplorationPlanner.cpp
+    src/joint/UGVPlanner.cpp
+    src/joint/UAVPlanner.cpp
 )
 
 add_dependencies(
@@ -263,4 +265,10 @@ target_link_libraries(
     exploration_visualizer_node
     common_libs
     ${catkin_LIBRARIES}
+)
+
+## FSM python scripts
+
+catkin_install_python(PROGRAMS scripts/state_machine_simple.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
