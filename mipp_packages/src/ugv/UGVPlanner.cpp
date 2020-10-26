@@ -93,14 +93,14 @@ void UGVPlanner::subInitialPath(const nav_msgs::Path& path_msg)
   initial_path_.clear();
   if (path_poses_ordered) {
     for (auto path_it = path_msg.poses.begin(); path_it != path_msg.poses.end(); ++path_it) {
-      ROS_WARN("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
+      ROS_DEBUG("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
       initial_path_.push_back(makePoint(path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z));
     }
   }
   else {
     for (auto path_it = path_msg.poses.begin(); path_it != path_msg.poses.end(); ++path_it) {
-      ROS_WARN("Initial path unordered");
-      ROS_WARN("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
+      ROS_DEBUG("Initial path unordered");
+      ROS_DEBUG("Initial path point (x,y,z) = (%f,%f,%f)", path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z);
       initial_path_.push_front(makePoint(path_it->pose.position.x, path_it->pose.position.y, path_it->pose.position.z));
     }
   }
@@ -210,7 +210,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 
   // Init. values for informed RRT*
   goal_euclidean_distance_ = getDistanceBetweenPoints(root_.position_, goal_.position_);
-  ROS_WARN("Euc dist %f", goal_euclidean_distance_);
+  ROS_DEBUG("Euc dist %f", goal_euclidean_distance_);
   goal_grow_distance_ = 1.1*goal_euclidean_distance_;
   goal_path_distance_ = goal_.cost_;
   goal_root_midpoint_ = makePoint((goal_.position_.x + root_.position_.x)/2.0, (goal_.position_.y + root_.position_.y)/2.0, (goal_.position_.z + root_.position_.z)/2.0);
@@ -665,7 +665,7 @@ void UGVPlanner::replanCheck()
   bool collision_detected = false;
   geometry_msgs::Point collision_point;
 
-  ROS_INFO("Path length %d", (int)path_.size());
+  ROS_DEBUG("Path length %d", (int)path_.size());
   for (auto path_it = path_.begin(); path_it != path_.end(); ++path_it) {
     if (std::next(path_it,1) == path_.end()) {
       break;
