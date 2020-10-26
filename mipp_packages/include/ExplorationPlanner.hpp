@@ -25,19 +25,33 @@
 #include <cmath> /* sqrt, pow */
 #include <algorithm>    // std::min
 
+//
+
+enum VehicleState { INIT, IDLE, PLANNING, MOVING, RECOVERING };
+
 struct UGVPlanner
 {
-  // Vehicle state
+  // Vehicle planner state
+  //void changeState(VehicleState new_state);
+  VehicleState vehicle_state;
+  VehicleState vehicle_previous_state;
   // Exploration (Frontier exploration using RRT)
+  void sendExplorationGoal(float exploration_time);
+  bool isExplorationDone();
+  mipp_msgs::ExplorationResult getExplorationResult();
   actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>* exploration_client;
   mipp_msgs::StartExplorationGoal exploration_goal;
   mipp_msgs::ExplorationResult exploration_result;
   // Navigation
+  void createInitNavigationPlan();
+  void getRealNavigationPlan();
+  void createNavigationWaypoints(int nr_of_ugv_nav_waypoints, bool add_nav_waypoint_at_goal);
+  std::vector<SensorCircle> getSensorCoverage(float ugv_sensor_radius);
   geometry_msgs::PoseStamped navigation_goal;
   nav_msgs::Path navigation_path_init;  // Initial RRT vertices making up "path" to frontier node goal
   nav_msgs::Path navigation_path;       // Plan returned from UGVPlanner which optimizes the inital path
   std::vector<geometry_msgs::Point> navigation_waypoints;  // Waypoints created from poses on path which are within a set distance
-  float naviation_beacon_max_dist;
+  float navigation_waypoint_max_dist;
   bool navigation_paused;
   // Communication
 };
@@ -46,20 +60,27 @@ struct UAVPlanner
 {
   // General
   int uav_id;
-  // Vehicle state
-  ros::Subscriber sub_uav_odom;
-  nav_msgs::Odometry uav_odom;
-  // Exploration (Frontier exploration using RRT)
+  // Vehicle planner state
+  VehicleState vehicle_state;
+  VehicleState vehicle_previous_state;
+  // Exploration (Informative exploration using RRT)
+  void sendExplorationGoal(float exploration_time);
+  bool isExplorationDone();
+  mipp_msgs::ExplorationResult getExplorationResult();
   actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>* exploration_client;
   mipp_msgs::StartExplorationGoal exploration_goal;
   mipp_msgs::ExplorationResult exploration_result;
   // Navigation
+  void createNavigationPlan(std::vector<SensorCircle> sensor_coverages, float uav_camera_range);
+  void sendMoveVehicleGoal(float move_vehicle_time);
+  std::vector<SensorCircle> sensor_coverage;
   actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>* move_vehicle_client;
   mipp_msgs::MoveVehicleGoal move_vehicle_goal;
   geometry_msgs::PoseStamped navigation_goal;
   nav_msgs::Path navigation_path;
 };
 
+/* MOVED DEFINITION TO UTILS.HPP
 struct SensorCircle
 {
   // Details of which vehicle the sensor circle is assigned to
@@ -68,7 +89,7 @@ struct SensorCircle
   // Geometric characteristics of circle
   geometry_msgs::Point center;
   float radius;
-};
+};*/
  
 class ExplorationPlanner
 {
@@ -86,14 +107,10 @@ private:
   void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   void subUGVPlan(const nav_msgs::PathConstPtr& path_msg);
   // Planner functions
+  void runStateMachine();
   void makePlanSynchronous();
   // Utility functions
   void getParams(ros::NodeHandle np);
-  float calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_b);
-  nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath);
-  geometry_msgs::Vector3 makeRPYFromQuat(geometry_msgs::Quaternion quat);
-  geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy);
-  SensorCircle makeSensorCircleFromUAVPose(geometry_msgs::Pose uav_pose, int uav_id, float sensor_range);
   // Visualization functions
   void visualizeSensorCircle(SensorCircle sensor_circle);
   void visualizeSensorCoverages();
