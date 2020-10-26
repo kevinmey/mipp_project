@@ -22,6 +22,7 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   pub_global_goal_            = n.advertise<geometry_msgs::PoseStamped>("uav_server/global_goal", 1);
   pub_viz_uav_fov_            = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav_fov", 1);
   pub_viz_uav_                = n.advertise<visualization_msgs::Marker>("uav_server/viz_uav", 1);
+  pub_viz_line_to_goal_       = n.advertise<visualization_msgs::Marker>("uav_server/viz_line_to_goal", 1);
   // Establish subscriptions
   sub_clicked_pose_   = n.subscribe("uav_server/clicked_goal", 1, &UAVServer::subClickedPose, this);
   sub_position_goal_  = n.subscribe("uav_server/position_goal", 1, &UAVServer::subPositionGoal, this);
@@ -181,6 +182,7 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg) {
     if (visualizeDrone()) {
       ROS_WARN("Failed to visualize drone in RViz");
     }
+    visualizeLineToGoal();
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("subOdometry: %s",ex.what());
@@ -430,4 +432,25 @@ int UAVServer::visualizeDrone() {
   pub_viz_uav_.publish(drone);
 
   return 0;
+}
+
+void UAVServer::visualizeLineToGoal() {
+  ROS_DEBUG("visualizeLineToGoal");
+  
+  visualization_msgs::Marker line_marker;
+  line_marker.header.frame_id = uav_world_frame_;
+  line_marker.header.stamp = ros::Time::now();
+  line_marker.id = 0;
+  line_marker.type = visualization_msgs::Marker::LINE_STRIP;
+  line_marker.action = visualization_msgs::Marker::ADD;
+  line_marker.pose.orientation.w = 1.0;
+  line_marker.scale.x = 0.05;
+  line_marker.color.a = 1.0;
+  line_marker.color.r = 0.1;
+  line_marker.color.g = 1.0;
+  line_marker.color.b = 0.1;
+  line_marker.points.push_back(uav_pose_.pose.position);
+  line_marker.points.push_back(uav_position_goal_.pose.position);
+  
+  pub_viz_line_to_goal_.publish(line_marker);
 }
