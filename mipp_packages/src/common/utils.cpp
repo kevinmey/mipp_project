@@ -13,6 +13,11 @@ double getDistanceBetweenPoints(geometry_msgs::Point p1, geometry_msgs::Point p2
              + pow(p1.z - p2.z, 2.0));
 }
 
+double getDistanceBetweenAngles(double angle_1, double angle_2)
+{
+	return std::abs(angles::shortest_angular_distance(angle_1, angle_2));
+}
+
 geometry_msgs::Point castRay(geometry_msgs::Point const origin, geometry_msgs::Point const direction, double distance)
 {
 	geometry_msgs::Point direction_norm = normalize(direction);
@@ -117,4 +122,90 @@ int resolveUri(std::string& uri) {
     }
   }
   return 1;
+}
+
+// Planner functions
+
+float calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_b) {
+  ROS_DEBUG("calculateSensorCoverageOverlap");
+  
+  // First check easiest cases relating to the distance between the circles
+  float d = getDistanceBetweenPoints(circle_a.center, circle_b.center);
+  if (d >= circle_a.radius + circle_b.radius) {
+    // Circles are not overlapping, return 0 overlap
+    return 0.0;
+  } 
+  else if (circle_b.radius + d <= circle_a.radius) {
+    // Circle B is smaller than A and is entirely contained within it
+    return M_PI*pow(circle_b.radius, 2);
+  }
+  else if (circle_a.radius + d <= circle_b.radius) {
+    // Circle A is smaller than B and is entirely contained within it
+    return M_PI*pow(circle_a.radius, 2);
+  }
+
+  // Circles have partial overlap, must calculate overlap
+  // Source: https://diego.assencio.com/?index=8d6ca3d82151bad815f78addf9b5c1c6
+  float r_1 = (circle_a.radius > circle_b.radius) ? circle_a.radius : circle_b.radius;  // The larger circle radius
+  float r_2 = (circle_a.radius > circle_b.radius) ? circle_b.radius : circle_a.radius;  // The smaller circle radius
+  float d_1 = (pow(r_1, 2) - pow(r_2, 2) + pow(d, 2)) / (2.0*d);
+  float d_2 = d - d_1;
+
+  float a_intersection = pow(r_1, 2)*acos(d_1/r_1) - d_1*sqrt(pow(r_1, 2) - pow(d_1, 2))
+                       + pow(r_2, 2)*acos(d_2/r_2) - d_2*sqrt(pow(r_2, 2) - pow(d_2, 2));
+
+  return a_intersection;
+}
+
+nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath exp_path) {
+  ROS_DEBUG("makePathFromExpPath");
+  nav_msgs::Path path;
+  for (auto exp_path_it = exp_path.poses.begin(); exp_path_it != exp_path.poses.end(); ++exp_path_it) {
+    geometry_msgs::PoseStamped path_pose;
+    path_pose.header.frame_id = "world";
+    path_pose.header.stamp = ros::Time::now();
+    path_pose.pose = exp_path_it->pose;
+    path.poses.push_back(path_pose);
+  }
+  ROS_INFO("Made path from: (%f, %f, %f) to (%f, %f, %f)", 
+           path.poses.begin()->pose.position.x, path.poses.begin()->pose.position.y, path.poses.begin()->pose.position.z,
+           path.poses.rbegin()->pose.position.x, path.poses.rbegin()->pose.position.y, path.poses.rbegin()->pose.position.z);
+  return path;
+}
+
+geometry_msgs::Vector3 makeRPYFromQuat(geometry_msgs::Quaternion quat) {
+  ROS_DEBUG("makeRPYFromQuat");
+  tf2::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);
+  geometry_msgs::Vector3 rpy;
+  tf2::Matrix3x3(tf_quat).getRPY(rpy.x, 
+                                 rpy.y, 
+                                 rpy.z);
+  return rpy;
+}
+
+geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy) {
+  ROS_DEBUG("makeQuatFromRPY");
+  tf2::Quaternion tf_quat;
+  tf_quat.setRPY(rpy.x, rpy.y, rpy.z);
+  geometry_msgs::Quaternion quat;
+  quat.x = tf_quat.x();
+  quat.y = tf_quat.y();
+  quat.z = tf_quat.z();
+  quat.w = tf_quat.w();
+  return quat;
+}
+
+SensorCircle makeSensorCircleFromUAVPose(geometry_msgs::Pose uav_pose, int uav_id, float sensor_range) {
+  ROS_DEBUG("makeSensorCircleFromUAVPose");
+  SensorCircle sensor_circle;
+  sensor_circle.vehicle_pose = uav_pose;
+  sensor_circle.vehicle_id = uav_id;
+  sensor_circle.radius = sensor_range/2.0;
+  
+  float uav_yaw = makeRPYFromQuat(uav_pose.orientation).z;
+  sensor_circle.center.x = cos(uav_yaw)*(sensor_range/2.0 + 2.0) + uav_pose.position.x;
+  sensor_circle.center.y = sin(uav_yaw)*(sensor_range/2.0 + 2.0) + uav_pose.position.y;
+  sensor_circle.center.z = 0.0;
+
+  return sensor_circle;
 }
