@@ -541,7 +541,7 @@ geometry_msgs::Point UAVInformativeExplorer::generateRandomPoint()
   double theta = unit_distribution_(generator_)*2.0*M_PI;
   sample_point.x = radius*cos(theta);
   sample_point.y = radius*sin(theta);
-  sample_point.z = uav_takeoff_z_ + 0.5*(2*unit_distribution_(generator_) - 1);
+  sample_point.z = uav_takeoff_z_ + 0.0*(2*unit_distribution_(generator_) - 1);
   ROS_DEBUG("Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
 
   return sample_point;
