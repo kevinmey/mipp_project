@@ -192,6 +192,13 @@ void UAVInformativeExplorer::actStartExploration(const mipp_msgs::StartExplorati
 
   planner_action_in_progress_ = true;
   planner_max_time_ = goal->max_time;
+  ROS_DEBUG("Exploration time %.2f", planner_max_time_);
+  path_.clear();
+  for (auto const& pose_it : goal->init_path) {
+    path_.push_back(pose_it);
+    ROS_DEBUG("Took out nav. path pose: (%.2f, %.2f)", pose_it.pose.position.x, pose_it.pose.position.y);
+  }
+
   runExploration();
 
   act_exploration_result_.result.header.frame_id = uav_world_frame_;
@@ -339,15 +346,17 @@ void UAVInformativeExplorer::runExploration() {
     double nearest_neighbor_euc_distance = getDistanceBetweenPoints(sample_point, root_.position_);
 
     // Iterate through tree nodes, checking distance to sampled point
-    double min_allowed_node_distance = 0.1;
+    double min_allowed_euc_distance = 0.1;
+    double min_allowed_yaw_distance = 1.0; // ca 60 degrees
     bool sample_is_too_close = false;
     for(std::list<Node>::iterator tree_node_itr = tree_.begin();
         tree_node_itr != tree_.end(); tree_node_itr++) {
       // Get distance to tree node
       double euc_distance_to_node = getDistanceBetweenPoints(tree_node_itr->position_, sample_point);
+      double yaw_distance_to_node = getDistanceBetweenAngles(tree_node_itr->yaw_, sample_yaw);
       ROS_DEBUG("Sampled node distance to node %d: %f", tree_node_itr->id_, euc_distance_to_node);
 
-      if (euc_distance_to_node < min_allowed_node_distance)
+      if (euc_distance_to_node < min_allowed_euc_distance and yaw_distance_to_node < min_allowed_yaw_distance)
       {
         ROS_DEBUG("Too close.");
         sample_is_too_close = true;
