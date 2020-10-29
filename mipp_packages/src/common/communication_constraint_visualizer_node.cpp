@@ -257,6 +257,13 @@ ComConstraintVisualizer::ComConstraintVisualizer(ros::NodeHandle n, ros::NodeHan
   range_counter_ = 0;
   los_counter_ = 0;
 
+  while(!received_map_)
+  {
+    ROS_WARN("No map received yet, waiting...");
+    ros::spinOnce();
+    ros::Duration(0.5).sleep();
+  }
+
   ros::Rate loop_rate(publish_rate_);
   while (ros::ok())
   {
