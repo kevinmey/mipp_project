@@ -2,6 +2,31 @@
 
 // SUBMODULE FOR EXPLORATION PLANNER
 
+void UAVPlanner::updateStateMachine() {
+    // Check UGV first
+  switch (vehicle_state) {
+    case IDLE:
+      if (exploration_result.paths.empty()) {
+        float exploration_max_time = 2.0;
+        sendExplorationGoal(exploration_max_time);
+        vehicle_state = PLANNING;
+      }
+      else if (navigation_path.poses.empty()) {
+        
+      }
+      else {
+        vehicle_state = MOVING;
+      }
+      break;
+    case PLANNING:
+      if (exploration_client->getState().isDone()) {
+        exploration_result = exploration_client->getResult().get()->result;
+        vehicle_state = IDLE;
+      }
+      break;
+  }
+}
+
 void UAVPlanner::sendExplorationGoal(float exploration_time) {
   exploration_goal.max_time = exploration_time;
   exploration_goal.init_path.clear();
@@ -10,6 +35,8 @@ void UAVPlanner::sendExplorationGoal(float exploration_time) {
     ROS_WARN("Pushed in nav. path pose: (%.2f, %.2f)", pose_it.pose.position.x, pose_it.pose.position.y);
   }
   exploration_client->sendGoal(exploration_goal);
+
+  navigation_path.poses.clear();
 }
 
 bool UAVPlanner::isExplorationDone() {
@@ -86,4 +113,6 @@ void UAVPlanner::sendMoveVehicleGoal(float move_vehicle_time) {
   move_vehicle_goal.goal_reached_yaw = 0.1;
   move_vehicle_goal.max_time = move_vehicle_time;
   move_vehicle_client->sendGoal(move_vehicle_goal);
+
+  exploration_result.paths.clear();
 }

@@ -2,6 +2,55 @@
 
 // SUBMODULE FOR EXPLORATION PLANNER
 
+/*
+void UGVPlanner::updateStateMachine() {
+    // Check UGV first
+  switch (vehicle_state) {
+    case IDLE:
+      // UGV is IDLE
+      if (exploration_result.paths.empty()) {
+        // UGV needs a plan, start planning
+        float exploration_max_time = 2.0;
+        sendExplorationGoal(exploration_max_time);
+        vehicle_state = PLANNING;
+      }
+      else {
+        // UGV has a plan, start making navigaiton plan and moving
+        createInitNavigationPlan();
+        pub_ugv_goal_.publish(ugv_planner_.navigation_goal);
+        pub_ugv_goal_path_.publish(ugv_planner_.navigation_path_init);
+        // Wait until we get the "optimized" path back 
+        while (ugv_planner_.navigation_path.poses.empty()) {
+          ros::spinOnce();
+          check_rate.sleep();
+        }
+
+        // Work on path made by UGV planner and create communication "beacons"
+        ugv_planner_.createNavigationWaypoints(nr_of_ugv_nav_waypoints_, add_nav_waypoint_at_goal_);
+
+        // Create sensor coverage for vehicles
+        sensor_coverages_.clear();
+
+        // Create sensor coverage for UGV
+        sensor_coverages_ = ugv_planner_.getSensorCoverage(ugv_sensor_radius_);
+        vehicle_state = MOVING;
+      }
+      else {
+        ROS_ERROR("Illegal state transition for UGV.");
+      }
+      break;
+    case PLANNING:
+      // UGV is PLANNING
+      if (exploration_client->getState().isDone()) {
+        // UGV has gotten a plan
+        exploration_result = exploration_client->getResult().get()->result;
+        vehicle_previous_state = vehicle_state;
+        vehicle_state = IDLE;
+      }
+      break;
+  }
+}*/
+
 void UGVPlanner::sendExplorationGoal(float exploration_time) {
   exploration_goal.max_time = exploration_time;
   exploration_client->sendGoal(exploration_goal);
@@ -23,6 +72,14 @@ void UGVPlanner::createInitNavigationPlan() {
   navigation_path_init = makePathFromExpPath(*(exploration_result.paths.begin()));
   navigation_goal = *(navigation_path_init.poses.rbegin());
   navigation_path.poses.clear(); // Clear path since we will wait for a new path from the UGV planner
+  pub_goal_.publish(navigation_goal);
+  pub_goal_path_.publish(navigation_path_init);
+  // Wait until we get the "optimized" path back 
+  while (navigation_path.poses.empty()) {
+    ros::spinOnce();
+    ros::Duration(0.1).sleep();
+  }
+  ROS_INFO("UGV has plan.");
 }
 
 void UGVPlanner::createNavigationWaypoints(int nr_of_ugv_nav_waypoints, bool add_nav_waypoint_at_goal) {
