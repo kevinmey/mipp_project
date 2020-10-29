@@ -129,7 +129,7 @@ void UAVServer::subPositionGoal(const geometry_msgs::PoseStampedConstPtr& positi
   try{
     geometry_msgs::TransformStamped position_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, position_goal_msg->header.frame_id, ros::Time(0));
     tf2::doTransform(*position_goal_msg, uav_position_goal_, position_goal_tf);
-    uav_position_goal_.pose.position.z = uav_takeoff_z_;
+    //uav_position_goal_.pose.position.z = uav_takeoff_z_;
 
     tf2::Quaternion tf_quat;
     tf2::fromMsg(uav_position_goal_.pose.orientation, tf_quat);
@@ -263,7 +263,7 @@ void UAVServer::getParams(ros::NodeHandle np) {
   np.param<double>("uav_start_y", uav_start_y_, 0.0);
   np.param<double>("uav_takeoff_z", uav_takeoff_z_, 2.0);
   np.param<bool>("uav_do_clearing_rotation", uav_do_clearing_rotation_, true);
-  np.param<double>("uav_clearing_rotation_angle", uav_clearing_rotation_angle_, 120.0);
+  np.param<double>("uav_clearing_rotation_angle", uav_clearing_rotation_angle_, 60.0);
 }
 
 void UAVServer::takeoff() {
