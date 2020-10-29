@@ -252,6 +252,7 @@ void UAVInformativeExplorer::getParams(ros::NodeHandle np) {
   np.param<double>("planner_rate", planner_rate_, 100.0);
   np.param<double>("planner_max_time", planner_max_time_, 1.0);
   np.param<double>("planner_sample_radius", planner_sample_radius_, 10.0);
+  np.param<double>("planner_sample_z_interval", planner_sample_z_interval_, 1.0);
   np.param<double>("planner_max_ray_distance", planner_max_ray_distance_, 3.0);
   np.param<double>("planner_max_neighbor_distance", planner_max_neighbor_distance_, planner_max_ray_distance_);
   np.param<double>("planner_max_neighbor_yaw", planner_max_neighbor_yaw_, angles::from_degrees(90.0));
@@ -541,7 +542,7 @@ geometry_msgs::Point UAVInformativeExplorer::generateRandomPoint()
   double theta = unit_distribution_(generator_)*2.0*M_PI;
   sample_point.x = radius*cos(theta);
   sample_point.y = radius*sin(theta);
-  sample_point.z = uav_takeoff_z_ + 0.0*(2*unit_distribution_(generator_) - 1);
+  sample_point.z = uav_takeoff_z_ + planner_sample_z_interval_*(2*unit_distribution_(generator_) - 1);
   ROS_DEBUG("Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
 
   return sample_point;

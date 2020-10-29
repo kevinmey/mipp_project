@@ -106,6 +106,7 @@ private:
   std::default_random_engine generator_;
   std::uniform_real_distribution<double> unit_distribution_;
   double planner_sample_radius_;
+  double planner_sample_z_interval_;
   // Parameters
   int uav_id_;
   std::string uav_world_frame_;
