@@ -1,0 +1,10 @@
+<launch>
+
+    <!-- launching the node for building and publishing the octomap -->
+    <node name="octomap_stamped_pa_node" pkg="octomap_pa"
+      type="octree_stamped_pa_node" output="screen">
+        <!-- load parameter -->
+        <rosparam command="load"
+          file="$(find mipp_launch)/resource/octomap_mapping_stamped_param.yaml" />
+    </node>
+</launch>
