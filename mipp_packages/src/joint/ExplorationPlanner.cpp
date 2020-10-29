@@ -8,8 +8,6 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   // Initialize values
   getParams(np);
 
-  pub_ugv_goal_                 = n.advertise<geometry_msgs::PoseStamped>(ugv_ns_+"move_base_simple/goal", 1);
-  pub_ugv_goal_path_            = n.advertise<nav_msgs::Path>(ugv_ns_+"UGVFrontierExplorer/goal_path", 1);
   pub_ugv_pause_navigation_     = n.advertise<std_msgs::Bool>(ugv_ns_+"pause_navigation", 1);
   pub_timer_pause_navigation_   = n.createTimer(ros::Duration(0.1), boost::bind(&ExplorationPlanner::pubUGVPauseNavigation, this));
   pub_viz_sensor_circle_        = n.advertise<visualization_msgs::Marker>("ExplorationPlanner/viz_sensor_circle_", 1);
@@ -21,7 +19,9 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   sub_ugv_goal_plan_ = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &ExplorationPlanner::subUGVPlan, this);
 
   // Make a UGVPlanner object as container for variables for the UGV
-  ugv_planner_.vehicle_state = INIT;
+  ugv_planner_.pub_goal_        = n.advertise<geometry_msgs::PoseStamped>(ugv_ns_+"move_base_simple/goal", 1);
+  ugv_planner_.pub_goal_path_   = n.advertise<nav_msgs::Path>(ugv_ns_+"UGVFrontierExplorer/goal_path", 1);
+  ugv_planner_.vehicle_state    = INIT;
   ugv_planner_.exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>("/ugv/exploration_action", true);
   ugv_planner_.exploration_client->waitForServer(ros::Duration(10.0));
   // Make a UAVPlanner object as container for variables for each UAV
@@ -66,10 +66,8 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
     }
   }
 
-  ugv_planner_.vehicle_previous_state = ugv_planner_.vehicle_state;
   ugv_planner_.vehicle_state = IDLE;
   for (auto& uav_planner_it : uav_planners_) {
-    uav_planner_it.vehicle_previous_state = uav_planner_it.vehicle_state;
     uav_planner_it.vehicle_state = IDLE;
   }
 
@@ -105,47 +103,11 @@ void ExplorationPlanner::subUGVPlan(const nav_msgs::PathConstPtr& path_msg) {
   ugv_planner_.navigation_path = *path_msg;
 }
 
-// Planner functions
-/*
-void ExplorationPlanner::runStateMachine() {
-  ROS_DEBUG("runStateMachine");
+// PLanner functions
 
-  // Check UGV first
-  switch (ugv_planner_.vehicle_state) {
-    case IDLE:
-      // UGV is IDLE
-      if (ugv_planner_.vehicle_previous_state == INIT or ugv_planner_.vehicle_previous_state == MOVING) {
-        // UGV needs a plan, start planning
-        ugv_planner_.exploration_goal.max_time = 2.0;
-        ugv_planner_.exploration_client->sendGoal(ugv_planner_.exploration_goal);
-        ugv_planner_.vehicle_previous_state = ugv_planner_.vehicle_state;
-        ugv_planner_.vehicle_state = PLANNING;
-      }
-      else if (ugv_planner_.vehicle_previous_state == PLANNING) {
-        // UGV has a plan, start moving
-        ugv_planner_.navigation_path_init = makePathFromExpPath(*(ugv_planner_.exploration_result.paths.begin()));
-        ugv_planner_.navigation_goal = *(ugv_planner_.navigation_path_init.poses.rbegin());
-        ugv_planner_.navigation_path.poses.clear(); // Clear path since we will wait for a new path from the UGV planner
-        pub_ugv_goal_path_.publish(ugv_planner_.navigation_path_init);
-        pub_ugv_goal_.publish(ugv_planner_.navigation_goal);
-        ugv_planner_.vehicle_previous_state = ugv_planner_.vehicle_state;
-        ugv_planner_.vehicle_state = MOVING;
-      }
-      else {
-        ROS_ERROR("Illegal state transition for UGV.");
-      }
-      break;
-    case PLANNING:
-      // UGV is PLANNING
-      if (ugv_planner_.exploration_client->getState().isDone()) {
-        // UGV has gotten a plan
-        ugv_planner_.exploration_result = ugv_planner_.exploration_client->getResult().get()->result;
-        ugv_planner_.vehicle_previous_state = ugv_planner_.vehicle_state;
-        ugv_planner_.vehicle_state = IDLE;
-      }
-      break;
-  }
-}*/
+void ExplorationPlanner::makePlanIndividual(int vehicle_id) {
+
+}
 
 void ExplorationPlanner::makePlanSynchronous() {
   ROS_DEBUG("makePlanSynchronous");
@@ -187,13 +149,6 @@ void ExplorationPlanner::makePlanSynchronous() {
   
   // UGV planner will make a plan first (but is still paused)
   ugv_planner_.createInitNavigationPlan();
-  pub_ugv_goal_.publish(ugv_planner_.navigation_goal);
-  pub_ugv_goal_path_.publish(ugv_planner_.navigation_path_init);
-  // Wait until we get the "optimized" path back 
-  while (ugv_planner_.navigation_path.poses.empty()) {
-    ros::spinOnce();
-    check_rate.sleep();
-  }
 
   // Work on path made by UGV planner and create communication "beacons"
   ugv_planner_.createNavigationWaypoints(nr_of_ugv_nav_waypoints_, add_nav_waypoint_at_goal_);
@@ -312,8 +267,7 @@ void ExplorationPlanner::visualizePaths(std::vector<nav_msgs::Path> paths) {
     return;
   }
 
-  bool add_current_pose_to_path = true;
-  geometry_msgs::Point current_pose = paths.rbegin()->poses.begin()->pose.position;
+  bool add_current_pose_to_path = false;
 
   visualization_msgs::MarkerArray path_marker_array;
   for (auto const& path_it : paths) {
@@ -330,6 +284,7 @@ void ExplorationPlanner::visualizePaths(std::vector<nav_msgs::Path> paths) {
     path_marker.color.g = 1.0;
     path_marker.color.b = 0.1;
     if (add_current_pose_to_path) {
+      geometry_msgs::Point current_pose = path_it.poses.begin()->pose.position;
       path_marker.points.push_back(current_pose);
     }
     for (auto const& pose_it : path_it.poses) {

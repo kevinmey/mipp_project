@@ -31,10 +31,12 @@ enum VehicleState { INIT, IDLE, PLANNING, MOVING, RECOVERING };
 
 struct UGVPlanner
 {
+  // Publishers
+  ros::Publisher pub_goal_;
+  ros::Publisher pub_goal_path_;
   // Vehicle planner state
-  //void changeState(VehicleState new_state);
+  void updateStateMachine();
   VehicleState vehicle_state;
-  VehicleState vehicle_previous_state;
   // Exploration (Frontier exploration using RRT)
   void sendExplorationGoal(float exploration_time);
   bool isExplorationDone();
@@ -61,8 +63,8 @@ struct UAVPlanner
   // General
   int uav_id;
   // Vehicle planner state
+  void updateStateMachine();
   VehicleState vehicle_state;
-  VehicleState vehicle_previous_state;
   // Exploration (Informative exploration using RRT)
   void sendExplorationGoal(float exploration_time);
   bool isExplorationDone();
@@ -108,6 +110,7 @@ private:
   void subUGVPlan(const nav_msgs::PathConstPtr& path_msg);
   // Planner functions
   void runStateMachine();
+  void makePlanIndividual(int vehicle_id);
   void makePlanSynchronous();
   // Utility functions
   void getParams(ros::NodeHandle np);
@@ -118,8 +121,6 @@ private:
   void visualizePathFOVs(std::vector<nav_msgs::Path> paths, float ray_length);
 
   // Publishers
-  ros::Publisher pub_ugv_goal_;
-  ros::Publisher pub_ugv_goal_path_;
   ros::Publisher pub_ugv_pause_navigation_;
   ros::Timer pub_timer_pause_navigation_;
   ros::Publisher pub_viz_sensor_circle_;
