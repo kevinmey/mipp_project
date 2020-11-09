@@ -1,25 +1,33 @@
 footprint: [[-0.5, -0.33], [-0.5, 0.33], [0.5, 0.33], [0.5, -0.33]]
-footprint_padding: 0.01
+footprint_padding: 0.5
 
 robot_base_frame: base_link
 update_frequency: 1.0
 publish_frequency: 2.0
 transform_tolerance: 0.5
 
-resolution: 0.1
+resolution: 0.2
 
 obstacle_range: 5.5
 raytrace_range: 6.0
 
 #layer definitions
 static:
-    map_topic: /projected_map
-    subscribe_to_updates: true
+    map_topic: /map
+    subscribe_to_updates: false
+
+static_inflation:
+    inflation_radius: 5.0
+    resolution: 0.2
+
+#static_obstacles:
+#    observation_sources: octomap_cloud
+#    octomap_cloud: {data_type: PointCloud2, clearing: false, marking: true, topic: /octomap/points, inf_is_valid: true}
 
 obstacles_laser:
     observation_sources: laser
     laser: {data_type: LaserScan, clearing: true, marking: true, topic: scan, inf_is_valid: true}
 
-inflation:
-    inflation_radius: 1.0
+obstacles_inflation:
+    inflation_radius: 0.5
     resolution: 0.1

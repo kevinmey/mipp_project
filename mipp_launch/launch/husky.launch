@@ -135,7 +135,9 @@
   </group>
 
   <include file="$(find mipp_packages)/launch/ugv_frontier_explorer.launch">
-    <arg name="robot_namespace"        value="$(arg robot_namespace)"/>
+    <arg name="robot_namespace"         value="$(arg robot_namespace)"/>
+    <arg name="robot_start_x"           value="$(arg x)"/>
+    <arg name="robot_start_y"           value="$(arg y)"/>
   </include>
 
 </launch>

@@ -224,7 +224,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   ros::Time start_time = ros::Time::now();
   ros::Time last_check_time = ros::Time::now();
   double last_check_cost = goal_.cost_;
-  double check_interval = 0.2;
+  double check_interval = 2.0;
   while((ros::Time::now() - start_time).toSec() < planner_max_time_){
     ros::Time begin = ros::Time::now();
     
@@ -306,7 +306,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
       }
     }
 
-    // Check if path distance is close to euvlidean distance (straight line found)
+    // Check if path distance is close to euclidean distance (straight line found)
     if(std::abs(goal_path_distance_ - goal_euclidean_distance_) < 0.01){
       ROS_DEBUG("Finishing plan early (%f/%f s), straight line path found.", (ros::Time::now() - start_time).toSec(), planner_max_time_);
       break;
@@ -338,7 +338,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   double optimization_resolution = 0.5;
   optimizePath(optimization_resolution);
   optimizePath(0.5*optimization_resolution);
-  optimizePath(0.2*optimization_resolution);
+  optimizePath(0.1);
   visualizePath(path_);
   plan.clear();
   for (auto path_it = path_.begin(); path_it != path_.end(); ++path_it) {

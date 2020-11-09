@@ -239,7 +239,7 @@ void UGVFrontierExplorer::runFrontierExploration()
   }
 
   path_.clear();
-  tree_.clear();
+  //tree_.clear();
   frontier_nodes_.clear();
 
   if(use_dynamic_range_){
@@ -263,8 +263,10 @@ void UGVFrontierExplorer::runFrontierExploration()
   double start_x = ugv_odometry_.pose.pose.position.x;
   double start_y = ugv_odometry_.pose.pose.position.y;
   const double start_yaw = tf2::getYaw(ugv_odometry_.pose.pose.orientation);
-  root_ = Node(start_x, start_y, 0.0, start_yaw, 0.0, 0.0, 0, nullptr, false);
-  tree_.push_back(root_);
+  if (tree_.empty()) {
+    root_ = Node(start_x, start_y, 0.0, start_yaw, 0.0, 0.0, 0, nullptr, false);
+    tree_.push_back(root_);
+  }
 
   // Grow frontier exploration tree
   ros::Rate rate(planner_rate_);
@@ -383,7 +385,8 @@ void UGVFrontierExplorer::extendTreeRRTstar(geometry_msgs::Point candidate_point
       Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, node_yaw, node_cost, 0.0, node_id, neighbor_itr->second, node_rank, node_is_goal);
 
       if (isPositionUnmapped(candidate_point.x, candidate_point.y) and node_cost > planner_min_distance_to_frontier_ and node_cost < planner_max_distance_to_frontier_) {
-        frontier_nodes_.insert(std::pair<double, Node>(node_cost, new_node));
+        float frontier_node_cost = getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, candidate_point);
+        frontier_nodes_.insert(std::pair<double, Node>(frontier_node_cost, new_node));
         ROS_DEBUG("Frontier found. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, neighbor_itr->second->id_, node_rank, node_cost);
       } else {
         tree_.push_back(new_node);
