@@ -1,4 +1,4 @@
-#include <ExplorationPlanner.hpp>
+#include <MippPlanner.hpp>
 
 // SUBMODULE FOR EXPLORATION PLANNER
 

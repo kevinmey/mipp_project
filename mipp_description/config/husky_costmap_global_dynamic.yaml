@@ -3,5 +3,5 @@ rolling_window: false
 track_unknown_space: true
 
 plugins:
-  - {name: global_static_map,                          type: "costmap_2d::StaticLayer"}
+  - {name: global_dynamic_map,              type: "costmap_2d::StaticLayer"}
   - {name: global_inflation,                type: "costmap_2d::InflationLayer"}

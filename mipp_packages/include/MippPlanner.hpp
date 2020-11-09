@@ -93,13 +93,13 @@ struct SensorCircle
   float radius;
 };*/
  
-class ExplorationPlanner
+class MippPlanner
 {
 public:
   // Constructor
-  ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np);
+  MippPlanner(ros::NodeHandle n, ros::NodeHandle np);
   // Destructor
-  ~ExplorationPlanner();
+  ~MippPlanner();
   
 private:
   // Functions

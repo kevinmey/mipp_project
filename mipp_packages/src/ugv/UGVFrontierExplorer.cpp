@@ -520,10 +520,13 @@ bool UGVFrontierExplorer::isPathCollisionFree(double world_x_a, double world_y_a
 bool UGVFrontierExplorer::isPositionOutsideMap(double world_x, double world_y)
 {
   ROS_DEBUG("isPositionOutsideMap");
+  ROS_DEBUG("(%.2f, %.2f) , (%.2f, %.2f) - (%.2f, %.2f)", world_x, world_y, 
+                                                         map_origin_x_, map_width_ + map_origin_x_,
+                                                         map_origin_y_, map_height_ + map_origin_y_);
   return (world_x < map_origin_x_ or 
-          world_x >= world_x >= map_width_ + map_origin_x_ or
+          world_x >= map_width_ + map_origin_x_ or
           world_y < map_origin_y_ or 
-          world_y >= world_y >= map_height_ + map_origin_y_);
+          world_y >= map_height_ + map_origin_y_);
 }
 
 bool UGVFrontierExplorer::isPositionCollisionFree(double world_x, double world_y)

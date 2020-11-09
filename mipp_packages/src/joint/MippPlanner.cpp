@@ -1,22 +1,22 @@
-#include <ExplorationPlanner.hpp>
+#include <MippPlanner.hpp>
 
 // Constructor
   
-ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
-  ROS_INFO("ExplorationPlanner object is being created.");
+MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
+  ROS_INFO("MippPlanner object is being created.");
 
   // Initialize values
   getParams(np);
 
   pub_ugv_pause_navigation_     = n.advertise<std_msgs::Bool>(ugv_ns_+"pause_navigation", 1);
-  pub_timer_pause_navigation_   = n.createTimer(ros::Duration(0.1), boost::bind(&ExplorationPlanner::pubUGVPauseNavigation, this));
-  pub_viz_sensor_circle_        = n.advertise<visualization_msgs::Marker>("ExplorationPlanner/viz_sensor_circle_", 1);
-  pub_viz_sensor_coverages_     = n.advertise<visualization_msgs::MarkerArray>("ExplorationPlanner/viz_sensor_coverages_", 1);
-  pub_viz_uav_paths_            = n.advertise<visualization_msgs::MarkerArray>("ExplorationPlanner/viz_uav_paths", 1);
-  pub_viz_uav_path_fovs_        = n.advertise<visualization_msgs::MarkerArray>("ExplorationPlanner/viz_uav_path_fovs", 1);
+  pub_timer_pause_navigation_   = n.createTimer(ros::Duration(0.1), boost::bind(&MippPlanner::pubUGVPauseNavigation, this));
+  pub_viz_sensor_circle_        = n.advertise<visualization_msgs::Marker>("MippPlanner/viz_sensor_circle_", 1);
+  pub_viz_sensor_coverages_     = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_sensor_coverages_", 1);
+  pub_viz_uav_paths_            = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_uav_paths", 1);
+  pub_viz_uav_path_fovs_        = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_uav_path_fovs", 1);
 
-  sub_clicked_point_ = n.subscribe("/exploration/start_collaborative", 1, &ExplorationPlanner::subClickedPoint, this);
-  sub_ugv_goal_plan_ = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &ExplorationPlanner::subUGVPlan, this);
+  sub_clicked_point_ = n.subscribe("/exploration/start_collaborative", 1, &MippPlanner::subClickedPoint, this);
+  sub_ugv_goal_plan_ = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &MippPlanner::subUGVPlan, this);
 
   // Make a UGVPlanner object as container for variables for the UGV
   ugv_planner_.pub_goal_        = n.advertise<geometry_msgs::PoseStamped>(ugv_ns_+"move_base_simple/goal", 1);
@@ -76,13 +76,13 @@ ExplorationPlanner::ExplorationPlanner(ros::NodeHandle n, ros::NodeHandle np) {
 
 // Destructor
   
-ExplorationPlanner::~ExplorationPlanner() {
-  ROS_INFO("ExplorationPlanner object is being deleted.");
+MippPlanner::~MippPlanner() {
+  ROS_INFO("MippPlanner object is being deleted.");
 }
 
 // Publish functions
 
-void ExplorationPlanner::pubUGVPauseNavigation() {
+void MippPlanner::pubUGVPauseNavigation() {
   ROS_DEBUG("pubUGVPauseNavigation");
   std_msgs::Bool pub_msg;
   pub_msg.data = ugv_planner_.navigation_paused;
@@ -91,13 +91,13 @@ void ExplorationPlanner::pubUGVPauseNavigation() {
 
 // Callback functions for subscriptions
 
-void ExplorationPlanner::subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg) {
+void MippPlanner::subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg) {
   ROS_DEBUG("subClickedPoint");
 
-  makePlanSynchronous();
+  //makePlanSynchronous();
 }
 
-void ExplorationPlanner::subUGVPlan(const nav_msgs::PathConstPtr& path_msg) {
+void MippPlanner::subUGVPlan(const nav_msgs::PathConstPtr& path_msg) {
   ROS_DEBUG("subUGVPlan");
 
   ugv_planner_.navigation_path = *path_msg;
@@ -105,11 +105,11 @@ void ExplorationPlanner::subUGVPlan(const nav_msgs::PathConstPtr& path_msg) {
 
 // PLanner functions
 
-void ExplorationPlanner::makePlanIndividual(int vehicle_id) {
+void MippPlanner::makePlanIndividual(int vehicle_id) {
 
 }
 
-void ExplorationPlanner::makePlanSynchronous() {
+void MippPlanner::makePlanSynchronous() {
   ROS_DEBUG("makePlanSynchronous");
   ros::Rate check_rate(10);
 
@@ -185,7 +185,7 @@ void ExplorationPlanner::makePlanSynchronous() {
 
 // Utility functions
 
-void ExplorationPlanner::getParams(ros::NodeHandle np) {
+void MippPlanner::getParams(ros::NodeHandle np) {
   ROS_DEBUG("getParams");
   // General
   np.param<std::string>("planner_world_frame", planner_world_frame_, "world");
@@ -207,7 +207,7 @@ void ExplorationPlanner::getParams(ros::NodeHandle np) {
 
 // Visualization
 
-void ExplorationPlanner::visualizeSensorCircle(SensorCircle sensor_circle) {
+void MippPlanner::visualizeSensorCircle(SensorCircle sensor_circle) {
   ROS_DEBUG("visualizeSensorCircle");
   visualization_msgs::Marker marker;
 
@@ -229,7 +229,7 @@ void ExplorationPlanner::visualizeSensorCircle(SensorCircle sensor_circle) {
   pub_viz_sensor_circle_.publish(marker);
 }
 
-void ExplorationPlanner::visualizeSensorCoverages() {
+void MippPlanner::visualizeSensorCoverages() {
   ROS_DEBUG("visualizeSensorCoverages");
   visualization_msgs::MarkerArray marker_array;
 
@@ -261,7 +261,7 @@ void ExplorationPlanner::visualizeSensorCoverages() {
   pub_viz_sensor_coverages_.publish(marker_array);
 }
 
-void ExplorationPlanner::visualizePaths(std::vector<nav_msgs::Path> paths) {
+void MippPlanner::visualizePaths(std::vector<nav_msgs::Path> paths) {
   ROS_DEBUG("visualizePaths");
   if(paths.empty()){
     return;
@@ -296,7 +296,7 @@ void ExplorationPlanner::visualizePaths(std::vector<nav_msgs::Path> paths) {
   pub_viz_uav_paths_.publish(path_marker_array);
 }
 
-void ExplorationPlanner::visualizePathFOVs(std::vector<nav_msgs::Path> paths, float ray_length) {
+void MippPlanner::visualizePathFOVs(std::vector<nav_msgs::Path> paths, float ray_length) {
   ROS_DEBUG("visualizePathFOVs");
   if(paths.empty()){
     return;

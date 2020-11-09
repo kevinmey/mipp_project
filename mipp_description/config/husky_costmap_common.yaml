@@ -12,11 +12,13 @@ obstacle_range: 5.5
 raytrace_range: 6.0
 
 #layer definitions
-static:
+global_static_map:
     map_topic: /map
-    subscribe_to_updates: false
 
-static_inflation:
+global_dynamic_map:
+    map_topic: /projected_map
+
+global_inflation:
     inflation_radius: 5.0
     resolution: 0.2
 

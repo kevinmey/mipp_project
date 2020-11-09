@@ -58,27 +58,27 @@ add_library(
 )
 
 ###                ###
-# Exploration Planner #
+# Mipp Planner #
 ###                ###
 
-## exploration_planner_node
+## mipp_planner_node
 
 add_executable(
-    exploration_planner_node
-    src/joint/exploration_planner_node.cpp
-    src/joint/ExplorationPlanner.cpp
+    mipp_planner_node
+    src/joint/mipp_planner_node.cpp
+    src/joint/MippPlanner.cpp
     src/joint/UGVPlanner.cpp
     src/joint/UAVPlanner.cpp
 )
 
 add_dependencies(
-    exploration_planner_node
-    ${exploration_planner_node_EXPORTED_TARGETS} 
+    mipp_planner_node
+    ${mipp_planner_node_EXPORTED_TARGETS} 
     ${catkin_EXPORTED_TARGETS}
 )
 
 target_link_libraries(
-    exploration_planner_node
+    mipp_planner_node
     common_libs
     ${catkin_LIBRARIES}
 )

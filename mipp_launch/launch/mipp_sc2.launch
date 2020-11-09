@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="run_gazebo"  default="true"/>
-  <arg name="world_file_name"   default="sc1/shapes_1" />
+  <arg name="world_file_name"   default="sc2/shapes_1" />
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
   <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
-  <arg name="nr_of_uavs"  default="1"/>
+  <arg name="nr_of_uavs"  default="0"/>
   <arg name="uav_planner_rate"          default="100.0"/>
   <arg name="run_mipp_planner"          default="true"/>
   <arg name="com_range"                 default="15.0"/>
@@ -107,6 +107,7 @@
       <arg name="robot_namespace"         value="$(arg ugv_ns)"/>
       <arg name="x"                       value="$(arg ugv_start_x)"/>
       <arg name="y"                       value="$(arg ugv_start_y)"/>
+      <arg name="no_static_map"           value="false"/>
     </include>
   </group>
 
@@ -120,7 +121,7 @@
     </include>
   </group>
 
-  <arg name="map_file" default="$(find mipp_gazebo)/worlds/sc1/shapes_1_map.yaml"/>
+  <arg name="map_file" default="$(find mipp_gazebo)/worlds/$(arg world_file_name)_map.yaml"/>
   <node pkg="map_server" type="map_server" name="map_server" output="screen" args="$(arg map_file)">
     <!-- Remap topics 
     <remap from="/map" to="/projected_map"/>-->

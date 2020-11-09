@@ -531,8 +531,7 @@ double UAVInformativeExplorer::calculateInformationGain(geometry_msgs::Point ori
   return unmapped;
 }
 
-geometry_msgs::Point UAVInformativeExplorer::generateRandomPoint()
-{
+geometry_msgs::Point UAVInformativeExplorer::generateRandomPoint() {
   ROS_DEBUG("generateRandomPoint");
 
   geometry_msgs::Point sample_point;

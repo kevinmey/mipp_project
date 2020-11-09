@@ -230,6 +230,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     
     geometry_msgs::Point sample_point;
     bool sample_is_goal = false;
+    initial_path_.clear();
     if (!initial_path_.empty()){
       sample_point = initial_path_.front();
       initial_path_.erase(initial_path_.begin());
@@ -614,9 +615,9 @@ void UGVPlanner::optimizePath(float optimization_resolution)
         geometry_msgs::Point point_on_path = point_a;
         geometry_msgs::Vector3 path_direction = getDirection(point_a, point_b);
         while (getDistanceBetweenPoints(point_on_path, point_b) > planner_max_ray_distance_) {
-          point_on_path.x += optimization_resolution*planner_max_ray_distance_*path_direction.x;
-          point_on_path.y += optimization_resolution*planner_max_ray_distance_*path_direction.y;
-          point_on_path.z += optimization_resolution*planner_max_ray_distance_*path_direction.z;
+          point_on_path.x += optimization_resolution*path_direction.x;
+          point_on_path.y += optimization_resolution*path_direction.y;
+          point_on_path.z += optimization_resolution*path_direction.z;
           optimized_path.push_back(point_on_path);
           ROS_DEBUG("Made new point (%.2f, %.2f)", point_on_path.x, point_on_path.y);
         }

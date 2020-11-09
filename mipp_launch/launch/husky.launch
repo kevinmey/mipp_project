@@ -13,6 +13,7 @@
   <arg name="urdf_extras" default="$(find mipp_description)/urdf/accessories/extras.urdf.xacro"/>
   <arg name="republish_pointcloud"    default="true"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
+  <arg name="no_static_map"           default="false"/> <!-- K: Changed to false (external map from octomap) -->
   
   <group ns="$(arg robot_namespace)">
     <!-- K: Husky Control launch -->
@@ -94,7 +95,6 @@
     <!---
       Run Move Base Demo 
     -->
-    <arg name="no_static_map" default="false"/> <!-- K: Changed to false (external map from octomap) -->
     <arg name="base_global_planner" default="ugv_planner/UGVPlanner"/>
     <arg name="base_local_planner" default="teb_local_planner/TebLocalPlannerROS"/>
 
@@ -110,9 +110,9 @@
       <param name="local_costmap/width" value="10.0"/>
       <param name="local_costmap/height" value="10.0"/>
       <!-- static global costmap, static map provides size -->
-      <rosparam file="$(find mipp_description)/config/husky_costmap_global.yaml" command="load" ns="global_costmap" unless="$(arg no_static_map)"/>
+      <rosparam file="$(find mipp_description)/config/husky_costmap_global_static.yaml" command="load" ns="global_costmap" unless="$(arg no_static_map)"/>
       <!-- global costmap with laser, for odom_navigation_demo -->
-      <rosparam file="$(find husky_navigation)/config/costmap_global_laser.yaml" command="load" ns="global_costmap" if="$(arg no_static_map)"/>
+      <rosparam file="$(find mipp_description)/config/husky_costmap_global_dynamic.yaml" command="load" ns="global_costmap" if="$(arg no_static_map)"/>
       <param name="global_costmap/width" value="100.0" if="$(arg no_static_map)"/>
       <param name="global_costmap/height" value="100.0" if="$(arg no_static_map)"/>
   
