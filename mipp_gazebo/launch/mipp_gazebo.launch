@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="world_path"  default="$(find mipp_gazebo)/worlds/maze_30x30.world" />
+  <arg name="world_path"  default="$(find mipp_gazebo)/worlds/sc1/shapes_1.world" />
   <arg name="gui"         default="true"/>
 
   <!--- 

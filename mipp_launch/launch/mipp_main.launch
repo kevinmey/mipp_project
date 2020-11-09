@@ -1,18 +1,21 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="run_gazebo"  default="true"/>
-  <arg name="world_file_name"   default="empty_60x60" />
+  <arg name="world_file_name"   default="sc1/shapes_1" />
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
   <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
   <arg name="nr_of_uavs"  default="1"/>
-  <arg name="uav_planner_rate"          default="200.0"/>
+  <arg name="uav_planner_rate"          default="100.0"/>
   <arg name="run_exploration_server"    default="true"/>
   <arg name="com_range"                 default="15.0"/>
   <arg name="octomap_rate"              default="2.0"/>
   <arg name="octomap_cloud_topic"    default="/octomap/points"/>
+
+  <arg name="ugv_start_x"              default="-25.0"/>
+  <arg name="ugv_start_y"              default="-25.0"/>
 
   <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  10"/>
   <node pkg="tf" type="static_transform_publisher" name="tf_world_map_link" args="0 0 0 0 0 0  /world /map  10"/>
@@ -27,13 +30,13 @@
     <arg name="resolution"                      value="0.20"/>
     <arg name="frame_id"                        value="world"/>
 		<arg name="base_frame_id"                   value="base_footprint"/>
-		<arg name="sensor_model/max_range"          value="7.5"/>
+		<arg name="sensor_model/max_range"          value="7.0"/>
   	<arg name="latch"                           value="false"/>
 		<arg name="filter_ground"                   value="false"/>
 		<arg name="pointcloud_min_z"                value="0.1"/>
 		<arg name="pointcloud_max_z"                value="5.0"/>
 		<arg name="occupancy_min_z"                value="0.2"/>
-		<arg name="occupancy_max_z"                value="4.0"/>
+		<arg name="occupancy_max_z"                value="5.0"/>
 	  <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
   </include>
 
@@ -42,8 +45,8 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(eval arg('nr_of_uavs') >= 1)">
     <arg name="uav_id"                    value="0"/>
-    <arg name="initial_x"                 value="-3"/>
-    <arg name="initial_y"                 value="-3"/>
+    <arg name="initial_x"                 value="$(eval arg('ugv_start_x')+3)"/>
+    <arg name="initial_y"                 value="$(eval arg('ugv_start_y')+0)"/>
     <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
     <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
@@ -55,8 +58,8 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(eval arg('nr_of_uavs') >= 2)">
     <arg name="uav_id"        value="1"/>
-    <arg name="initial_x"     value="-3"/>
-    <arg name="initial_y"     value="3"/>
+    <arg name="initial_x"                 value="$(eval arg('ugv_start_x')-2)"/>
+    <arg name="initial_y"                 value="$(eval arg('ugv_start_y')-2)"/>
     <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
     <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
@@ -68,8 +71,8 @@
   -->
   <include file="$(find mipp_launch)/launch/uav.launch" if="$(eval arg('nr_of_uavs') >= 3)">
     <arg name="uav_id"        value="2"/>
-    <arg name="initial_x"     value="-3"/>
-    <arg name="initial_y"     value="0"/>
+    <arg name="initial_x"                 value="$(eval arg('ugv_start_x')-2)"/>
+    <arg name="initial_y"                 value="$(eval arg('ugv_start_y')+2)"/>
     <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
     <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
@@ -101,7 +104,9 @@
   <arg name="ugv_ns"  default="/ugv"/>
   <group if="$(arg run_husky)">
     <include file="$(find mipp_launch)/launch/husky.launch">
-      <arg name="robot_namespace"        value="$(arg ugv_ns)"/>
+      <arg name="robot_namespace"         value="$(arg ugv_ns)"/>
+      <arg name="x"                       value="$(arg ugv_start_x)"/>
+      <arg name="y"                       value="$(arg ugv_start_y)"/>
     </include>
   </group>
 
@@ -114,5 +119,11 @@
       <arg name="ugv_ns"        value="/ugv/"/>
     </include>
   </group>
+
+  <arg name="map_file" default="$(find mipp_gazebo)/worlds/sc1/shapes_1_map.yaml"/>
+  <node pkg="map_server" type="map_server" name="map_server" output="screen" args="$(arg map_file)">
+    <!-- Remap topics 
+    <remap from="/map" to="/projected_map"/>-->
+  </node>
 
 </launch>

@@ -5,11 +5,10 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /UGV1
         - /UGV1/Navigation1
         - /UGV1/Navigation1/Global RRT planner1
         - /UGV1/Navigation1/Global RRT planner1/PathToGoal1
-        - /UAV01
-        - /UAV01/Avoidance1
       Splitter Ratio: 0.3964401185512543
     Tree Height: 1220
   - Class: rviz/Selection
@@ -1466,25 +1465,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 25.610496520996094
+      Distance: 62.328468322753906
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.953115701675415
-        Y: -8.625433921813965
-        Z: 2.5952154828701168e-5
+        X: -0.09842824935913086
+        Y: -21.563108444213867
+        Z: 3.501206083456054e-5
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7497981190681458
+      Pitch: 0.6297982931137085
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 4.680454254150391
+      Yaw: 4.755456924438477
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
