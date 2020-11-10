@@ -32,8 +32,9 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   // Start service server
   act_move_vehicle_server_.start();
   // Establish service clients
-  cli_arm_ =      n.serviceClient<mavros_msgs::CommandBool>("uav_server/arm");
-  cli_set_mode_ = n.serviceClient<mavros_msgs::SetMode>("uav_server/set_mode");
+  cli_takeoff_complete_ = n.advertiseService("takeoff_complete_service", &UAVServer::cliIsTakeoffComplete, this);
+  cli_arm_              = n.serviceClient<mavros_msgs::CommandBool>("uav_server/arm");
+  cli_set_mode_         = n.serviceClient<mavros_msgs::SetMode>("uav_server/set_mode");
   // TF
   tf_listener_ = new tf2_ros::TransformListener(tf_buffer_);
 
@@ -196,6 +197,14 @@ void UAVServer::subLocalGoal(const geometry_msgs::PoseStampedConstPtr& local_goa
   uav_local_goal_ = *local_goal_msg;
 }
 
+// Service callback
+
+bool UAVServer::cliIsTakeoffComplete(mipp_msgs::TakeoffComplete::Request& request, mipp_msgs::TakeoffComplete::Response& response) {
+  ROS_DEBUG("cliIsTakeoffComplete");
+  response.takeoff_complete = uav_takeoff_complete_ and uav_clearing_rotation_complete_;
+  return true;
+}
+
 // Actionlib callback
 
 void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
@@ -270,6 +279,8 @@ void UAVServer::takeoff() {
   ROS_DEBUG("takeoff");
 
   ros::Rate rate(20.0);
+  uav_takeoff_complete_ = false;
+  uav_clearing_rotation_complete_ = false;
 
   // Wait for FCU connection
   while(ros::ok() && !uav_state_.connected){
@@ -293,8 +304,6 @@ void UAVServer::takeoff() {
   float wait_duration = 2.0; // Give each step about 2 seconds
 
   // Mavros request/command procedure to get drone to take off
-  uav_takeoff_complete_ = false;
-  uav_clearing_rotation_complete_ = false;
   while(!uav_takeoff_complete_)
   {
     if( uav_state_.mode != "OFFBOARD" &&

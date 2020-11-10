@@ -5,6 +5,7 @@
 
 #include <actionlib/server/simple_action_server.h>
 #include <mipp_msgs/MoveVehicleAction.h>
+#include <mipp_msgs/TakeoffComplete.h>
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -42,6 +43,7 @@ public:
   void subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_msg);
   void subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg);
   void subLocalGoal(const geometry_msgs::PoseStamped::ConstPtr& local_goal_msg);
+  bool cliIsTakeoffComplete(mipp_msgs::TakeoffComplete::Request& request, mipp_msgs::TakeoffComplete::Response& response);
   // Actionlib
   void actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal);
 
@@ -82,6 +84,7 @@ private:
   actionlib::SimpleActionServer<mipp_msgs::MoveVehicleAction> act_move_vehicle_server_;
   mipp_msgs::MoveVehicleFeedback act_move_vehicle_feedback_;
   mipp_msgs::MoveVehicleResult act_move_vehicle_result_;
+  ros::ServiceServer cli_takeoff_complete_;
   // Service clients
   ros::ServiceClient cli_arm_;
   ros::ServiceClient cli_set_mode_;
