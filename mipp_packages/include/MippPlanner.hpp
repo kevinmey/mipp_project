@@ -9,8 +9,9 @@
 #include "mipp_msgs/ExplorationResult.h"
 #include "mipp_msgs/ExplorationPath.h"
 #include "mipp_msgs/ExplorationPose.h"
-#include <mipp_msgs/StartExplorationAction.h>
-#include <mipp_msgs/MoveVehicleAction.h>
+#include "mipp_msgs/StartExplorationAction.h"
+#include "mipp_msgs/MoveVehicleAction.h"
+#include "mipp_msgs/TakeoffComplete.h"
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
 
@@ -27,7 +28,7 @@
 
 //
 
-enum VehicleState { INIT, IDLE, PLANNING, MOVING, RECOVERING };
+enum VehicleState { INIT=-1, IDLE=0, PLANNING=1, MOVING=2, RECOVERING=3 };
 
 struct UGVPlanner
 {
@@ -62,9 +63,15 @@ struct UAVPlanner
 {
   // General
   int uav_id;
+  void init(ros::NodeHandle n);
+  // Global Info (Stored in MippPlanner object)
+  std::map<int, std::vector<SensorCircle>>* global_sensor_coverages;
+  std::map<int, nav_msgs::Path>* global_uav_paths;
   // Vehicle planner state
   void updateStateMachine();
   VehicleState vehicle_state;
+  ros::Timer state_timer;
+  ros::ServiceClient takeoff_client;
   // Exploration (Informative exploration using RRT)
   void sendExplorationGoal(float exploration_time);
   bool isExplorationDone();
@@ -73,9 +80,11 @@ struct UAVPlanner
   mipp_msgs::StartExplorationGoal exploration_goal;
   mipp_msgs::ExplorationResult exploration_result;
   // Navigation
+  std::vector<SensorCircle> getExistingSensorCoverages();
   void createNavigationPlan(std::vector<SensorCircle> sensor_coverages, float uav_camera_range);
   void sendMoveVehicleGoal(float move_vehicle_time);
   std::vector<SensorCircle> sensor_coverage;
+  float camera_range;
   actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>* move_vehicle_client;
   mipp_msgs::MoveVehicleGoal move_vehicle_goal;
   geometry_msgs::PoseStamped navigation_goal;
@@ -116,9 +125,10 @@ private:
   void getParams(ros::NodeHandle np);
   // Visualization functions
   void visualizeSensorCircle(SensorCircle sensor_circle);
-  void visualizeSensorCoverages();
+  void visualizeSensorCoverages(std::vector<SensorCircle> sensor_coverages);
   void visualizePaths(std::vector<nav_msgs::Path> paths);
   void visualizePathFOVs(std::vector<nav_msgs::Path> paths, float ray_length);
+  void visualizeNavWaypoints();
 
   // Publishers
   ros::Publisher pub_ugv_pause_navigation_;
@@ -127,6 +137,7 @@ private:
   ros::Publisher pub_viz_sensor_coverages_;
   ros::Publisher pub_viz_uav_paths_;
   ros::Publisher pub_viz_uav_path_fovs_;
+  ros::Publisher pub_viz_nav_waypoints_;
   // Subscribers
   ros::Subscriber sub_clicked_point_;
   ros::Subscriber sub_ugv_goal_plan_;
@@ -144,7 +155,6 @@ private:
   //// UAV
   int nr_of_uavs_;
   std::string uav_world_frame_;
-  float uav_sensor_range_;
   float uav_camera_width_;
   float uav_camera_height_;
   float uav_camera_hfov_;
@@ -154,8 +164,12 @@ private:
   // Variables
   bool running_exploration_;
   //// Collaborative
-  std::vector<SensorCircle> sensor_coverages_;
+  std::vector<geometry_msgs::Point> ugv_waypoints_;
+  std::map<int, std::vector<SensorCircle>> uav_sensor_coverages_;
+  std::map<int, nav_msgs::Path> uav_paths_;
   //// UGV
+  float ugv_start_x_;
+  float ugv_start_y_;
   UGVPlanner ugv_planner_;
   //// UAVs
   std::vector<UAVPlanner> uav_planners_;

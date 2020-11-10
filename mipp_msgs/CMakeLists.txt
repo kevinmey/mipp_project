@@ -42,10 +42,11 @@ add_message_files(
 )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   StartExploration.srv
-# )
+add_service_files(
+  DIRECTORY srv
+  FILES
+  TakeoffComplete.srv
+ )
 
 add_action_files(
   DIRECTORY action

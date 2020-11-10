@@ -12,8 +12,9 @@
   <arg name="kinect_enabled" default="false"/>
   <arg name="urdf_extras" default="$(find mipp_description)/urdf/accessories/extras.urdf.xacro"/>
   <arg name="republish_pointcloud"    default="true"/>
-  <arg name="octomap_cloud_topic"    default="/octomap/points"/>
+  <arg name="octomap_cloud_topic"     default="/octomap/points"/>
   <arg name="no_static_map"           default="false"/> <!-- K: Changed to false (external map from octomap) -->
+  <arg name="no_sensor"               default="false"/>
   
   <group ns="$(arg robot_namespace)">
     <!-- K: Husky Control launch -->
@@ -129,7 +130,7 @@
     </node>
     
     <!-- Relay/republish pointcloud to common cloud for OctoMap -->
-    <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="gazebo/velodyne_points $(arg octomap_cloud_topic)" if="$(arg republish_pointcloud)"/>
+    <node name="pointcloud_republisher_ugv" pkg="topic_tools" type="relay" args="gazebo/velodyne_points $(arg octomap_cloud_topic)" unless="$(arg no_sensor)"/>
   
     <remap from="/odometry/filtered" to="odometry/filtered"/>
   </group>
