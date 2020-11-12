@@ -167,7 +167,7 @@ nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath exp_path) {
     path_pose.pose = exp_path_it->pose;
     path.poses.push_back(path_pose);
   }
-  ROS_INFO("Made path from: (%f, %f, %f) to (%f, %f, %f)", 
+  ROS_DEBUG("Made path from: (%f, %f, %f) to (%f, %f, %f)", 
            path.poses.begin()->pose.position.x, path.poses.begin()->pose.position.y, path.poses.begin()->pose.position.z,
            path.poses.rbegin()->pose.position.x, path.poses.rbegin()->pose.position.y, path.poses.rbegin()->pose.position.z);
   return path;

@@ -198,6 +198,8 @@ void UAVInformativeExplorer::actStartExploration(const mipp_msgs::StartExplorati
     path_.push_back(pose_it);
     ROS_DEBUG("Took out nav. path pose: (%.2f, %.2f)", pose_it.pose.position.x, pose_it.pose.position.y);
   }
+  planner_sample_centers_ = goal->sampling_centers;
+  planner_sample_radius_ = goal->sampling_radius;
 
   runExploration();
 
@@ -303,6 +305,10 @@ void UAVInformativeExplorer::runExploration() {
   tree_.clear();
   exploration_nodes_.clear();
 
+  if (planner_sample_centers_.empty()) {
+    planner_sample_centers_.push_back(uav_pose_.pose.position);
+  }
+
   double start_x = uav_pose_.pose.position.x;
   double start_y = uav_pose_.pose.position.y;
   double start_z = uav_pose_.pose.position.z;
@@ -336,8 +342,6 @@ void UAVInformativeExplorer::runExploration() {
     }
     else {
       sample_point = generateRandomPoint();
-      sample_point.x += uav_pose_.pose.position.x;
-      sample_point.y += uav_pose_.pose.position.y;
       sample_yaw = M_PI - 2*M_PI*unit_distribution_(generator_);
       ROS_DEBUG("Sampled random point: (x,y,z,y) = (%.1f,%.1f,%.1f,%.1f)",sample_point.x,sample_point.y,sample_point.z,angles::to_degrees(sample_yaw));
     }
@@ -425,6 +429,8 @@ void UAVInformativeExplorer::runExploration() {
     node_on_path = *(node_on_path.getParent());
   }
   ROS_INFO("Done");
+
+  planner_sample_centers_.clear();
 
   // Visualize the paths if this isn't an action (aka called by the collaborative exploration planner)
   if (!planner_action_in_progress_) {
@@ -543,6 +549,11 @@ geometry_msgs::Point UAVInformativeExplorer::generateRandomPoint() {
   sample_point.y = radius*sin(theta);
   sample_point.z = uav_takeoff_z_ + planner_sample_z_interval_*(2*unit_distribution_(generator_) - 1);
   ROS_DEBUG("Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
+
+  int sample_center_id = (int)(planner_sample_centers_.size()*unit_distribution_(generator_));
+  ROS_DEBUG("Using sample center %d: (%.2f, %.2f)", sample_center_id, planner_sample_centers_[sample_center_id].x, planner_sample_centers_[sample_center_id].y);
+  sample_point.x += planner_sample_centers_[sample_center_id].x;
+  sample_point.y += planner_sample_centers_[sample_center_id].y;
 
   return sample_point;
 }

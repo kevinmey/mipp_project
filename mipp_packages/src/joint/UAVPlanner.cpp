@@ -82,16 +82,13 @@ void UAVPlanner::updateStateMachine() {
 void UAVPlanner::sendExplorationGoal(float exploration_time) {
   exploration_goal.max_time = exploration_time;
   exploration_goal.init_path.clear();
-  ROS_INFO("UAV%d ee", uav_id);
   for (auto const& pose_it : navigation_path.poses) {
     exploration_goal.init_path.push_back(pose_it);
     ROS_WARN("Pushed in nav. path pose: (%.2f, %.2f)", pose_it.pose.position.x, pose_it.pose.position.y);
   }
-  ROS_INFO("UAV%d ef", uav_id);
-  ROS_INFO("UAV %s", exploration_client->getState().toString().c_str());
-  ROS_INFO("UAV %d", (int)exploration_client->isServerConnected());
+  exploration_goal.sampling_centers = *global_ugv_waypoints;
+  exploration_goal.sampling_radius = 7.0;
   exploration_client->sendGoal(exploration_goal);
-  ROS_INFO("UAV%d eg", uav_id);
 
   navigation_path.poses.clear();
 }
@@ -141,11 +138,11 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
     geometry_msgs::Point first_path_point = path_it.poses.begin()->pose.position;
     geometry_msgs::Point first_waypoint = *(global_ugv_waypoints->begin());
     geometry_msgs::Point second_waypoint = *(global_ugv_waypoints->begin()+1);
-    com_constraint_satisfied = getDistanceBetweenPoints(first_path_point, first_waypoint) < 7.0 
-                           and getDistanceBetweenPoints(first_path_point, second_waypoint) < 7.0;
-    ROS_INFO("First path pose (%.2f, %.2f, %.2f)", first_path_point.x, first_path_point.y, first_path_point.z);
-    ROS_INFO("First waypoint  (%.2f, %.2f, %.2f)", first_waypoint.x, first_waypoint.y, first_waypoint.z);
-    ROS_INFO("Distance  %.2f", getDistanceBetweenPoints(first_path_point, first_waypoint));
+    com_constraint_satisfied = getDistanceBetweenPoints(first_path_point, first_waypoint) < 10.0 
+                           and getDistanceBetweenPoints(first_path_point, second_waypoint) < 10.0;
+    ROS_DEBUG("First path pose (%.2f, %.2f, %.2f)", first_path_point.x, first_path_point.y, first_path_point.z);
+    ROS_DEBUG("First waypoint  (%.2f, %.2f, %.2f)", first_waypoint.x, first_waypoint.y, first_waypoint.z);
+    ROS_DEBUG("Distance  %.2f", getDistanceBetweenPoints(first_path_point, first_waypoint));
 
     // Compute total path gain
     if (com_constraint_satisfied) {

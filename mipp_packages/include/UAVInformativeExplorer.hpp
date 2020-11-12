@@ -105,6 +105,7 @@ private:
   // Random nr. generator and distributions
   std::default_random_engine generator_;
   std::uniform_real_distribution<double> unit_distribution_;
+  std::vector<geometry_msgs::Point> planner_sample_centers_;
   double planner_sample_radius_;
   double planner_sample_z_interval_;
   // Parameters
