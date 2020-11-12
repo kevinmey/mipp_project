@@ -29,6 +29,7 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
   sub_mavros_state_   = n.subscribe("uav_server/mavros_state", 1, &UAVServer::subMavrosState, this);
   sub_odometry_       = n.subscribe("uav_server/ground_truth_uav", 1, &UAVServer::subOdometry, this);
   sub_local_goal_     = n.subscribe("uav_server/local_goal", 1, &UAVServer::subLocalGoal, this);
+  sub_cmd_vel_        = n.subscribe("cmd_vel", 1, &UAVServer::subCmdVel, this);
   // Start service server
   act_move_vehicle_server_.start();
   // Establish service clients
@@ -63,6 +64,29 @@ void UAVServer::pubMavrosSetpoint()
   {
     return;
   }
+
+  // http://docs.ros.org/en/api/mavros_msgs/html/msg/PositionTarget.html
+  mavros_msgs::PositionTarget target_cmd_vel_;
+  target_cmd_vel_.header.frame_id = uav_body_frame_;
+  target_cmd_vel_.header.stamp = ros::Time::now();
+  target_cmd_vel_.coordinate_frame = 8; // FRAME_BODY_NED
+  if ((ros::Time::now() - uav_cmd_vel_received_time_).toSec() < 0.5) {
+    target_cmd_vel_.type_mask = 0b010111000111;
+    target_cmd_vel_.velocity.x = uav_cmd_vel_.linear.x;
+    target_cmd_vel_.velocity.y = uav_cmd_vel_.linear.y;
+    target_cmd_vel_.velocity.z = 0.0;
+    target_cmd_vel_.yaw_rate = uav_cmd_vel_.angular.z;
+  }
+  else {
+    target_cmd_vel_.type_mask = 0b100111111000;
+    target_cmd_vel_.position.x = uav_position_goal_.pose.position.x;
+    target_cmd_vel_.position.y = uav_position_goal_.pose.position.y;
+    target_cmd_vel_.position.z = uav_position_goal_.pose.position.z;
+    target_cmd_vel_.yaw = uav_position_goal_rpy_.z;
+  }
+  pub_mavros_cmd_vel_.publish(target_cmd_vel_);
+
+  return;
   /* Transform local goal back to uav local origin/odom:
   *  MAVROS takes setpoints/commands in it's own local frame (as
   *  if it started at origin). Since local goal has been trans-
@@ -195,6 +219,12 @@ void UAVServer::subLocalGoal(const geometry_msgs::PoseStampedConstPtr& local_goa
   ROS_DEBUG("subLocalGoal");
   if (!uav_local_goal_received_) { uav_local_goal_received_ = true; }
   uav_local_goal_ = *local_goal_msg;
+}
+
+void UAVServer::subCmdVel(const geometry_msgs::Twist::ConstPtr& cmd_vel_msg) {
+  ROS_DEBUG("subCmdVel");
+  uav_cmd_vel_ = *cmd_vel_msg;
+  uav_cmd_vel_received_time_ = ros::Time::now();
 }
 
 // Service callback

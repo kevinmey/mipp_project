@@ -8,14 +8,13 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   // Initialize values
   getParams(np);
 
-  pub_timer_pause_navigation_   = n.createTimer(ros::Duration(0.1), boost::bind(&MippPlanner::pubUGVPauseNavigation, this));
+  pub_timer_pause_navigation_   = n.createTimer(ros::Duration(1.0), boost::bind(&MippPlanner::pubUGVPauseNavigation, this));
+  pub_ugv_pause_navigation_     = n.advertise<std_msgs::Bool>(ugv_ns_+"pause_navigation", 1);
   pub_viz_sensor_circle_        = n.advertise<visualization_msgs::Marker>("MippPlanner/viz_sensor_circle_", 1);
   pub_viz_sensor_coverages_     = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_sensor_coverages_", 1);
   pub_viz_uav_paths_            = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_uav_paths", 1);
   pub_viz_uav_path_fovs_        = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_uav_path_fovs", 1);
   pub_viz_nav_waypoints_        = n.advertise<visualization_msgs::Marker>("MippPlanner/viz_nav_waypoints", 1);
-
-  pub_ugv_pause_navigation_     = n.advertise<std_msgs::Bool>(ugv_ns_+"pause_navigation", 1);
 
   sub_clicked_point_ = n.subscribe("/exploration/start_collaborative", 1, &MippPlanner::subClickedPoint, this);
   sub_ugv_goal_plan_ = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &MippPlanner::subUGVPlan, this);
@@ -35,6 +34,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
     ROS_INFO("Making UAV%d", uav_id);
     UAVPlanner uav_planner;
     uav_planner.uav_id = uav_id;
+    uav_planner.global_ugv_waypoints = &ugv_planner_.navigation_waypoints;
     uav_planner.global_sensor_coverages = &uav_sensor_coverages_;
     uav_planner.global_uav_paths = &uav_paths_;
     uav_planner.camera_range = uav_camera_range_;
@@ -228,7 +228,7 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   np.param<float>("ugv_start_y", ugv_start_y_, 0.0);
   np.param<std::string>("ugv_ns", ugv_ns_, "/ugv/");
   np.param<int>("nr_of_ugv_nav_waypoints", nr_of_ugv_nav_waypoints_, 4);
-  np.param<float>("ugv_nav_waypoint_max_distance", ugv_nav_waypoint_max_distance_, 2.5);
+  np.param<float>("ugv_nav_waypoint_max_distance", ugv_nav_waypoint_max_distance_, 5.0);
   np.param<bool>("add_nav_waypoint_at_goal", add_nav_waypoint_at_goal_, true);
   np.param<float>("ugv_sensor_radius", ugv_sensor_radius_, 7.5);
   // UAVS

@@ -7,7 +7,8 @@
   <arg name="uav_start_x"         default="0.0"/>
   <arg name="uav_start_y"         default="0.0"/>
   <arg name="uav_takeoff_z"       default="2.0"/>
-  <arg name="uav_planner_rate"    default="100.0"/>
+  <arg name="uav_planner_rate"        default="100.0"/>
+  <arg name="uav_max_ray_distance"    default="3.0"/>
 
   <node pkg="mipp_packages" type="uav_informative_explorer_node" name="uav_informative_explorer_node" output="screen">
     <!-- Parameters -->
@@ -19,7 +20,8 @@
     <param name="uav_local_frame"   value="odom_$(arg uav_name)"/>
     <param name="uav_body_frame"    value="base_link_$(arg uav_name)"/>
 
-    <param name="planner_rate"      value="$(arg uav_planner_rate)"/>
+    <param name="planner_rate"                  value="$(arg uav_planner_rate)"/>
+    <param name="planner_max_ray_distance"      value="$(arg uav_max_ray_distance)"/>
 
     <!-- Remap topics -->
     <!-- Published topics -->

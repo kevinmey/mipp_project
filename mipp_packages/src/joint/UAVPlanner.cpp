@@ -27,7 +27,7 @@ void UAVPlanner::updateStateMachine() {
       if (takeoff_client.call(srv)) {
         if (srv.response.takeoff_complete) {
           ROS_INFO("UAV%d takeoff complete.", uav_id);
-          vehicle_state = IDLE;
+          vehicle_state = DONE;
         }
         else {
           ROS_DEBUG("UAV%d still waiting for takeoff to complete.", uav_id);
@@ -39,7 +39,7 @@ void UAVPlanner::updateStateMachine() {
       break;}
     case IDLE: {
       if (exploration_result.paths.empty()) {
-        float exploration_max_time = 2.0;
+        float exploration_max_time = 1.0;
         sendExplorationGoal(exploration_max_time);
         vehicle_state = PLANNING;
       }
@@ -70,6 +70,8 @@ void UAVPlanner::updateStateMachine() {
         global_uav_paths->at(uav_id).poses.clear();
         vehicle_state = IDLE;
       }
+      break;}
+    case DONE: {
       break;}
     default: {
       ROS_INFO("UAV%d default", uav_id);
@@ -132,33 +134,47 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
   best_path = makePathFromExpPath(*(exploration_result.paths.end()-1));
 
   for (auto const& path_it : exploration_result.paths) {
-    // Record this paths gain (will be sum of pose gains accounting for sensor overlap)
-    float path_gain = 0.0;
     path_nr++;
-    std::vector<SensorCircle> path_sensor_coverages;  // Will be filled with previous poses in the path
-    for (auto const& pose_it : path_it.poses) {
-      float pose_gain = pose_it.gain;
-      SensorCircle pose_sensor_coverage = makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range);
-      float pose_sensor_coverage_overlap = 0.0; // Will record area of overlap
-      for (auto const& sensor_coverage_it : existing_sensor_coverages) {
-        pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
+    
+    // Check if com constraints are satisfied
+    bool com_constraint_satisfied;
+    geometry_msgs::Point first_path_point = path_it.poses.begin()->pose.position;
+    geometry_msgs::Point first_waypoint = *(global_ugv_waypoints->begin());
+    geometry_msgs::Point second_waypoint = *(global_ugv_waypoints->begin()+1);
+    com_constraint_satisfied = getDistanceBetweenPoints(first_path_point, first_waypoint) < 7.0 
+                           and getDistanceBetweenPoints(first_path_point, second_waypoint) < 7.0;
+    ROS_INFO("First path pose (%.2f, %.2f, %.2f)", first_path_point.x, first_path_point.y, first_path_point.z);
+    ROS_INFO("First waypoint  (%.2f, %.2f, %.2f)", first_waypoint.x, first_waypoint.y, first_waypoint.z);
+    ROS_INFO("Distance  %.2f", getDistanceBetweenPoints(first_path_point, first_waypoint));
+
+    // Compute total path gain
+    if (com_constraint_satisfied) {
+      float path_gain = 0.0;    // Record this paths gain (will be sum of pose gains accounting for sensor overlap)
+      std::vector<SensorCircle> path_sensor_coverages;  // Will be filled with previous poses in the path
+      for (auto const& pose_it : path_it.poses) {
+        float pose_gain = pose_it.gain;
+        SensorCircle pose_sensor_coverage = makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range);
+        float pose_sensor_coverage_overlap = 0.0; // Will record area of overlap
+        for (auto const& sensor_coverage_it : existing_sensor_coverages) {
+          pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
+        }
+        for (auto const& sensor_coverage_it : path_sensor_coverages) {
+          pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
+        }
+        // Need ratio of sensor coverage area to sensor overlap area (capped at max 1, aka 100%)
+        double pose_sensor_coverage_overlap_ratio = pose_sensor_coverage_overlap / (M_PI*pow(pose_sensor_coverage.radius, 2));
+        path_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain;
+        path_sensor_coverages.push_back(pose_sensor_coverage);
       }
-      for (auto const& sensor_coverage_it : path_sensor_coverages) {
-        pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
+      if (path_gain > best_path_gain) {
+        ROS_DEBUG("New path selected, gain increased from %.2f to %.2f", best_path_gain, path_gain);
+        std::vector<nav_msgs::Path> viz_path;
+        viz_path.push_back(makePathFromExpPath(path_it));
+        viz_path.push_back(makePathFromExpPath(*exploration_result.paths.rbegin()));
+        best_path_gain = path_gain;
+        best_path = makePathFromExpPath(path_it);
+        best_path_nr = path_nr;
       }
-      // Need ratio of sensor coverage area to sensor overlap area (capped at max 1, aka 100%)
-      double pose_sensor_coverage_overlap_ratio = pose_sensor_coverage_overlap / (M_PI*pow(pose_sensor_coverage.radius, 2));
-      path_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain;
-      path_sensor_coverages.push_back(pose_sensor_coverage);
-    }
-    if (path_gain > best_path_gain) {
-      ROS_DEBUG("New path selected, gain increased from %.2f to %.2f", best_path_gain, path_gain);
-      std::vector<nav_msgs::Path> viz_path;
-      viz_path.push_back(makePathFromExpPath(path_it));
-      viz_path.push_back(makePathFromExpPath(*exploration_result.paths.rbegin()));
-      best_path_gain = path_gain;
-      best_path = makePathFromExpPath(path_it);
-      best_path_nr = path_nr;
     }
   }
   // Best path selected, add its coverages to sensor_coverages_ and make it this UAVs navigation path

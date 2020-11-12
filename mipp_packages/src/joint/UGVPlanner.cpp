@@ -94,11 +94,15 @@ void UGVPlanner::createNavigationWaypoints(int nr_of_ugv_nav_waypoints, bool add
                                                                    path_it->pose.position.x, path_it->pose.position.y);
     }
     else {
-      dist_to_prev_beacon += getDistanceBetweenPoints(path_it->pose.position, std::prev(path_it)->pose.position);
+      float dist_to_prev_point = getDistanceBetweenPoints(path_it->pose.position, std::prev(path_it)->pose.position);
+      dist_to_prev_beacon += dist_to_prev_point;
       if (dist_to_prev_beacon > navigation_waypoint_max_dist and navigation_waypoints.size() < nr_of_ugv_nav_waypoints) {
-        // Distance to previous beacon exceeds max distance, add PREVIOUS pose as beacon (since it was within max distance)
-        navigation_waypoints.push_back(std::prev(path_it)->pose.position);
-        dist_to_prev_beacon = getDistanceBetweenPoints(path_it->pose.position, std::prev(path_it)->pose.position);
+        // Distance to previous beacon exceeds max distance, make new point
+        geometry_msgs::Point new_point = castRay(std::prev(path_it)->pose.position, 
+                                                 getDirection(std::prev(path_it)->pose.position, path_it->pose.position), 
+                                                 navigation_waypoint_max_dist - (dist_to_prev_beacon - dist_to_prev_point));
+        navigation_waypoints.push_back(new_point);
+        dist_to_prev_beacon = getDistanceBetweenPoints(path_it->pose.position, new_point);
         ROS_DEBUG("Added pose nr. %d as nav. waypoint at (%.2f, %.2f), with distance %.2f to previous waypoint", 
                  (int)(path_it - navigation_path.poses.begin() - 1),
                  std::prev(path_it)->pose.position.x, std::prev(path_it)->pose.position.y,
@@ -108,7 +112,7 @@ void UGVPlanner::createNavigationWaypoints(int nr_of_ugv_nav_waypoints, bool add
     }
   }
   // Pad the com beacons with the goal position if path not long enough to fit all
-  if (navigation_waypoints.size() < nr_of_ugv_nav_waypoints and add_nav_waypoint_at_goal) {
+  while (navigation_waypoints.size() < nr_of_ugv_nav_waypoints and add_nav_waypoint_at_goal) {
     navigation_waypoints.push_back(navigation_path.poses.rbegin()->pose.position);
     ROS_DEBUG("Padded with goal pose as nav. waypoint at (%.2f, %.2f)", navigation_path.poses.rbegin()->pose.position.x, 
                                                                      navigation_path.poses.rbegin()->pose.position.y);

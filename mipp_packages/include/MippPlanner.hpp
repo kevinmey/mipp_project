@@ -28,7 +28,7 @@
 
 //
 
-enum VehicleState { INIT=-1, IDLE=0, PLANNING=1, MOVING=2, RECOVERING=3 };
+enum VehicleState { INIT=-1, IDLE=0, PLANNING=1, MOVING=2, RECOVERING=3, DONE=4 };
 
 struct UGVPlanner
 {
@@ -65,6 +65,7 @@ struct UAVPlanner
   int uav_id;
   void init(ros::NodeHandle n);
   // Global Info (Stored in MippPlanner object)
+  std::vector<geometry_msgs::Point>* global_ugv_waypoints;
   std::map<int, std::vector<SensorCircle>>* global_sensor_coverages;
   std::map<int, nav_msgs::Path>* global_uav_paths;
   // Vehicle planner state
@@ -164,7 +165,6 @@ private:
   // Variables
   bool running_exploration_;
   //// Collaborative
-  std::vector<geometry_msgs::Point> ugv_waypoints_;
   std::map<int, std::vector<SensorCircle>> uav_sensor_coverages_;
   std::map<int, nav_msgs::Path> uav_paths_;
   //// UGV
