@@ -119,6 +119,8 @@
     <include file="$(find mipp_packages)/launch/mipp_planner.launch">
       <arg name="nr_of_uavs"    value="$(arg nr_of_uavs)"/>
       <arg name="ugv_ns"        value="/ugv/"/>
+      <arg name="ugv_start_x"   value="$(arg ugv_start_x)"/>
+      <arg name="ugv_start_y"   value="$(arg ugv_start_y)"/>
     </include>
   </group>
 

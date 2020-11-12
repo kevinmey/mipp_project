@@ -6,7 +6,7 @@ import_relay:
       type: visualization_msgs/InteractiveMarkerFeedback
     - topic: initialpose
       type: geometry_msgs/PoseWithCovarianceStamped
-    - topic: uav_server/clicked_goal
+    - topic: uav_server/global_goal
       type: geometry_msgs/PoseStamped
 
 export_relay:

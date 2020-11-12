@@ -61,8 +61,8 @@ void UAVPlanner::updateStateMachine() {
       }
       break;}
     case MOVING: {
-      ROS_INFO("UAV%d: Length of sensor_coverages: (%d, %d)", uav_id, (int)global_sensor_coverages->size(), (int)global_sensor_coverages->at(uav_id).size());
-      ROS_INFO("UAV%d: Length of uav_paths: (%d, %d)", uav_id, (int)global_uav_paths->size(), (int)global_uav_paths->at(uav_id).poses.size());
+      ROS_DEBUG("UAV%d: Length of sensor_coverages: (%d, %d)", uav_id, (int)global_sensor_coverages->size(), (int)global_sensor_coverages->at(uav_id).size());
+      ROS_DEBUG("UAV%d: Length of uav_paths: (%d, %d)", uav_id, (int)global_uav_paths->size(), (int)global_uav_paths->at(uav_id).poses.size());
       if (move_vehicle_client->getState().isDone()) {
         exploration_result.paths.clear();
         navigation_path.poses.clear();
@@ -70,6 +70,9 @@ void UAVPlanner::updateStateMachine() {
         global_uav_paths->at(uav_id).poses.clear();
         vehicle_state = IDLE;
       }
+      break;}
+    case RECOVERING: {
+      ROS_WARN("UAV%d: Entered RECOVERY state", uav_id);
       break;}
     case DONE: {
       break;}
@@ -130,6 +133,7 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
   // Have current position (dont move) as initial "best path" in case no path is good enough
   best_path = makePathFromExpPath(*(exploration_result.paths.end()-1));
 
+  ros::Time begin_time = ros::Time::now();
   for (auto const& path_it : exploration_result.paths) {
     path_nr++;
     
@@ -181,7 +185,8 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
     }
   }
   navigation_path = best_path;
-  ROS_INFO("UAV%d selected path nr. %d", uav_id, best_path_nr);
+  float time_used = (ros::Time::now() - begin_time).toSec();
+  ROS_INFO("UAV%d selected path nr. %d after %.2f seconds", uav_id, best_path_nr, time_used);
 }
 
 void UAVPlanner::sendMoveVehicleGoal(float move_vehicle_time) {

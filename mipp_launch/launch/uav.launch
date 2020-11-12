@@ -122,7 +122,7 @@
       <arg name="uav_start_y"           value="$(arg initial_y)"/>
       <arg name="uav_takeoff_z"         value="$(arg takeoff_z)"/>
       <arg name="uav_planner_rate"      value="$(arg uav_planner_rate)"/>
-      <arg name="uav_max_ray_distance"      value="2.0"/>
+      <arg name="uav_max_ray_distance"      value="3.0"/>
     </include>
 
     <!-- Relay/republish pointcloud to common cloud for OctoMap -->
@@ -179,14 +179,20 @@
       <rosparam file="$(find mipp_description)/config/uav_costmap_common.yaml" command="load" ns="global_costmap" />
       <rosparam file="$(find mipp_description)/config/uav_costmap_common.yaml" command="load" ns="local_costmap" />
       <rosparam file="$(find mipp_description)/config/uav_costmap_local.yaml" command="load" ns="local_costmap" />
-      <param name="local_costmap/width" value="10.0"/>
-      <param name="local_costmap/height" value="10.0"/>
+      <param name="local_costmap/robot_base_frame"     value="base_link_$(arg uav_name)"/>
+      <param name="local_costmap/width"     value="10.0"/>
+      <param name="local_costmap/height"    value="10.0"/>
+      <param name="local_costmap/origin_x"  value="-5.0"/>
+      <param name="local_costmap/origin_y"  value="-5.0"/>
       <rosparam file="$(find mipp_description)/config/uav_costmap_global.yaml" command="load" ns="global_costmap"/>
-      <param name="global_costmap/width" value="20.0"/>
-      <param name="global_costmap/height" value="20.0"/>
+      <param name="global_costmap/robot_base_frame"     value="base_link_$(arg uav_name)"/>
+      <param name="global_costmap/width"    value="10.0"/>
+      <param name="global_costmap/height"   value="10.0"/>
+      <param name="global_costmap/origin_x" value="-5.0"/>
+      <param name="global_costmap/origin_y" value="-5.0"/>
   
       <remap from="odometry/filtered" to="/gazebo/ground_truth_$(arg uav_name)"/>
-      <remap from="move_base_simple/goal" to="uav_server/clicked_goal"/>
+      <remap from="move_base_simple/goal" to="uav_server/global_goal"/>
     </node>
 
   </group>
