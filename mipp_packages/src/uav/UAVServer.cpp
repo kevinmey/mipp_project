@@ -78,10 +78,13 @@ void UAVServer::pubMavrosSetpoint()
     target_cmd_vel_.yaw_rate = uav_cmd_vel_.angular.z;
   }
   else {
+    geometry_msgs::PoseStamped mavros_setpoint;
+    geometry_msgs::TransformStamped mavros_setpoint_tf = tf_buffer_.lookupTransform(uav_local_frame_, uav_position_goal_.header.frame_id, ros::Time(0));
+    tf2::doTransform(uav_position_goal_, mavros_setpoint, mavros_setpoint_tf);
     target_cmd_vel_.type_mask = 0b100111111000;
-    target_cmd_vel_.position.x = uav_position_goal_.pose.position.x;
-    target_cmd_vel_.position.y = uav_position_goal_.pose.position.y;
-    target_cmd_vel_.position.z = uav_position_goal_.pose.position.z;
+    target_cmd_vel_.position.x = mavros_setpoint.pose.position.y;
+    target_cmd_vel_.position.y = -mavros_setpoint.pose.position.x;
+    target_cmd_vel_.position.z = mavros_setpoint.pose.position.z;
     target_cmd_vel_.yaw = uav_position_goal_rpy_.z;
   }
   pub_mavros_cmd_vel_.publish(target_cmd_vel_);

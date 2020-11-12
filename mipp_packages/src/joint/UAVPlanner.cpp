@@ -27,7 +27,7 @@ void UAVPlanner::updateStateMachine() {
       if (takeoff_client.call(srv)) {
         if (srv.response.takeoff_complete) {
           ROS_INFO("UAV%d takeoff complete.", uav_id);
-          vehicle_state = DONE;
+          vehicle_state = IDLE;
         }
         else {
           ROS_DEBUG("UAV%d still waiting for takeoff to complete.", uav_id);

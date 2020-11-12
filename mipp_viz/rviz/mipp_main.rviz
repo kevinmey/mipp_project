@@ -465,7 +465,7 @@ Visualization Manager:
               Value: true
           Enabled: true
           Name: Exploration
-      Enabled: false
+      Enabled: true
       Name: UGV
     - Class: rviz/Group
       Displays:
@@ -658,7 +658,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                {}
+                "": true
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -1407,7 +1407,7 @@ Visualization Manager:
       Marker Topic: /MippPlanner/viz_sensor_coverages_
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -1415,7 +1415,7 @@ Visualization Manager:
       Marker Topic: /MippPlanner/viz_uav_path_fovs
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -1423,7 +1423,7 @@ Visualization Manager:
       Marker Topic: /MippPlanner/viz_uav_paths
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Image
@@ -1450,12 +1450,12 @@ Visualization Manager:
       Class: rviz/Map
       Color Scheme: costmap
       Draw Behind: false
-      Enabled: true
+      Enabled: false
       Name: GlobalMap
       Topic: /uav0/move_base/global_costmap/costmap
       Unreliable: false
       Use Timestamp: false
-      Value: true
+      Value: false
     - Alpha: 0.699999988079071
       Class: rviz/Map
       Color Scheme: costmap
@@ -1542,25 +1542,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 14.33659553527832
+      Distance: 33.98539352416992
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.5345041751861572
-        Y: -1.2731342315673828
-        Z: 5.980759306112304e-5
+        X: -20.6605224609375
+        Y: -26.931821823120117
+        Z: 5.408554716268554e-5
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6897982358932495
+      Pitch: 1.0397979021072388
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 4.040443420410156
+      Yaw: 4.035435676574707
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
