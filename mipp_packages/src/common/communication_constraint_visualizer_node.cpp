@@ -16,6 +16,7 @@
 #include <utils.hpp>
 
 #include <mipp_msgs/CommunicationState.h>
+#include <mipp_msgs/TakeoffComplete.h>
 
 class ComConstraintVisualizer
 {
@@ -46,12 +47,15 @@ private:
   int los_counter_;
   bool has_range_;
   bool has_los_;
+  bool has_base_station_pose_;
+  bool has_vehicle_pose_;
   // Publishers and transform
   ros::Publisher pub_constraint_state_;
   ros::Publisher pub_viz_constraint_;
   ros::Subscriber sub_vehicle_pose_;
   ros::Subscriber sub_base_station_pose_;
   ros::Subscriber sub_octomap_;
+  ros::ServiceClient cli_takeoff_;
   // TF
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener* tf_listener_; 
@@ -63,6 +67,9 @@ void ComConstraintVisualizer::vehiclePoseCallback(const geometry_msgs::PoseStamp
     // Transform pose information contained in odom message to world frame and store
     geometry_msgs::TransformStamped odometry_tf = tf_buffer_.lookupTransform(world_frame_, pose_msg->header.frame_id, ros::Time(0));
     tf2::doTransform(*pose_msg, vehicle_pose_, odometry_tf);
+    if (!has_vehicle_pose_) {
+      has_vehicle_pose_ = true;
+    }
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("%s",ex.what());
@@ -81,6 +88,9 @@ void ComConstraintVisualizer::baseStationPoseCallback(const nav_msgs::OdometryCo
     // Transform pose information contained in odom message to world frame and store
     geometry_msgs::TransformStamped odometry_tf = tf_buffer_.lookupTransform(world_frame_, odom_msg->header.frame_id, ros::Time(0));
     tf2::doTransform(pose_msg, base_station_pose_, odometry_tf);
+    if (!has_base_station_pose_) {
+      has_base_station_pose_ = true;
+    }
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("%s",ex.what());
@@ -96,23 +106,33 @@ void ComConstraintVisualizer::octomapCallback(const octomap_msgs::Octomap::Const
 
 void ComConstraintVisualizer::updateConstraint(mipp_msgs::CommunicationState& com_state)
 {
+  // DOn't do anything before we have the poses
+  if (!has_base_station_pose_ or !has_vehicle_pose_) {
+    return;
+  }
+
   geometry_msgs::Point communication_endpoint = vehicle_pose_.pose.position;
 
   // First update the com_state according to bool variables, since com_state as a class member variable causes errors
   if (has_range_ and has_los_) {
+    ROS_DEBUG("com_state changed to WORKING");
     com_state.state = mipp_msgs::CommunicationState::STATE_WORKING;
   }
   else if (!has_range_ and has_los_) {
+    ROS_DEBUG("com_state changed to R BROKEN");
     com_state.state = mipp_msgs::CommunicationState::STATE_RANGE_BROKEN;
   }
   else if (has_range_ and !has_los_) {
+    ROS_DEBUG("com_state changed to L BROKEN");
     com_state.state = mipp_msgs::CommunicationState::STATE_LOS_BROKEN;
   }
   else {
+    ROS_DEBUG("com_state changed to R+L BROKEN");
     com_state.state = mipp_msgs::CommunicationState::STATE_RANGE_LOS_BROKEN;
   }
   
   // Range constraint
+  ROS_DEBUG("Check range");
   double vehicle_base_station_distance = getDistanceBetweenPoints(vehicle_pose_.pose.position, base_station_pose_.pose.position);
   if (vehicle_base_station_distance < communication_range_) {
     range_counter_ = std::min(range_counter_ + 1, counter_ceiling_);
@@ -146,6 +166,7 @@ void ComConstraintVisualizer::updateConstraint(mipp_msgs::CommunicationState& co
   }
 
   // Line of Sight (LoS) constraint
+  ROS_DEBUG("Check LoS");
   if (received_map_) {
     bool hit_occupied = false;
     bool hit_unmapped = false;
@@ -154,6 +175,9 @@ void ComConstraintVisualizer::updateConstraint(mipp_msgs::CommunicationState& co
     octomap::point3d om_ray_direction = octomap::point3d(direction_ab.x, direction_ab.y, direction_ab.z);
     octomap::point3d om_ray_end_cell;
     geometry_msgs::Point ray_endpoint;
+    ROS_DEBUG("Got request to cast ray in direction (%.2f, %.2f, %.2f).", om_ray_direction.x(), om_ray_direction.y(), om_ray_direction.z());
+    ROS_DEBUG("Origin (x,y,z) = (%.2f, %.2f, %.2f)",vehicle_pose_.pose.position.x,vehicle_pose_.pose.position.y,vehicle_pose_.pose.position.z);
+    ROS_DEBUG("End    (x,y,z) = (%.2f, %.2f, %.2f)",base_station_pose_.pose.position.x,base_station_pose_.pose.position.y,base_station_pose_.pose.position.z);
     if(direction_ab.x == 0.0 and direction_ab.y == 0.0 and direction_ab.z == 0.0) {
       // Check if direction is valid
       ROS_WARN("UAVServer: Got request to cast ray in illegal direction.");
@@ -204,12 +228,14 @@ void ComConstraintVisualizer::updateConstraint(mipp_msgs::CommunicationState& co
   }
 
   // Publish mipp_msgs::CommunicationState::STATE
+  ROS_DEBUG("Pub");
   com_state.base_station_position = base_station_pose_.pose.position;
   com_state.vehicle_position = vehicle_pose_.pose.position;
   com_state.los_lost_position = communication_endpoint;
   pub_constraint_state_.publish(com_state);
 
   // Visualize
+  ROS_DEBUG("Viz");
   visualization_msgs::Marker constraint_marker;
   constraint_marker.header.frame_id = world_frame_;
   constraint_marker.header.stamp = ros::Time::now();
@@ -243,6 +269,30 @@ ComConstraintVisualizer::ComConstraintVisualizer(ros::NodeHandle n, ros::NodeHan
   np.param<double>("publish_rate", publish_rate_, 10.0);
   np.param<int>("counter_ceiling", counter_ceiling_, 5);
   np.param<bool>("unmapped_is_occupied", unmapped_is_occupied_, false);
+
+  // Don't do anything until takeoff is complete
+  cli_takeoff_ = n.serviceClient<mipp_msgs::TakeoffComplete>("takeoff_complete_service");
+  mipp_msgs::TakeoffComplete srv;
+  bool takeoff_complete = false;
+  while (!takeoff_complete) {
+    if (cli_takeoff_.call(srv)) {
+      if (srv.response.takeoff_complete) {
+        ROS_INFO("Takeoff complete.");
+        takeoff_complete = true;
+      }
+      else {
+        ROS_DEBUG("Still waiting for takeoff to complete.");
+      }
+    }
+    else {
+      ROS_ERROR("Couldn't call takeoff_complete server.");
+    }
+    ros::spinOnce();
+    ros::Rate(1.0).sleep();
+  }
+  
+  has_base_station_pose_ = false;
+  has_vehicle_pose_ = false;
 
   sub_vehicle_pose_ = n.subscribe(vehicle_pose_topic_, 1, &ComConstraintVisualizer::vehiclePoseCallback, this);
   sub_base_station_pose_ = n.subscribe(base_station_odom_topic_, 1, &ComConstraintVisualizer::baseStationPoseCallback, this);

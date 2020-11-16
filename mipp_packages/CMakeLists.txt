@@ -248,21 +248,40 @@ target_link_libraries(
     ${catkin_LIBRARIES}
 )
 
-## exploration_visualizer_node
+## mipp_visualizer_node
 
 add_executable(
-    exploration_visualizer_node
-    src/common/exploration_visualizer.cpp
+    mipp_visualizer_node
+    src/common/mipp_visualizer.cpp
 )
 
 add_dependencies(
-    exploration_visualizer_node 
-    ${exploration_visualizer_node} 
+    mipp_visualizer_node 
+    ${mipp_visualizer_node} 
     ${catkin_EXPORTED_TARGETS}
 )
 
 target_link_libraries(
-    exploration_visualizer_node
+    mipp_visualizer_node
+    common_libs
+    ${catkin_LIBRARIES}
+)
+
+## mipp_monitor_node
+
+add_executable(
+    mipp_monitor_node
+    src/common/mipp_monitor.cpp
+)
+
+add_dependencies(
+    mipp_monitor_node 
+    ${mipp_monitor_node} 
+    ${catkin_EXPORTED_TARGETS}
+)
+
+target_link_libraries(
+    mipp_monitor_node
     common_libs
     ${catkin_LIBRARIES}
 )

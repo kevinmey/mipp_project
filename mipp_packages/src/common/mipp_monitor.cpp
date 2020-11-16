@@ -31,11 +31,11 @@ struct Vehicle
   std::vector<cv::Point> shape;
 };
 
-class ExplorationVisualizer
+class MippVisualizer
 {
 public:
-  ExplorationVisualizer(ros::NodeHandle n, ros::NodeHandle np, image_transport::ImageTransport it);
-  ~ExplorationVisualizer();
+  MippVisualizer(ros::NodeHandle n, ros::NodeHandle np, image_transport::ImageTransport it);
+  ~MippVisualizer();
 private:
   void publishImage();
   void occupancyGridCallback(const nav_msgs::OccupancyGridConstPtr& grid_msg);
@@ -51,6 +51,7 @@ private:
   cv::Mat grid_image_;
   cv::Mat image_;
   cv::Point2f image_origin_position_;
+  float image_scale_;
   // Publishers and transform
   ros::Timer pub_timer_;
   ros::Subscriber sub_occupancy_grid_;
@@ -58,16 +59,17 @@ private:
   // TF
 };
 
-ExplorationVisualizer::ExplorationVisualizer(ros::NodeHandle n, ros::NodeHandle np, image_transport::ImageTransport it)
+MippVisualizer::MippVisualizer(ros::NodeHandle n, ros::NodeHandle np, image_transport::ImageTransport it)
 {
-  ROS_WARN("ExplorationVisualizer object is being created.");
+  ROS_WARN("MippVisualizer object is being created.");
 
   np.param<int>("nr_of_uavs", nr_of_uavs_, 1);
   np.param<float>("frequency", frequency_, 10.0);
+  np.param<float>("image_scale", image_scale_, 4.0);
 
-  pub_timer_ = n.createTimer(ros::Duration(1.0/frequency_), boost::bind(&ExplorationVisualizer::publishImage, this));
-  sub_occupancy_grid_ = n.subscribe("/projected_map", 1, &ExplorationVisualizer::occupancyGridCallback, this);
-  pubit_visualization_image_ = it.advertise("ExplorationVisualizer/image", 1);
+  pub_timer_ = n.createTimer(ros::Duration(1.0/frequency_), boost::bind(&MippVisualizer::publishImage, this));
+  sub_occupancy_grid_ = n.subscribe("/projected_map", 1, &MippVisualizer::occupancyGridCallback, this);
+  pubit_visualization_image_ = it.advertise("MippVisualizer/image", 1);
 
   int nr_of_vehicles = 1 + nr_of_uavs_;
   for (int i = 0; i < nr_of_vehicles; i++) {
@@ -75,22 +77,24 @@ ExplorationVisualizer::ExplorationVisualizer(ros::NodeHandle n, ros::NodeHandle 
     vehicle.id = i-1;
     if (vehicle.id != -1) {
       vehicle.type = UAV;
-      vehicle.sub_odom = n.subscribe<nav_msgs::Odometry>("/gazebo/ground_truth_uav"+std::to_string(vehicle.id), 1, boost::bind(&ExplorationVisualizer::odometryCallback, this, _1, vehicle.id));
+      vehicle.sub_odom = n.subscribe<nav_msgs::Odometry>("/gazebo/ground_truth_uav"+std::to_string(vehicle.id), 1, boost::bind(&MippVisualizer::odometryCallback, this, _1, vehicle.id));
       // UAV Shape is a triangle
-      vehicle.shape.push_back(cv::Point2f(10.0, 0.0)); 
-      vehicle.shape.push_back(cv::Point2f(-10.0, 5.0)); 
-      vehicle.shape.push_back(cv::Point2f(-10.0, -5.0));
-      vehicle.shape.push_back(cv::Point2f(10.0, 0.0)); 
+      vehicle.shape.push_back(cv::Point2f(10.0*image_scale_, 0.0*image_scale_)); 
+      vehicle.shape.push_back(cv::Point2f(-10.0*image_scale_, 5.0*image_scale_)); 
+      vehicle.shape.push_back(cv::Point2f(-10.0*image_scale_, -5.0*image_scale_));
+      vehicle.shape.push_back(cv::Point2f(10.0*image_scale_, 0.0*image_scale_)); 
     }
     else {
       vehicle.type = UGV;
-      vehicle.sub_odom = n.subscribe<nav_msgs::Odometry>("/gazebo/ground_truth_ugv", 1, boost::bind(&ExplorationVisualizer::odometryCallback, this, _1, vehicle.id));
+      vehicle.position =  makePoint(0.0, 0.0, 0.0);
+      vehicle.yaw = 0.0;
+      vehicle.sub_odom = n.subscribe<nav_msgs::Odometry>("/gazebo/ground_truth_ugv", 1, boost::bind(&MippVisualizer::odometryCallback, this, _1, vehicle.id));
       // UGV shape is a rectangle
-      vehicle.shape.push_back(cv::Point2f(10.0, 5.0)); 
-      vehicle.shape.push_back(cv::Point2f(-10.0, 5.0)); 
-      vehicle.shape.push_back(cv::Point2f(-10.0, -5.0));
-      vehicle.shape.push_back(cv::Point2f(10.0, -5.0));
-      vehicle.shape.push_back(cv::Point2f(10.0, 5.0)); 
+      vehicle.shape.push_back(cv::Point2f(10.0*image_scale_, 5.0*image_scale_)); 
+      vehicle.shape.push_back(cv::Point2f(-10.0*image_scale_, 5.0*image_scale_)); 
+      vehicle.shape.push_back(cv::Point2f(-10.0*image_scale_, -5.0*image_scale_));
+      vehicle.shape.push_back(cv::Point2f(10.0*image_scale_, -5.0*image_scale_));
+      vehicle.shape.push_back(cv::Point2f(10.0*image_scale_, 5.0*image_scale_)); 
     }
     vehicles_.push_back(vehicle);
   }
@@ -103,12 +107,12 @@ ExplorationVisualizer::ExplorationVisualizer(ros::NodeHandle n, ros::NodeHandle 
   }
 }
 
-ExplorationVisualizer::~ExplorationVisualizer()
+MippVisualizer::~MippVisualizer()
 {
-  ROS_WARN("ExplorationVisualizer object is being deleted.");
+  ROS_WARN("MippVisualizer object is being deleted.");
 }
 
-void ExplorationVisualizer::publishImage()
+void MippVisualizer::publishImage()
 {
   ROS_DEBUG("publishImage");
 
@@ -118,7 +122,7 @@ void ExplorationVisualizer::publishImage()
   pubit_visualization_image_.publish(pub_msg);
 }
   
-void ExplorationVisualizer::occupancyGridCallback(const nav_msgs::OccupancyGridConstPtr& grid_msg)
+void MippVisualizer::occupancyGridCallback(const nav_msgs::OccupancyGridConstPtr& grid_msg)
 {
   ROS_DEBUG("occupancyGridCallback");
 
@@ -153,7 +157,7 @@ void ExplorationVisualizer::occupancyGridCallback(const nav_msgs::OccupancyGridC
   }
 }
 
-void ExplorationVisualizer::odometryCallback(const nav_msgs::OdometryConstPtr& odom_msg, int vehicle_id)
+void MippVisualizer::odometryCallback(const nav_msgs::OdometryConstPtr& odom_msg, int vehicle_id)
 {
   ROS_DEBUG("odometryCallback");
 
@@ -168,7 +172,7 @@ void ExplorationVisualizer::odometryCallback(const nav_msgs::OdometryConstPtr& o
   ROS_INFO("Got vehicle %d odom: (%.2f, %.2f, %.2f)", vehicle_id, vehicles_[vehicle_id+1].position.x, vehicles_[vehicle_id+1].position.y, vehicles_[vehicle_id+1].yaw);
 }
 
-void ExplorationVisualizer::buildImage()
+void MippVisualizer::buildImage()
 {
   ROS_DEBUG("buildImage");
  
@@ -205,7 +209,7 @@ void ExplorationVisualizer::buildImage()
 
   // Scale image
   image_size = image_.size();
-  int new_image_size = 500;
+  int new_image_size = 500*image_scale_;
   float old_image_resolution = grid_info_.resolution; // [m pr pixel]
   float image_scale_ratio = (float)image_size.width / (float)new_image_size;
   cv::resize(image_, image_, cv::Size(new_image_size, new_image_size));
@@ -223,7 +227,7 @@ void ExplorationVisualizer::buildImage()
     for (auto point_it = vehicle_it.shape.begin(); point_it != vehicle_it.shape.end() - 1; ++point_it) {
       cv::Point2i point_from = getRotatedPoint(vehicle_it.yaw, *point_it, vehicle_it.pixel_position);
       cv::Point2i point_to = getRotatedPoint(vehicle_it.yaw, *(point_it+1), vehicle_it.pixel_position);
-      cv::line(image_, point_from, point_to, vehicle_color, 3);
+      cv::line(image_, point_from, point_to, vehicle_color, 2*image_scale_);
     }
   }
 
@@ -231,7 +235,7 @@ void ExplorationVisualizer::buildImage()
   cv::flip(image_, image_, 0);
 }
 
-cv::Point ExplorationVisualizer::getRotatedPoint(float rotation_angle_rad, cv::Point point, cv::Point rotation_axis)
+cv::Point MippVisualizer::getRotatedPoint(float rotation_angle_rad, cv::Point point, cv::Point rotation_axis)
 {
     if (std::abs(rotation_angle_rad) < 0.01){
     	// Rotation is so small that it is virtually the same point
@@ -247,14 +251,14 @@ cv::Point ExplorationVisualizer::getRotatedPoint(float rotation_angle_rad, cv::P
 
 
 int main(int argc, char** argv){
-  ROS_INFO("Starting exploration_visualizer_node.");
+  ROS_INFO("Starting mipp_visualizer_node.");
 
-  ros::init(argc, argv, "exploration_visualizer_node");
+  ros::init(argc, argv, "mipp_visualizer_node");
   ros::NodeHandle n;
   ros::NodeHandle np("~");
   image_transport::ImageTransport it(n);
 
-  ExplorationVisualizer ExplorationVisualizer(n, np, it);
+  MippVisualizer MippVisualizer(n, np, it);
 
   ros::spin();
   return 0;
