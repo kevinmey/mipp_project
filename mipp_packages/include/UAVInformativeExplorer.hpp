@@ -107,6 +107,7 @@ private:
   std::uniform_real_distribution<double> unit_distribution_;
   std::vector<geometry_msgs::Point> planner_sample_centers_;
   double planner_sample_radius_;
+  double planner_sample_z_;
   double planner_sample_z_interval_;
   // Parameters
   int uav_id_;

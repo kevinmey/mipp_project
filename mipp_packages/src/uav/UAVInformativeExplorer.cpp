@@ -15,6 +15,7 @@ UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandl
   uav_position_goal_.pose.position.y = uav_start_y_;
   uav_position_goal_.pose.position.z = uav_takeoff_z_;
   uav_position_goal_.pose.orientation.w = 1.0;
+  planner_sample_z_ = uav_takeoff_z_;
   uav_running_exploration_ = false;
   // Establish publish timers and publishers
   pub_position_goal_          = n.advertise<geometry_msgs::PoseStamped>("uav_server/position_goal", 10);
@@ -54,7 +55,7 @@ UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandl
       }
     }
   }
-  ROS_DEBUG("Camera rays has %d rays", (int)uav_camera_rays_.size());\
+  ROS_DEBUG("Camera rays has %d rays", (int)uav_camera_rays_.size());
 
   planner_action_in_progress_ = false;
 
@@ -200,6 +201,8 @@ void UAVInformativeExplorer::actStartExploration(const mipp_msgs::StartExplorati
   }
   planner_sample_centers_ = goal->sampling_centers;
   planner_sample_radius_ = goal->sampling_radius;
+  planner_sample_z_ = goal->sampling_z;
+  planner_sample_z_interval_ = goal->sampling_z_interval;
 
   runExploration();
 
@@ -547,7 +550,7 @@ geometry_msgs::Point UAVInformativeExplorer::generateRandomPoint() {
   double theta = unit_distribution_(generator_)*2.0*M_PI;
   sample_point.x = radius*cos(theta);
   sample_point.y = radius*sin(theta);
-  sample_point.z = uav_takeoff_z_ + planner_sample_z_interval_*(2*unit_distribution_(generator_) - 1);
+  sample_point.z = planner_sample_z_ + planner_sample_z_interval_*(2*unit_distribution_(generator_) - 1);
   ROS_DEBUG("Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
 
   int sample_center_id = (int)(planner_sample_centers_.size()*unit_distribution_(generator_));
@@ -673,14 +676,14 @@ bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, g
   tf2::Matrix3x3 ray_rot_mat;
   tf2::Vector3 unit_ray_direction(1.0, 0.0, 0.0);
 
-  double uav_radius = 0.75;
+  double uav_radius = 1.0;
   int degrees_to_check = 360;
   while (degrees_to_check > 0) {
     double ray_yaw = angles::from_degrees(degrees_to_check);
     ray_rot_mat.setEulerYPR(ray_yaw, 0.0, 0.0);
     tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
     om_ray_direction = octomap::point3d(ray_direction.x(), ray_direction.y(), ray_direction.z());
-    bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, uav_radius);
+    bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, true, uav_radius);
     if (hit_occupied) {
       return false;
     }

@@ -3,6 +3,8 @@ int32 max_time
 geometry_msgs/PoseStamped[] init_path
 geometry_msgs/Point[] sampling_centers
 float64 sampling_radius
+float64 sampling_z
+float64 sampling_z_interval
 ---
 #result definition
 mipp_msgs/ExplorationResult result

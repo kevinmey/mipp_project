@@ -10,7 +10,7 @@
   <arg name="uav_planner_rate"        default="100.0"/>
   <arg name="uav_max_ray_distance"    default="3.0"/>
 
-  <node pkg="mipp_packages" type="uav_informative_explorer_node" name="uav_informative_explorer_node" output="screen">
+  <node pkg="mipp_packages" type="uav_informative_explorer_node" name="uav_informative_explorer_node" output="screen" respawn="true">
     <!-- Parameters -->
     <param name="uav_id"            value="$(arg uav_id)"/>
     <param name="uav_start_x"       value="$(arg uav_start_x)"/>
