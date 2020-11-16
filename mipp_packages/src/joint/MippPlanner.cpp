@@ -8,7 +8,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   // Initialize values
   getParams(np);
 
-  pub_timer_pause_navigation_   = n.createTimer(ros::Duration(1.0), boost::bind(&MippPlanner::pubUGVPauseNavigation, this));
+  tmr_run_updates_              = n.createTimer(ros::Duration(0.5), boost::bind(&MippPlanner::runUpdates, this));
   pub_ugv_pause_navigation_     = n.advertise<std_msgs::Bool>(ugv_ns_+"pause_navigation", 1);
   pub_viz_sensor_circle_        = n.advertise<visualization_msgs::Marker>("MippPlanner/viz_sensor_circle_", 1);
   pub_viz_sensor_coverages_     = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_sensor_coverages_", 1);
@@ -22,18 +22,16 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   // Make a UGVPlanner object as container for variables for the UGV
   ugv_planner_.pub_goal_        = n.advertise<geometry_msgs::PoseStamped>(ugv_ns_+"move_base_simple/goal", 1);
   ugv_planner_.pub_goal_path_   = n.advertise<nav_msgs::Path>(ugv_ns_+"UGVFrontierExplorer/goal_path", 1);
-  ugv_planner_.vehicle_state    = INIT;
-  ugv_planner_.exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>("/ugv/exploration_action", true);
-  ugv_planner_.exploration_client->waitForServer(ros::Duration(10.0));
   ugv_planner_.navigation_goal.pose.position.x = ugv_start_x_;
   ugv_planner_.navigation_goal.pose.position.y = ugv_start_y_;
-  ugv_planner_.navigation_path.poses.push_back(ugv_planner_.navigation_goal);
+  ugv_planner_.init(n);
   // Make a UAVPlanner object as container for variables for each UAV
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
     // Declare new UAVPlanner object and init values that have to be initialized from MippPlanner object
     ROS_INFO("Making UAV%d", uav_id);
     UAVPlanner uav_planner;
     uav_planner.uav_id = uav_id;
+    uav_planner.com_range = com_range_;
     uav_planner.global_ugv_waypoints = &ugv_planner_.navigation_waypoints;
     uav_planner.global_sensor_coverages = &uav_sensor_coverages_;
     uav_planner.global_uav_paths = &uav_paths_;
@@ -85,16 +83,27 @@ MippPlanner::~MippPlanner() {
 
 // Publish functions
 
-void MippPlanner::pubUGVPauseNavigation() {
-  ROS_DEBUG("pubUGVPauseNavigation");
+void MippPlanner::runUpdates() {
+  ROS_DEBUG("runUpdates");
+
+  // Process UGV related things
   std_msgs::Bool pub_msg;
   pub_msg.data = ugv_planner_.navigation_paused;
   pub_ugv_pause_navigation_.publish(pub_msg);
-
   // Make UGV navigation waypoints
   ugv_planner_.createNavigationWaypoints(nr_of_ugv_nav_waypoints_, true);
   visualizeNavWaypoints();
 
+  // Check if UAVs are still fulfilling com constraints
+  for (auto& uav_it : uav_planners_) {
+    uav_it.recovery_goal.header = ugv_planner_.ugv_odometry.header;
+    uav_it.recovery_goal.pose = ugv_planner_.ugv_odometry.pose.pose;
+    uav_it.recovery_goal.pose.position.z = (double)(uav_it.uav_id*0.75 + 1.5);
+    auto uav_distance = getDistanceBetweenPoints(ugv_planner_.ugv_odometry.pose.pose.position, uav_it.uav_odometry.pose.pose.position);
+    uav_it.out_of_com_range = (uav_distance > com_range_);
+  }
+
+  // Visualize
   std::vector<nav_msgs::Path> uav_paths;
   for (auto const& uav_path_it : uav_paths_) {
     uav_paths.push_back(uav_path_it.second);
@@ -186,32 +195,6 @@ void MippPlanner::makePlanSynchronous() {
 
   // Work on path made by UGV planner and create communication "beacons"
   ugv_planner_.createNavigationWaypoints(nr_of_ugv_nav_waypoints_, add_nav_waypoint_at_goal_);
-/*
-  // Create sensor coverage for vehicles
-  sensor_coverages_.clear();
-
-  // Create sensor coverage for UGV
-  sensor_coverages_ = ugv_planner_.getSensorCoverage(ugv_sensor_radius_);
-
-  // Go through UAVs and create navigation plans
-  std::vector<nav_msgs::Path> uav_paths;    // Store all chosen UAV paths for visualization
-  for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-    // Go through paths from the UAV explorer and pick the "best" one (most gain)
-    uav_planners_[uav_id].createNavigationPlan(sensor_coverages_, uav_camera_range_);
-    sensor_coverages_.insert(sensor_coverages_.end(), uav_planners_[uav_id].sensor_coverage.begin(), uav_planners_[uav_id].sensor_coverage.end());
-    // Visualize
-    uav_paths.push_back(uav_planners_[uav_id].navigation_path);
-    visualizePaths(uav_paths);
-    visualizePathFOVs(uav_paths, 1.0);
-    visualizeSensorCoverages();
-  }
-
-  // Go through UAVs and send navigation goals
-  float move_vehicle_max_time = 10.0;
-  for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
-    uav_planners_[uav_id].sendMoveVehicleGoal(move_vehicle_max_time);
-  }
-*/
   ugv_planner_.navigation_paused = false;
 
   ROS_WARN("Done");
@@ -223,6 +206,7 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   ROS_DEBUG("getParams");
   // General
   np.param<std::string>("planner_world_frame", planner_world_frame_, "world");
+  np.param<float>("planner_com_range", com_range_, 10.0);
   // UGV
   np.param<float>("ugv_start_x", ugv_start_x_, 0.0);
   np.param<float>("ugv_start_y", ugv_start_y_, 0.0);

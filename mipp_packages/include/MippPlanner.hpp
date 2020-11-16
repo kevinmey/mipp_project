@@ -35,6 +35,12 @@ struct UGVPlanner
   // Publishers
   ros::Publisher pub_goal_;
   ros::Publisher pub_goal_path_;
+  // Subscribers
+  void subOdometry(const nav_msgs::OdometryConstPtr& odom_msg);
+  ros::Subscriber sub_odometry;
+  // General vehicle variables
+  void init(ros::NodeHandle n);
+  nav_msgs::Odometry ugv_odometry;
   // Vehicle planner state
   void updateStateMachine();
   VehicleState vehicle_state;
@@ -61,9 +67,15 @@ struct UGVPlanner
 
 struct UAVPlanner
 {
-  // General
-  int uav_id;
+  // Subscribers
+  void subOdometry(const nav_msgs::OdometryConstPtr& odom_msg);
+  ros::Subscriber sub_odometry;
+  // General vehicle parameters
   void init(ros::NodeHandle n);
+  int uav_id;
+  float com_range;
+  // General vehicle variables
+  nav_msgs::Odometry uav_odometry;
   // Global Info (Stored in MippPlanner object)
   std::vector<geometry_msgs::Point>* global_ugv_waypoints;
   std::map<int, std::vector<SensorCircle>>* global_sensor_coverages;
@@ -73,6 +85,13 @@ struct UAVPlanner
   VehicleState vehicle_state;
   ros::Timer state_timer;
   ros::ServiceClient takeoff_client;
+  // Recovery behaviour
+  bool recoveryRequired();
+  void prepareForRecovery();
+  void sendRecoverVehicleGoal();
+  bool no_viable_plan;
+  bool out_of_com_range;
+  geometry_msgs::PoseStamped recovery_goal;
   // Exploration (Informative exploration using RRT)
   void sendExplorationGoal(float exploration_time);
   bool isExplorationDone();
@@ -114,7 +133,7 @@ public:
 private:
   // Functions
   // Publish functions for publishers
-  void pubUGVPauseNavigation();
+  void runUpdates();
   // Callback functions for subscriptions
   void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   void subUGVPlan(const nav_msgs::PathConstPtr& path_msg);
@@ -132,8 +151,8 @@ private:
   void visualizeNavWaypoints();
 
   // Publishers
+  ros::Timer tmr_run_updates_;
   ros::Publisher pub_ugv_pause_navigation_;
-  ros::Timer pub_timer_pause_navigation_;
   ros::Publisher pub_viz_sensor_circle_;
   ros::Publisher pub_viz_sensor_coverages_;
   ros::Publisher pub_viz_uav_paths_;
@@ -147,6 +166,7 @@ private:
   std::string planner_world_frame_;
   //// General
   bool do_visualization_;
+  float com_range_;
   //// UGV
   std::string ugv_ns_;
   int nr_of_ugv_nav_waypoints_;

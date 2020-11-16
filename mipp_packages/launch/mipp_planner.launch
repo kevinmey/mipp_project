@@ -3,12 +3,14 @@
 <launch>
 
   <arg name="nr_of_uavs"        default="0"/>
+  <arg name="com_range"         default="10"/>
   <arg name="ugv_ns"            default="/ugv/"/>
   <arg name="ugv_start_x"       default="0.0"/>
   <arg name="ugv_start_y"       default="0.0"/>
 
   <node pkg="mipp_packages" type="mipp_planner_node" name="mipp_planner_node" output="screen">
     <param name="nr_of_uavs"                        value="$(arg nr_of_uavs)"/>
+    <param name="planner_com_range"                 value="$(arg com_range)"/>
     <param name="ugv_ns"                            value="$(arg ugv_ns)"/>
     <param name="ugv_start_x"                       value="$(arg ugv_start_x)"/>
     <param name="ugv_start_y"                       value="$(arg ugv_start_y)"/>

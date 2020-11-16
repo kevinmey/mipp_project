@@ -3,12 +3,19 @@
 // SUBMODULE FOR EXPLORATION PLANNER
 
 void UAVPlanner::init(ros::NodeHandle n) {
+  // Subscribers
+  sub_odometry = n.subscribe("/gazebo/ground_truth_uav"+std::to_string(uav_id), 1, &UAVPlanner::subOdometry, this);
+  // Global Info (Stored in MippPlanner object)
   (*global_sensor_coverages)[uav_id] = sensor_coverage;
   (*global_uav_paths)[uav_id] = navigation_path;
+  // Vehicle planner state
   vehicle_state = INIT;
   state_timer = n.createTimer(ros::Duration(0.5), boost::bind(&UAVPlanner::updateStateMachine, this));
   std::string takeoff_client_name = "/uav"+std::to_string(uav_id)+"/takeoff_complete_service";
   takeoff_client = n.serviceClient<mipp_msgs::TakeoffComplete>(takeoff_client_name);
+  // Recovery behaviour
+  no_viable_plan = false;
+  out_of_com_range = false;
   // Exploration
   std::string uav_exploration_client_name = "/uav"+std::to_string(uav_id)+"/exploration_action";
   exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>(uav_exploration_client_name, true);
@@ -19,8 +26,22 @@ void UAVPlanner::init(ros::NodeHandle n) {
   move_vehicle_client->waitForServer(ros::Duration(10.0));
 }
 
+void UAVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
+  uav_odometry = *odom_msg;
+}
+
 void UAVPlanner::updateStateMachine() {
   ROS_INFO("UAV%d STATE: %d", uav_id, vehicle_state);
+  
+  // Check first if UAV needs to be recovered
+  if (recoveryRequired()) {
+    ROS_WARN("UAV%d needs recovery", uav_id);
+    prepareForRecovery();
+    sendRecoverVehicleGoal();
+    vehicle_state = RECOVERING;
+  }
+
+  // Update state machine
   switch (vehicle_state) {
     case INIT: {
       mipp_msgs::TakeoffComplete srv;
@@ -56,6 +77,7 @@ void UAVPlanner::updateStateMachine() {
       break;}
     case PLANNING: {
       if (exploration_client->getState().isDone()) {
+        navigation_path.poses.clear();
         exploration_result = exploration_client->getResult().get()->result;
         vehicle_state = IDLE;
       }
@@ -65,32 +87,65 @@ void UAVPlanner::updateStateMachine() {
       ROS_DEBUG("UAV%d: Length of uav_paths: (%d, %d)", uav_id, (int)global_uav_paths->size(), (int)global_uav_paths->at(uav_id).poses.size());
       if (move_vehicle_client->getState().isDone()) {
         exploration_result.paths.clear();
-        navigation_path.poses.clear();
         global_sensor_coverages->at(uav_id).clear();
         global_uav_paths->at(uav_id).poses.clear();
         vehicle_state = IDLE;
       }
       break;}
     case RECOVERING: {
-      ROS_WARN("UAV%d: Entered RECOVERY state", uav_id);
+      ROS_WARN_THROTTLE(1.0, "Recovering UAV%d", uav_id);
+      if (move_vehicle_client->getState().isDone()) {
+        exploration_result.paths.clear();
+        navigation_path.poses.clear();
+        global_sensor_coverages->at(uav_id).clear();
+        global_uav_paths->at(uav_id).poses.clear();
+        vehicle_state = IDLE;
+      }
       break;}
     case DONE: {
       break;}
     default: {
-      ROS_INFO("UAV%d default", uav_id);
+      ROS_ERROR("UAV%d default", uav_id);
       break;}
   }
+}
+
+bool UAVPlanner::recoveryRequired() {
+  return (no_viable_plan or out_of_com_range) and (vehicle_state != RECOVERING);
+}
+
+void UAVPlanner::prepareForRecovery() {
+  // Recovery procedure will depend on current state
+  exploration_client->cancelAllGoals();
+  exploration_result.paths.clear();
+  move_vehicle_client->cancelAllGoals();
+  navigation_path.poses.clear();
+
+  no_viable_plan = false;
+}
+
+void UAVPlanner::sendRecoverVehicleGoal() {
+  move_vehicle_goal.goal_pose = recovery_goal;
+  move_vehicle_goal.goal_reached_radius = 2.0;
+  move_vehicle_goal.goal_reached_yaw = 3.14;
+  move_vehicle_goal.max_time = 1000.0;
+  move_vehicle_client->sendGoal(move_vehicle_goal);
 }
 
 void UAVPlanner::sendExplorationGoal(float exploration_time) {
   exploration_goal.max_time = exploration_time;
   exploration_goal.init_path.clear();
-  for (auto const& pose_it : navigation_path.poses) {
-    exploration_goal.init_path.push_back(pose_it);
-    ROS_WARN("Pushed in nav. path pose: (%.2f, %.2f)", pose_it.pose.position.x, pose_it.pose.position.y);
+  if (!navigation_path.poses.empty()) {
+    navigation_path.poses.erase(navigation_path.poses.begin());
+    for (auto const& pose_it : navigation_path.poses) {
+      exploration_goal.init_path.push_back(pose_it);
+      ROS_DEBUG("Pushed in nav. path pose: (%.2f, %.2f)", pose_it.pose.position.x, pose_it.pose.position.y);
+    }
   }
   exploration_goal.sampling_centers = *global_ugv_waypoints;
   exploration_goal.sampling_radius = 7.0;
+  exploration_goal.sampling_z = (double)(uav_id*0.75 + 1.5);
+  exploration_goal.sampling_z_interval = 0.1;
   exploration_client->sendGoal(exploration_goal);
 
   navigation_path.poses.clear();
@@ -142,8 +197,8 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
     geometry_msgs::Point first_path_point = path_it.poses.begin()->pose.position;
     geometry_msgs::Point first_waypoint = *(global_ugv_waypoints->begin());
     geometry_msgs::Point second_waypoint = *(global_ugv_waypoints->begin()+1);
-    com_constraint_satisfied = getDistanceBetweenPoints(first_path_point, first_waypoint) < 10.0 
-                           and getDistanceBetweenPoints(first_path_point, second_waypoint) < 10.0;
+    com_constraint_satisfied = getDistanceBetweenPoints(first_path_point, first_waypoint) < com_range 
+                           and getDistanceBetweenPoints(first_path_point, second_waypoint) < com_range;
     ROS_DEBUG("First path pose (%.2f, %.2f, %.2f)", first_path_point.x, first_path_point.y, first_path_point.z);
     ROS_DEBUG("First waypoint  (%.2f, %.2f, %.2f)", first_waypoint.x, first_waypoint.y, first_waypoint.z);
     ROS_DEBUG("Distance  %.2f", getDistanceBetweenPoints(first_path_point, first_waypoint));
@@ -180,9 +235,13 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
   }
   // Best path selected, add its coverages to sensor_coverages_ and make it this UAVs navigation path
   if (best_path_nr != -1) {
+    no_viable_plan = false;
     for (auto const& pose_it : best_path.poses) {
       sensor_coverage.push_back(makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range));
     }
+  }
+  else {
+    no_viable_plan = true;
   }
   navigation_path = best_path;
   float time_used = (ros::Time::now() - begin_time).toSec();
@@ -192,7 +251,7 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
 void UAVPlanner::sendMoveVehicleGoal(float move_vehicle_time) {
   navigation_goal = *(navigation_path.poses.begin());
   move_vehicle_goal.goal_pose = navigation_goal;
-  move_vehicle_goal.goal_reached_radius = 0.5;
+  move_vehicle_goal.goal_reached_radius = 1.0;
   move_vehicle_goal.goal_reached_yaw = 0.1;
   move_vehicle_goal.max_time = move_vehicle_time;
   move_vehicle_client->sendGoal(move_vehicle_goal);

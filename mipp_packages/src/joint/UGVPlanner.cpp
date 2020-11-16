@@ -2,6 +2,18 @@
 
 // SUBMODULE FOR EXPLORATION PLANNER
 
+void UGVPlanner::init(ros::NodeHandle n) {
+  sub_odometry     = n.subscribe("/gazebo/ground_truth_ugv", 1, &UGVPlanner::subOdometry, this);
+  vehicle_state    = INIT;
+  exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>("/ugv/exploration_action", true);
+  exploration_client->waitForServer(ros::Duration(10.0));
+  navigation_path.poses.push_back(navigation_goal);
+}
+
+void UGVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
+  ugv_odometry = *odom_msg;
+}
+
 /*
 void UGVPlanner::updateStateMachine() {
     // Check UGV first
