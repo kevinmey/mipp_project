@@ -7,7 +7,7 @@
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
-  <arg name="nr_of_uavs"  default="1"/>
+  <arg name="nr_of_uavs"  default="2"/>
   <arg name="uav_planner_rate"          default="100.0"/>
   <arg name="run_mipp_planner"          default="true"/>
   <arg name="com_range"                 default="10.0"/>
@@ -47,6 +47,7 @@
     <arg name="uav_id"                    value="0"/>
     <arg name="initial_x"                 value="$(eval arg('ugv_start_x')+3)"/>
     <arg name="initial_y"                 value="$(eval arg('ugv_start_y')+0)"/>
+    <arg name="takeoff_z"                 value="1.5"/>
     <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
     <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
@@ -60,6 +61,7 @@
     <arg name="uav_id"        value="1"/>
     <arg name="initial_x"                 value="$(eval arg('ugv_start_x')-2)"/>
     <arg name="initial_y"                 value="$(eval arg('ugv_start_y')-2)"/>
+    <arg name="takeoff_z"                 value="2.25"/>
     <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
     <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
@@ -73,6 +75,7 @@
     <arg name="uav_id"        value="2"/>
     <arg name="initial_x"                 value="$(eval arg('ugv_start_x')-2)"/>
     <arg name="initial_y"                 value="$(eval arg('ugv_start_y')+2)"/>
+    <arg name="takeoff_z"                 value="3.0"/>
     <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
     <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
@@ -118,8 +121,18 @@
   <group if="$(arg run_mipp_planner)">
     <include file="$(find mipp_packages)/launch/mipp_planner.launch">
       <arg name="nr_of_uavs"    value="$(arg nr_of_uavs)"/>
+      <arg name="com_range"     value="$(arg com_range)"/>
       <arg name="ugv_ns"        value="/ugv/"/>
+      <arg name="ugv_start_x"   value="$(arg ugv_start_x)"/>
+      <arg name="ugv_start_y"   value="$(arg ugv_start_y)"/>
     </include>
   </group>
+
+  <!--- 
+    Run visualizer
+  -->
+  <node name="mipp_visualizer_node" pkg="mipp_packages" type="mipp_visualizer_node">
+    <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
+  </node>
 
 </launch>

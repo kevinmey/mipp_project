@@ -118,6 +118,7 @@
   <group if="$(arg run_mipp_planner)">
     <include file="$(find mipp_packages)/launch/mipp_planner.launch">
       <arg name="nr_of_uavs"    value="$(arg nr_of_uavs)"/>
+      <arg name="com_range"     value="$(arg com_range)"/>
       <arg name="ugv_ns"        value="/ugv/"/>
       <arg name="ugv_start_x"   value="$(arg ugv_start_x)"/>
       <arg name="ugv_start_y"   value="$(arg ugv_start_y)"/>
@@ -128,6 +129,13 @@
   <node pkg="map_server" type="map_server" name="map_server" output="screen" args="$(arg map_file)">
     <!-- Remap topics 
     <remap from="/map" to="/projected_map"/>-->
+  </node>
+
+  <!--- 
+    Run visualizer
+  -->
+  <node name="mipp_visualizer_node" pkg="mipp_packages" type="mipp_visualizer_node">
+    <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
   </node>
 
 </launch>
