@@ -162,6 +162,8 @@ private:
   double planner_max_ray_distance_;
   bool planner_replan_enabled_;
   int planner_replan_counter_;
+  bool planner_prefer_straight_line_;
+  double planner_prefer_straight_line_threshold_;
 };
 
 };

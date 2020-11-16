@@ -91,7 +91,7 @@
         args="-sdf -database $(arg model) -model $(arg vehicle)_$(arg uav_id) -x $(arg initial_x) -y $(arg initial_y) -z 0 -R 0 -P 0 -Y 0">
     </node>
 
-    <!-- Launch local planner -->
+    <!-- Launch local planner
     <remap from="local_planner_manager/move_base_simple/goal"       to="uav_server/global_goal" />
     <arg name="manager"             default="local_planner_manager"/>
     <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="screen"/>
@@ -103,7 +103,7 @@
       <rosparam param="pointcloud_topics" subst_value="True">$(arg pointcloud_topics)</rosparam>
       <param name="tf_origin"  value="odom_$(arg uav_name)" />
       <param name="tf_base_link"  value="base_link_$(arg uav_name)" />
-    </node>
+    </node> -->
     
     <!-- Launch UAV Server -->
 
@@ -172,8 +172,9 @@
     </node>
     
     <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
-      <param name="base_global_planner" value="navfn/NavfnROS"/>
-      <!--param name="base_local_planner" value="base_local_planner/TrajectoryPlannerROS"/-->
+      <!--<param name="base_global_planner" value="navfn/NavfnROS"/>
+      param name="base_local_planner" value="base_local_planner/TrajectoryPlannerROS"/-->
+      <param name="base_global_planner" value="ugv_planner/UGVPlanner"/>
       <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS"/>
       <rosparam file="$(find mipp_description)/config/uav_planner.yaml" command="load"/>
       <rosparam file="$(find mipp_description)/config/uav_costmap_common.yaml" command="load" ns="global_costmap" />

@@ -165,6 +165,48 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   const double goal_yaw = tf2::getYaw(goal.pose.orientation);
   goal_ = Node(goal_x, goal_y, 0.0, goal_yaw, INFINITY, 0.0, -1, nullptr, true);
 
+  // For UAV, we prefer a straight line when possible, even if there is an obstacle
+  if (planner_prefer_straight_line_ and getDistanceBetweenPoints(root_.position_, goal_.position_) < planner_prefer_straight_line_threshold_) {
+    ROS_INFO("No collision between root and goal detected. Returning straight line plan.");
+    // Create "tree" of interpolated nodes on straight line between root and goal
+    plan.push_back(makePoseStampedFromNode(root_));
+    path_.push_back(root_.position_);
+    geometry_msgs::Point point_on_path = root_.position_;
+    Node node_on_path = root_;
+    geometry_msgs::Vector3 path_direction = getDirection(root_.position_, goal_.position_);
+    while(getDistanceBetweenPoints(point_on_path, goal_.position_) > planner_max_ray_distance_){
+      point_on_path.x += planner_max_ray_distance_*path_direction.x;
+      point_on_path.y += planner_max_ray_distance_*path_direction.y;
+      point_on_path.z += planner_max_ray_distance_*path_direction.z;
+
+      int node_id = tree_.size();
+      int node_rank = node_on_path.rank_ + 1;
+      float node_yaw = atan2(point_on_path.y - node_on_path.position_.y, point_on_path.x - node_on_path.position_.x);
+      float node_cost = node_on_path.cost_ + getDistanceBetweenPoints(point_on_path, node_on_path.position_);
+      bool node_is_goal = false;
+      Node new_node(point_on_path.x, point_on_path.y, point_on_path.z, node_yaw, node_cost, 0.0, node_id, &(tree_.back()), node_rank, node_is_goal);
+      
+      tree_.push_back(new_node);
+      path_.push_back(new_node.position_);
+      plan.push_back(makePoseStampedFromNode(new_node));
+
+      ROS_DEBUG("New node added. ID: %d, Parent: %d, Rank: %d, Cost: %f", node_id, new_node.getParent()->id_, node_rank, node_cost);
+      node_on_path = new_node;
+    }
+    goal_.setParent(&(tree_.back()));
+    goal_.id_ = tree_.size();
+    goal_.cost_ = node_on_path.cost_ + getDistanceBetweenPoints(node_on_path.position_, goal_.position_);
+    plan.push_back(makePoseStampedFromNode(goal_));
+    path_.push_back(goal_.position_);
+
+    visualizeTree();
+    visualizePathToGoal();
+    visualizeRoot(root_.position_, 0.0, 1.0, 0.0);
+    visualizeGoal(goal_.position_, 1.0, 0.0, 0.0);
+
+    return true;
+  }
+
   // Check first if goal can be reached with straight line
   bool return_collision_free_point = false;
   if(isPathCollisionFree(root_.position_, goal_.position_, return_collision_free_point)){
@@ -224,7 +266,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   ros::Time start_time = ros::Time::now();
   ros::Time last_check_time = ros::Time::now();
   double last_check_cost = goal_.cost_;
-  double check_interval = 2.0;
+  double check_interval = 1.0;
   while((ros::Time::now() - start_time).toSec() < planner_max_time_){
     ros::Time begin = ros::Time::now();
     
@@ -731,8 +773,10 @@ void UGVPlanner::getParams(ros::NodeHandle np)
   np.param<double>("planner_rate", planner_rate_, 200.0);
   np.param<int>("planner_max_tree_nodes", planner_max_tree_nodes_, 1000);
   np.param<double>("planner_max_time", planner_max_time_, 2.0);
-  np.param<double>("planner_max_ray_distance_", planner_max_ray_distance_, 2.0);
+  np.param<double>("planner_max_ray_distance", planner_max_ray_distance_, 2.0);
   np.param<bool>("planner_replan_enabled", planner_replan_enabled_, true);
+  np.param<bool>("planner_prefer_straight_line", planner_prefer_straight_line_, false);
+  np.param<double>("planner_prefer_straight_line_threshold", planner_prefer_straight_line_threshold_, 4.0);
   np.param("step_size", step_size_, costmap_->getResolution());
   np.param("min_dist_from_robot", min_dist_from_robot_, 0.10);
 }

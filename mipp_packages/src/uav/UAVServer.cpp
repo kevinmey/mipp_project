@@ -70,11 +70,14 @@ void UAVServer::pubMavrosSetpoint()
   target_cmd_vel_.header.frame_id = uav_body_frame_;
   target_cmd_vel_.header.stamp = ros::Time::now();
   target_cmd_vel_.coordinate_frame = 8; // FRAME_BODY_NED
-  if ((ros::Time::now() - uav_cmd_vel_received_time_).toSec() < 0.5) {
+  //if ((ros::Time::now() - uav_cmd_vel_received_time_).toSec() < 0.5) {
+  if (getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position) > 5.0) {
     target_cmd_vel_.type_mask = 0b010111000111;
     target_cmd_vel_.velocity.x = uav_cmd_vel_.linear.x;
     target_cmd_vel_.velocity.y = uav_cmd_vel_.linear.y;
-    target_cmd_vel_.velocity.z = 0.0;
+    float k = 0.1;
+    float e = uav_position_goal_.pose.position.z - uav_pose_.pose.position.z;
+    target_cmd_vel_.velocity.z = k*e;
     target_cmd_vel_.yaw_rate = uav_cmd_vel_.angular.z;
   }
   else {
@@ -246,7 +249,7 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
   try{
     geometry_msgs::TransformStamped position_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, goal->goal_pose.header.frame_id, ros::Time(0));
     tf2::doTransform(goal->goal_pose, uav_position_goal_, position_goal_tf);
-    uav_position_goal_.pose.position.z = uav_takeoff_z_;
+    //uav_position_goal_.pose.position.z = uav_takeoff_z_;
 
     tf2::Quaternion tf_quat;
     tf2::fromMsg(uav_position_goal_.pose.orientation, tf_quat);
@@ -267,6 +270,7 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
     ros::Time start_time = ros::Time::now();
     bool goal_reached = false;
     while ((ros::Time::now() - start_time).toSec() < goal->max_time) {
+      // Try to reach goal
       act_move_vehicle_feedback_.goal_euc_distance = getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position);
       act_move_vehicle_feedback_.goal_yaw_distance = abs(angles::shortest_angular_distance(uav_rpy_.vector.z, uav_position_goal_rpy_.z));
       act_move_vehicle_server_.publishFeedback(act_move_vehicle_feedback_);
