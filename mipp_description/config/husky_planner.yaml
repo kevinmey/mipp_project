@@ -20,7 +20,7 @@ UGVPlanner:
   # Planner
 
   planner_rate: 200.0
-  planner_max_time: 5.0
+  planner_max_time: 2.0
   planner_max_tree_nodes: 2000
   planner_max_ray_distance: 2.0
   step_size: 0.05
