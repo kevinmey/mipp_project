@@ -25,6 +25,7 @@ UGVPlanner:
   planner_max_ray_distance: 2.0
   planner_replan_enabled: false
   planner_prefer_straight_line: true
+  planner_prefer_straight_line_threshold: 100.0
   step_size: 0.05
 
   # Robot

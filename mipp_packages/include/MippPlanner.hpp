@@ -22,6 +22,9 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include <octomap_msgs/Octomap.h>
+#include "octomap_msgs/conversions.h"
+
 #include <string>
 #include <cmath> /* sqrt, pow */
 #include <algorithm>    // std::min
@@ -74,6 +77,7 @@ struct UAVPlanner
   void init(ros::NodeHandle n);
   int uav_id;
   float com_range;
+  std::shared_ptr<octomap::OcTree> octomap;
   // General vehicle variables
   nav_msgs::Odometry uav_odometry;
   // Global Info (Stored in MippPlanner object)
@@ -137,6 +141,7 @@ private:
   // Callback functions for subscriptions
   void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   void subUGVPlan(const nav_msgs::PathConstPtr& path_msg);
+  void subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg);
   // Planner functions
   void runStateMachine();
   void makePlanIndividual(int vehicle_id);
@@ -161,6 +166,7 @@ private:
   // Subscribers
   ros::Subscriber sub_clicked_point_;
   ros::Subscriber sub_ugv_goal_plan_;
+  ros::Subscriber sub_octomap_;
   // Actionlib
   // Parameters
   std::string planner_world_frame_;
@@ -184,6 +190,9 @@ private:
   std::vector<tf2::Vector3> uav_camera_corner_rays_;
   // Variables
   bool running_exploration_;
+  std::shared_ptr<octomap::OcTree> octomap_;
+  bool received_octomap_;
+  bool planner_initialized_;
   //// Collaborative
   std::map<int, std::vector<SensorCircle>> uav_sensor_coverages_;
   std::map<int, nav_msgs::Path> uav_paths_;

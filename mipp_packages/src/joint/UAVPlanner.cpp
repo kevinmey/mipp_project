@@ -8,14 +8,14 @@ void UAVPlanner::init(ros::NodeHandle n) {
   // Global Info (Stored in MippPlanner object)
   (*global_sensor_coverages)[uav_id] = sensor_coverage;
   (*global_uav_paths)[uav_id] = navigation_path;
+  // Recovery behaviour
+  no_viable_plan = false;
+  out_of_com_range = false;
   // Vehicle planner state
   vehicle_state = INIT;
   state_timer = n.createTimer(ros::Duration(0.5), boost::bind(&UAVPlanner::updateStateMachine, this));
   std::string takeoff_client_name = "/uav"+std::to_string(uav_id)+"/takeoff_complete_service";
   takeoff_client = n.serviceClient<mipp_msgs::TakeoffComplete>(takeoff_client_name);
-  // Recovery behaviour
-  no_viable_plan = false;
-  out_of_com_range = false;
   // Exploration
   std::string uav_exploration_client_name = "/uav"+std::to_string(uav_id)+"/exploration_action";
   exploration_client = new actionlib::SimpleActionClient<mipp_msgs::StartExplorationAction>(uav_exploration_client_name, true);
@@ -111,7 +111,10 @@ void UAVPlanner::updateStateMachine() {
 }
 
 bool UAVPlanner::recoveryRequired() {
-  return (no_viable_plan or out_of_com_range) and (vehicle_state != RECOVERING);
+  if ((no_viable_plan or out_of_com_range) and (vehicle_state != RECOVERING)) {
+    ROS_WARN("Recovery: Plan(%d), Range(%d), State(%d)", (int)no_viable_plan, (int)out_of_com_range, (int)vehicle_state);
+    return true;
+  }
 }
 
 void UAVPlanner::prepareForRecovery() {
@@ -126,9 +129,11 @@ void UAVPlanner::prepareForRecovery() {
 
 void UAVPlanner::sendRecoverVehicleGoal() {
   move_vehicle_goal.goal_pose = recovery_goal;
+  move_vehicle_goal.goal_path.poses.clear();
+  move_vehicle_goal.goal_path_to_be_improved = true;
   move_vehicle_goal.goal_reached_radius = 2.0;
   move_vehicle_goal.goal_reached_yaw = 3.14;
-  move_vehicle_goal.max_time = 1000.0;
+  move_vehicle_goal.goal_reached_max_time = 1000.0;
   move_vehicle_client->sendGoal(move_vehicle_goal);
 }
 
@@ -193,15 +198,14 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
     path_nr++;
     
     // Check if com constraints are satisfied
-    bool com_constraint_satisfied;
-    geometry_msgs::Point first_path_point = path_it.poses.begin()->pose.position;
-    geometry_msgs::Point first_waypoint = *(global_ugv_waypoints->begin());
-    geometry_msgs::Point second_waypoint = *(global_ugv_waypoints->begin()+1);
-    com_constraint_satisfied = getDistanceBetweenPoints(first_path_point, first_waypoint) < com_range 
-                           and getDistanceBetweenPoints(first_path_point, second_waypoint) < com_range;
-    ROS_DEBUG("First path pose (%.2f, %.2f, %.2f)", first_path_point.x, first_path_point.y, first_path_point.z);
-    ROS_DEBUG("First waypoint  (%.2f, %.2f, %.2f)", first_waypoint.x, first_waypoint.y, first_waypoint.z);
-    ROS_DEBUG("Distance  %.2f", getDistanceBetweenPoints(first_path_point, first_waypoint));
+    bool com_constraint_satisfied = true;
+    int nav_waypoint_idx = 0;
+    for (auto const& pose_it : path_it.poses) {
+      com_constraint_satisfied = com_constraint_satisfied 
+                             and getDistanceBetweenPoints(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx))) < com_range
+                             and getDistanceBetweenPoints(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx+1))) < com_range;
+      nav_waypoint_idx++;
+    }
 
     // Compute total path gain
     if (com_constraint_satisfied) {
@@ -251,9 +255,11 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
 void UAVPlanner::sendMoveVehicleGoal(float move_vehicle_time) {
   navigation_goal = *(navigation_path.poses.begin());
   move_vehicle_goal.goal_pose = navigation_goal;
+  move_vehicle_goal.goal_path.poses.clear();
+  move_vehicle_goal.goal_path_to_be_improved = true;
   move_vehicle_goal.goal_reached_radius = 1.0;
   move_vehicle_goal.goal_reached_yaw = 0.1;
-  move_vehicle_goal.max_time = move_vehicle_time;
+  move_vehicle_goal.goal_reached_max_time = move_vehicle_time;
   move_vehicle_client->sendGoal(move_vehicle_goal);
 
   exploration_result.paths.clear();

@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="run_gazebo"  default="true"/>
-  <arg name="world_file_name"   default="sc2/shapes_1" />
+  <arg name="world_file_name"   default="sc2/shapes_2_rand" />
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
   <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
-  <arg name="nr_of_uavs"  default="2"/>
+  <arg name="nr_of_uavs"  default="0"/>
   <arg name="uav_planner_rate"          default="150.0"/>
   <arg name="run_mipp_planner"          default="true"/>
   <arg name="com_range"                 default="10.0"/>
@@ -108,7 +108,7 @@
       <arg name="x"                       value="$(arg ugv_start_x)"/>
       <arg name="y"                       value="$(arg ugv_start_y)"/>
       <arg name="no_static_map"           value="false"/>
-      <arg name="no_sensor"               value="true"/>
+      <arg name="no_sensor"               value="false"/>
     </include>
   </group>
 
@@ -124,11 +124,12 @@
       <arg name="ugv_start_y"   value="$(arg ugv_start_y)"/>
     </include>
   </group>
-
+  
+  <!-- 
+    Map server 
+  -->
   <arg name="map_file" default="$(find mipp_gazebo)/worlds/$(arg world_file_name)_map.yaml"/>
   <node pkg="map_server" type="map_server" name="map_server" output="screen" args="$(arg map_file)">
-    <!-- Remap topics 
-    <remap from="/map" to="/projected_map"/>-->
   </node>
 
   <!--- 
@@ -136,6 +137,16 @@
   -->
   <node name="mipp_visualizer_node" pkg="mipp_packages" type="mipp_visualizer_node">
     <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
+  </node>
+
+  <!--- 
+    Run monitor
+  -->
+  <node name="mipp_monitor_node" pkg="mipp_packages" type="mipp_monitor_node">
+    <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
+    <param name="write_path"                value="false" />
+    <param name="read_path"                 value="true" />
+    <param name="path_file_name"            value="/home/kevin/catkin_ws/src/mipp_project/mipp_launch/bags/sc2_path_1.bag" />
   </node>
 
 </launch>

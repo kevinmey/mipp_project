@@ -4,6 +4,7 @@
   
 MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   ROS_INFO("MippPlanner object is being created.");
+  planner_initialized_ = false;
 
   // Initialize values
   getParams(np);
@@ -16,8 +17,19 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   pub_viz_uav_path_fovs_        = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_uav_path_fovs", 1);
   pub_viz_nav_waypoints_        = n.advertise<visualization_msgs::Marker>("MippPlanner/viz_nav_waypoints", 1);
 
-  sub_clicked_point_ = n.subscribe("/exploration/start_collaborative", 1, &MippPlanner::subClickedPoint, this);
-  sub_ugv_goal_plan_ = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &MippPlanner::subUGVPlan, this);
+  sub_clicked_point_  = n.subscribe("/exploration/start_collaborative", 1, &MippPlanner::subClickedPoint, this);
+  sub_ugv_goal_plan_  = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &MippPlanner::subUGVPlan, this);
+  sub_octomap_        = n.subscribe("/octomap_binary", 1, &MippPlanner::subOctomap, this);
+
+  // Wait for map
+  received_octomap_ = false;
+  ros::Rate rate_wait_map(1.0);
+  while(!received_octomap_)
+  {
+    ROS_WARN("No map received yet, waiting...");
+    ros::spinOnce();
+    rate_wait_map.sleep();
+  }
 
   // Make a UGVPlanner object as container for variables for the UGV
   ugv_planner_.pub_goal_        = n.advertise<geometry_msgs::PoseStamped>(ugv_ns_+"move_base_simple/goal", 1);
@@ -66,12 +78,15 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   }
 
   ros::spinOnce();
-  ros::Duration(10.0).sleep();
   ugv_planner_.vehicle_state = IDLE;
   for (auto& uav_planner_it : uav_planners_) {
+    uav_planner_it.octomap = octomap_;
+    ROS_WARN("Glo use count %d", (int)octomap_.use_count());
+    ROS_WARN("UAV use count %d", (int)uav_planner_it.octomap.use_count());
     uav_planner_it.init(n);
   }
 
+  planner_initialized_ = true;
   ROS_WARN("Done.");
 }
 
@@ -85,6 +100,9 @@ MippPlanner::~MippPlanner() {
 
 void MippPlanner::runUpdates() {
   ROS_DEBUG("runUpdates");
+  if (!planner_initialized_) {
+    return;
+  }
 
   // Process UGV related things
   std_msgs::Bool pub_msg;
@@ -144,6 +162,13 @@ void MippPlanner::subUGVPlan(const nav_msgs::PathConstPtr& path_msg) {
   ROS_DEBUG("subUGVPlan");
 
   ugv_planner_.navigation_path = *path_msg;
+}
+
+void MippPlanner::subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg) {
+  ROS_DEBUG("subOctomap");
+  octomap_ = std::shared_ptr<octomap::OcTree> (dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(*octomap_msg)));
+  received_octomap_ = true;
+  ROS_WARN_THROTTLE(1.0, "Octomap size %d, use_count %d", (int)octomap_->calcNumNodes(), (int)octomap_.use_count());
 }
 
 // PLanner functions
@@ -211,8 +236,8 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   np.param<float>("ugv_start_x", ugv_start_x_, 0.0);
   np.param<float>("ugv_start_y", ugv_start_y_, 0.0);
   np.param<std::string>("ugv_ns", ugv_ns_, "/ugv/");
-  np.param<int>("nr_of_ugv_nav_waypoints", nr_of_ugv_nav_waypoints_, 4);
-  np.param<float>("ugv_nav_waypoint_max_distance", ugv_nav_waypoint_max_distance_, 5.0);
+  np.param<int>("nr_of_ugv_nav_waypoints", nr_of_ugv_nav_waypoints_, 6);
+  np.param<float>("ugv_nav_waypoint_max_distance", ugv_nav_waypoint_max_distance_, 1.5);
   np.param<bool>("add_nav_waypoint_at_goal", add_nav_waypoint_at_goal_, true);
   np.param<float>("ugv_sensor_radius", ugv_sensor_radius_, 7.5);
   // UAVS

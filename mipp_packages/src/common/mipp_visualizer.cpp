@@ -169,7 +169,7 @@ void MippVisualizer::odometryCallback(const nav_msgs::OdometryConstPtr& odom_msg
                                   vehicle_rpy.y, 
                                   vehicle_rpy.z);
   vehicles_[vehicle_id+1].yaw = vehicle_rpy.z;
-  ROS_INFO("Got vehicle %d odom: (%.2f, %.2f, %.2f)", vehicle_id, vehicles_[vehicle_id+1].position.x, vehicles_[vehicle_id+1].position.y, vehicles_[vehicle_id+1].yaw);
+  ROS_DEBUG("Got vehicle %d odom: (%.2f, %.2f, %.2f)", vehicle_id, vehicles_[vehicle_id+1].position.x, vehicles_[vehicle_id+1].position.y, vehicles_[vehicle_id+1].yaw);
 }
 
 void MippVisualizer::buildImage()
@@ -180,7 +180,7 @@ void MippVisualizer::buildImage()
   image_ = grid_image_;
   image_origin_position_.x = grid_info_.origin.position.x;
   image_origin_position_.y = grid_info_.origin.position.y;
-  ROS_INFO("Image origin position: (%.2f, %.2f)",image_origin_position_.x, image_origin_position_.y);
+  ROS_DEBUG("Image origin position: (%.2f, %.2f)",image_origin_position_.x, image_origin_position_.y);
 
   if (image_.size().width == 0) {
     ROS_WARN("Got 0 size image");
@@ -197,15 +197,15 @@ void MippVisualizer::buildImage()
     if (image_size.width > image_size.height) {
       cv::copyMakeBorder(image_, image_, padding, padding + extra_padding, 0, 0, cv::BORDER_CONSTANT, cv::Vec3b(0,0,0));
       image_origin_position_.y -= (padding + extra_padding)*grid_info_.resolution;
-      ROS_INFO("New origin position: (%.2f, %.2f)", image_origin_position_.x, image_origin_position_.y);
+      ROS_DEBUG("New origin position: (%.2f, %.2f)", image_origin_position_.x, image_origin_position_.y);
     }
     else {
       cv::copyMakeBorder(image_, image_, 0, 0, padding + extra_padding, padding, cv::BORDER_CONSTANT, cv::Vec3b(0,0,0));
       image_origin_position_.x -= (padding + extra_padding)*grid_info_.resolution;
-      ROS_INFO("New origin position: (%.2f, %.2f)", image_origin_position_.x, image_origin_position_.y);
+      ROS_DEBUG("New origin position: (%.2f, %.2f)", image_origin_position_.x, image_origin_position_.y);
     }
   }
-  ROS_INFO("Size %d x %d -> %d x %d", image_size.width, image_size.height, image_.size().width, image_.size().height);
+  ROS_DEBUG("Size %d x %d -> %d x %d", image_size.width, image_size.height, image_.size().width, image_.size().height);
 
   // Scale image
   image_size = image_.size();
@@ -214,15 +214,15 @@ void MippVisualizer::buildImage()
   float image_scale_ratio = (float)image_size.width / (float)new_image_size;
   cv::resize(image_, image_, cv::Size(new_image_size, new_image_size));
   float new_image_resolution = image_scale_ratio*old_image_resolution;
-  ROS_INFO("Size %d x %d -> %d x %d", image_size.width, image_size.height, image_.size().width, image_.size().height);
-  ROS_INFO("Resolution %.2f -> %.2f", old_image_resolution, new_image_resolution);
+  ROS_DEBUG("Size %d x %d -> %d x %d", image_size.width, image_size.height, image_.size().width, image_.size().height);
+  ROS_DEBUG("Resolution %.2f -> %.2f", old_image_resolution, new_image_resolution);
 
   // Place vehicles on map
   for (auto &vehicle_it : vehicles_) {
     cv::Vec3b vehicle_color = (vehicle_it.type == UGV) ? cv::Vec3b(0,255,0) : cv::Vec3b(0,0,255);
     vehicle_it.pixel_position.x = (vehicle_it.position.x - image_origin_position_.x)/new_image_resolution;
     vehicle_it.pixel_position.y = (vehicle_it.position.y - image_origin_position_.y)/new_image_resolution;
-    ROS_INFO("Vehicle position (%.2f, %.2f) -> (%d, %d)", vehicle_it.position.x, vehicle_it.position.y, vehicle_it.pixel_position.x, vehicle_it.pixel_position.y);
+    ROS_DEBUG("Vehicle position (%.2f, %.2f) -> (%d, %d)", vehicle_it.position.x, vehicle_it.position.y, vehicle_it.pixel_position.x, vehicle_it.pixel_position.y);
     image_.at<cv::Vec3b>(vehicle_it.pixel_position) = vehicle_color;
     for (auto point_it = vehicle_it.shape.begin(); point_it != vehicle_it.shape.end() - 1; ++point_it) {
       cv::Point2i point_from = getRotatedPoint(vehicle_it.yaw, *point_it, vehicle_it.pixel_position);

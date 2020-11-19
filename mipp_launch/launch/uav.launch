@@ -145,8 +145,8 @@
     <node pkg="mipp_packages" type="octomap_clearer_node" name="octomap_clearer_node" respawn="true" output="screen">
       <param name="vehicle_name"                value="$(arg uav_name)" />
       <param name="vehicle_ground_truth_topic"  value="/gazebo/ground_truth_$(arg uav_name)" />
-      <param name="vehicle_size_x"              value="1.0" />
-      <param name="vehicle_size_y"              value="1.0" />
+      <param name="vehicle_size_x"              value="0.6" />
+      <param name="vehicle_size_y"              value="0.6" />
       <param name="vehicle_size_z"              value="0.5" />
     </node>
     

@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="run_gazebo"  default="true"/>
-  <arg name="world_file_name"   default="shapes_60x60" />
+  <arg name="world_file_name"   default="sc2/shapes_2_rand" />
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
   <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
-  <arg name="nr_of_uavs"  default="2"/>
+  <arg name="nr_of_uavs"  default="0"/>
   <arg name="uav_planner_rate"          default="100.0"/>
   <arg name="run_mipp_planner"          default="true"/>
   <arg name="com_range"                 default="10.0"/>
@@ -133,6 +133,16 @@
   -->
   <node name="mipp_visualizer_node" pkg="mipp_packages" type="mipp_visualizer_node">
     <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
+  </node>
+
+  <!--- 
+    Run monitor
+  -->
+  <node name="mipp_monitor_node" pkg="mipp_packages" type="mipp_monitor_node">
+    <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
+    <param name="write_path"                value="false" />
+    <param name="read_path"                 value="false" />
+    <param name="path_file_name"            value="/home/kevin/catkin_ws/src/mipp_project/mipp_launch/bags/sc2_path_1.bag" />
   </node>
 
 </launch>
