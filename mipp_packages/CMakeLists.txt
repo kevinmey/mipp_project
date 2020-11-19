@@ -26,6 +26,7 @@ find_package(
     mipp_msgs
     image_transport
     cv_bridge
+    rosbag
 )
 
 ###################################

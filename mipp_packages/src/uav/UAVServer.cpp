@@ -269,7 +269,7 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
 
     ros::Time start_time = ros::Time::now();
     bool goal_reached = false;
-    while ((ros::Time::now() - start_time).toSec() < goal->max_time) {
+    while ((ros::Time::now() - start_time).toSec() < goal->goal_reached_max_time) {
       // Try to reach goal
       act_move_vehicle_feedback_.goal_euc_distance = getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position);
       act_move_vehicle_feedback_.goal_yaw_distance = abs(angles::shortest_angular_distance(uav_rpy_.vector.z, uav_position_goal_rpy_.z));
@@ -288,7 +288,7 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
     if (!goal_reached) {
       act_move_vehicle_result_.time_used = (ros::Time::now() - start_time).toSec();
       act_move_vehicle_server_.setAborted();
-      ROS_INFO("UAV %d didn't reach its navigation goal after %.2f seconds.", uav_id_, goal->max_time);
+      ROS_INFO("UAV %d didn't reach its navigation goal after %.2f seconds.", uav_id_, goal->goal_reached_max_time);
     }
   }
   catch (tf2::TransformException &ex) {

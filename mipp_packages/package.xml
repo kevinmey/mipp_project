@@ -75,6 +75,9 @@
   <build_depend>opencv2</build_depend>
   <exec_depend>image_transport</exec_depend> 
   <exec_depend>opencv2</exec_depend>
+  <!-- For rosbag API: -->
+  <build_depend>rosbag</build_depend>
+  <exec_depend>rosbag</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

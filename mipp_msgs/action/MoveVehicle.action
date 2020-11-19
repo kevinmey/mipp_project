@@ -1,8 +1,10 @@
 #goal definition
 geometry_msgs/PoseStamped goal_pose
+nav_msgs/Path goal_path
+bool goal_path_to_be_improved
 float64 goal_reached_radius
 float64 goal_reached_yaw
-float64 max_time
+float64 goal_reached_max_time
 ---
 #result definition
 float64 time_used

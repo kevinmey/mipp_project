@@ -39,6 +39,8 @@ add_message_files(
   ExplorationPath.msg
   ExplorationPose.msg
   CommunicationState.msg
+  MippMonitor.msg
+  MippMonitorVehicle.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -59,6 +61,7 @@ generate_messages(
   std_msgs
   mipp_msgs
   geometry_msgs
+  nav_msgs
   actionlib_msgs
 )
 

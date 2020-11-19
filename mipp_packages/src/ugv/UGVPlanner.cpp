@@ -51,6 +51,7 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
   timer_replan_checker_ = n.createTimer(ros::Duration(2.0), boost::bind(&UGVPlanner::replanCheck, this));
 
   pub_goal_ = n.advertise<geometry_msgs::PoseStamped>("/ugv/move_base_simple/goal", 1);
+  pub_path_ = n.advertise<nav_msgs::Path>(robot_namespace_+"/UGVPlanner/path", 1);
   pub_viz_tree_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/viz_tree", 1);
   pub_viz_collision_tree_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/viz_collision_tree", 1);
   pub_viz_path_to_goal_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/path_to_goal", 1);
@@ -61,6 +62,11 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
 
   sub_initial_path_ = n.subscribe("/ugv/UGVFrontierExplorer/goal_path", 1, &UGVPlanner::subInitialPath, this);
   sub_odometry_ = n.subscribe("odometry/filtered", 1, &UGVPlanner::subOdometry, this);
+
+  act_move_vehicle_server_ = new actionlib::SimpleActionServer<mipp_msgs::MoveVehicleAction>(n, std::string(robot_namespace_+"/UGVPlanner/move_vehicle_action"), boost::bind(&UGVPlanner::actMoveVehicle, this, _1), false);
+  //act_move_vehicle_server_->registerGoalCallback(boost::bind(&UGVPlanner::actMoveVehicle, this));
+  act_move_vehicle_ = false;
+  act_move_vehicle_server_->start();
 
   // Init. random number generator distributions
   std::random_device rd;  // Non-deterministic random nr. to seed generator
@@ -113,6 +119,19 @@ void UGVPlanner::subOdometry(const nav_msgs::Odometry& odometry_msg)
 }
 
 /* 
+*  Subscriber callbacks
+*/
+
+void UGVPlanner::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
+{
+  ROS_DEBUG("actMoveVehicle");
+
+  act_move_vehicle_ = true;
+  act_move_vehicle_goal_ = *goal;
+  pub_goal_.publish(goal->goal_pose);
+}
+
+/* 
 *  Planner functions
 */
 
@@ -126,6 +145,15 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   if(!initialized_){
     ROS_ERROR("The planner has not been initialized, please call initialize() to use the planner");
     return false;
+  }
+
+  if (act_move_vehicle_) {
+    plan.clear();
+    for (auto const& pose_it : act_move_vehicle_goal_.goal_path.poses) {
+      plan.push_back(pose_it);
+    }
+    act_move_vehicle_ = false;
+    return true;
   }
 
   ROS_DEBUG("Got a start: %.2f, %.2f, and a goal: %.2f, %.2f", start.pose.position.x, start.pose.position.y, goal.pose.position.x, goal.pose.position.y);
@@ -384,6 +412,7 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
   optimizePath(0.1);
   visualizePath(path_);
   plan.clear();
+  nav_msgs::Path path_to_pub;
   for (auto path_it = path_.begin(); path_it != path_.end(); ++path_it) {
     geometry_msgs::PoseStamped path_pose;
     path_pose.header.frame_id = planner_world_frame_;
@@ -396,7 +425,9 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
     path_pose.pose.orientation.z = path_pose_quat.z();
     path_pose.pose.orientation.w = path_pose_quat.w();
     plan.push_back(path_pose);
+    path_to_pub.poses.push_back(path_pose);
   }
+  pub_path_.publish(path_to_pub);
 
   return true;
 }
