@@ -93,20 +93,10 @@ void UAVPlanner::updateStateMachine() {
       }
       break;}
     case ESCORTING: {
-      geometry_msgs::PoseStamped uav_escort_pose;
-      uav_escort_pose.header.frame_id = "world";
-      uav_escort_pose.header.stamp = ros::Time::now();
-
-      float ugv_yaw = makeRPYFromQuat(global_ugv_odometry->pose.pose.orientation).z;
-      geometry_msgs::Point ugv_position = global_ugv_odometry->pose.pose.position;
-      uav_escort_pose.pose.position = getRotatedPoint(ugv_yaw, formation_pose.position, makePoint(0,0,0));
-      uav_escort_pose.pose.position.x += ugv_position.x;
-      uav_escort_pose.pose.position.y += ugv_position.y;
-      uav_escort_pose.pose.orientation = global_ugv_odometry->pose.pose.orientation;
+      geometry_msgs::PoseStamped uav_escort_pose = getEscortPose(global_ugv_odometry->pose.pose);
+      navigation_path = getEscortPath(formation_pose, *global_ugv_waypoints);
+      global_uav_paths->at(uav_id) = navigation_path;
       pub_position_goal.publish(uav_escort_pose);
-      ROS_WARN("UGV (%.2f, %.2f) -- (%.2f, %.2f) -> (%.2f, %.2f) %s", global_ugv_odometry->pose.pose.position.x, global_ugv_odometry->pose.pose.position.y,
-                                                                   formation_pose.position.x, formation_pose.position.y,
-                                                                   uav_escort_pose.pose.position.x, uav_escort_pose.pose.position.y, uav_escort_pose.header.frame_id.c_str());
       break;}
     case RECOVERING: {
       ROS_WARN_THROTTLE(1.0, "Recovering UAV%d", uav_id);
@@ -229,8 +219,17 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
       float path_gain = 0.0;    // Record this paths gain (will be sum of pose gains accounting for sensor overlap)
       std::vector<SensorCircle> path_sensor_coverages;  // Will be filled with previous poses in the path
       for (auto const& pose_it : path_it.poses) {
-        float pose_gain = pose_it.gain;
+        float pose_gain = pose_it.gain/pose_it.pose_rank;
         SensorCircle pose_sensor_coverage = makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range);
+
+        /* Waypoint multiplier to encourage sensor circles close to the UGV path
+        float pose_sensor_multiplier_threshold = 5.0; // m away from (at least) one waypoint to get multiplier
+        float pose_sensor_multiplier = 1.0;
+        for (auto const& waypoint_it : *global_ugv_waypoints) {
+          if (getDistanceBetweenPoints(pose_sensor_coverage.center, waypoint_it) < pose_sensor_multiplier_threshold) {
+            pose_sensor_multiplier = 3.0;
+          }
+        }*/
         float pose_sensor_coverage_overlap = 0.0; // Will record area of overlap
         for (auto const& sensor_coverage_it : existing_sensor_coverages) {
           pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
@@ -240,7 +239,7 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
         }
         // Need ratio of sensor coverage area to sensor overlap area (capped at max 1, aka 100%)
         double pose_sensor_coverage_overlap_ratio = pose_sensor_coverage_overlap / (M_PI*pow(pose_sensor_coverage.radius, 2));
-        path_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain;
+        path_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain; //*pose_sensor_multiplier;
         path_sensor_coverages.push_back(pose_sensor_coverage);
       }
       if (path_gain > best_path_gain) {
@@ -280,4 +279,60 @@ void UAVPlanner::sendMoveVehicleGoal(float move_vehicle_time) {
   move_vehicle_client->sendGoal(move_vehicle_goal);
 
   exploration_result.paths.clear();
+}
+
+// Escort
+
+geometry_msgs::PoseStamped UAVPlanner::getEscortPose(geometry_msgs::Pose ugv_pose) {
+  ROS_DEBUG("getEscortPose");
+  geometry_msgs::PoseStamped uav_escort_pose;
+  uav_escort_pose.header.frame_id = "world";
+  uav_escort_pose.header.stamp = ros::Time::now();
+
+  float ugv_yaw = makeRPYFromQuat(ugv_pose.orientation).z;
+  geometry_msgs::Point ugv_position = ugv_pose.position;
+  uav_escort_pose.pose.position = getRotatedPoint(ugv_yaw, formation_pose.position, makePoint(0,0,0));
+  uav_escort_pose.pose.position.x += ugv_position.x;
+  uav_escort_pose.pose.position.y += ugv_position.y;
+  uav_escort_pose.pose.orientation = ugv_pose.orientation;
+  ROS_DEBUG("UGV (%.2f, %.2f) -- (%.2f, %.2f) -> (%.2f, %.2f) %s", ugv_pose.position.x, ugv_pose.position.y,
+                                                                formation_pose.position.x, formation_pose.position.y,
+                                                                uav_escort_pose.pose.position.x, uav_escort_pose.pose.position.y, uav_escort_pose.header.frame_id.c_str());
+
+  return uav_escort_pose;
+}
+
+nav_msgs::Path UAVPlanner::getEscortPath(geometry_msgs::Pose formation_pose, std::vector<geometry_msgs::Point> ugv_waypoints) {
+  ROS_DEBUG("getEscortPath");
+  nav_msgs::Path escort_path;
+  geometry_msgs::Vector3 escort_path_direction;
+  escort_path.header.frame_id = "world";
+  escort_path.header.stamp = ros::Time::now();
+  geometry_msgs::Pose ugv_pose;
+  ugv_pose.orientation.w = 1.0;
+  int counter = 0;
+  for (auto ugv_waypoint_it = ugv_waypoints.begin(); ugv_waypoint_it != ugv_waypoints.end(); ++ugv_waypoint_it) {
+    ROS_DEBUG("a");
+    ugv_pose.position = *ugv_waypoint_it;
+    if (std::next(ugv_waypoint_it) != ugv_waypoints.end()) {
+      ROS_DEBUG("b %d", counter);
+      counter++;
+      escort_path_direction.z = atan2(getDirection(*ugv_waypoint_it, *std::next(ugv_waypoint_it)).y, getDirection(*ugv_waypoint_it, *std::next(ugv_waypoint_it)).x);
+    }
+    else {
+      ROS_DEBUG("c");
+      escort_path_direction.z = atan2(getDirection(*std::prev(ugv_waypoint_it), *ugv_waypoint_it).y, getDirection(*std::prev(ugv_waypoint_it), *ugv_waypoint_it).x);
+    }
+    if (escort_path_direction.z != escort_path_direction.z) {
+      ROS_DEBUG("d");
+      escort_path_direction.z = 0.0;
+    }
+    ugv_pose.orientation = makeQuatFromRPY(escort_path_direction);
+    geometry_msgs::PoseStamped escort_path_pose = getEscortPose(ugv_pose);
+      ROS_DEBUG("e");
+    escort_path.poses.push_back(escort_path_pose);
+      ROS_DEBUG("f");
+  }
+      ROS_DEBUG("g");
+  return escort_path;
 }

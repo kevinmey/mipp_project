@@ -217,6 +217,7 @@ void UAVInformativeExplorer::actStartExploration(const mipp_msgs::StartExplorati
     while (node_on_path.getParent() != nullptr) {
       mipp_msgs::ExplorationPose exploration_pose;
       exploration_pose.pose = makePoseFromNode(node_on_path);
+      exploration_pose.pose_rank = node_on_path.rank_;
       exploration_pose.gain = node_on_path.gain_indiv_;
       exploration_path.poses.insert(exploration_path.poses.begin(), exploration_pose);
 
@@ -316,7 +317,7 @@ void UAVInformativeExplorer::runExploration() {
   double start_y = uav_pose_.pose.position.y;
   double start_z = uav_pose_.pose.position.z;
 
-  bool root_from_position_goal = false;
+  bool root_from_position_goal = getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position) < 1.0;
   if (root_from_position_goal) {
     start_x = uav_position_goal_.pose.position.x;
     start_y = uav_position_goal_.pose.position.y;
@@ -603,8 +604,8 @@ void UAVInformativeExplorer::extendTreeRRTstar(geometry_msgs::Point candidate_po
     {
       int node_id = tree_.size();
       double node_cost = neighbor_itr->second->cost_ + getDistanceBetweenPoints(candidate_point, neighbor_itr->second->position_);
-      double node_gain_indiv = calculateInformationGain(candidate_point, candidate_yaw)/(double)node_rank;
-      double node_gain = neighbor_itr->second->gain_ + node_gain_indiv;
+      double node_gain_indiv = calculateInformationGain(candidate_point, candidate_yaw);
+      double node_gain = neighbor_itr->second->gain_ + node_gain_indiv/(double)node_rank;
       Node new_node(candidate_point.x, candidate_point.y, candidate_point.z, candidate_yaw, node_cost, node_gain, node_id, neighbor_itr->second, node_rank, false);
       new_node.gain_indiv_ = node_gain_indiv;
 

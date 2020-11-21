@@ -127,6 +127,9 @@ struct UAVPlanner
   geometry_msgs::PoseStamped navigation_goal;
   nav_msgs::Path navigation_path;
   // Escort formation
+  geometry_msgs::PoseStamped getEscortPose(geometry_msgs::Pose ugv_pose);
+  nav_msgs::Path getEscortPath(geometry_msgs::Pose formation_pose, std::vector<geometry_msgs::Point> ugv_waypoints);
+  nav_msgs::Path escort_path;
   geometry_msgs::Pose formation_pose;
 };
 

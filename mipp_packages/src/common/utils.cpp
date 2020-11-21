@@ -61,6 +61,7 @@ geometry_msgs::Vector3 getDirection(geometry_msgs::Point const from_point, geome
   direction.x = to_point.x - from_point.x;
   direction.y = to_point.y - from_point.y;
   direction.z = to_point.z - from_point.z;
+  ROS_DEBUG("Direction from (%.2f, %.2f) to (%.2f, %.2f): (%.2f, %.2f, %.2f)", from_point.x, to_point.x, from_point.y, to_point.y, direction.x, direction.y, direction.z);
   return normalize(direction);
 }
 
@@ -82,6 +83,9 @@ geometry_msgs::Point getRotatedPoint(double rotation_angle_rad, geometry_msgs::P
 geometry_msgs::Point normalize(geometry_msgs::Point const point)
 {
   double norm = sqrt(pow(point.x, 2.0) + pow(point.y, 2.0) + pow(point.z, 2.0));
+  if (norm < 0.0001) {
+    return makePoint(1, 0, 0);
+  }
   geometry_msgs::Point ret_point;
   ret_point.x = point.x/norm;
   ret_point.y = point.y/norm;
@@ -199,7 +203,7 @@ geometry_msgs::Vector3 makeRPYFromQuat(geometry_msgs::Quaternion quat) {
 }
 
 geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy) {
-  ROS_DEBUG("makeQuatFromRPY");
+  ROS_DEBUG("makeQuatFromRPY (%.2f, %.2f, %.2f)", rpy.x, rpy.y, rpy.z);
   tf2::Quaternion tf_quat;
   tf_quat.setRPY(rpy.x, rpy.y, rpy.z);
   geometry_msgs::Quaternion quat;
