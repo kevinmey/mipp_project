@@ -19,6 +19,8 @@ UGVPlanner:
 
   # Planner
 
+  robot_namespace: /uav0
+
   planner_rate: 200.0
   planner_max_time: 2.0
   planner_max_tree_nodes: 2000

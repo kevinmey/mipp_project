@@ -177,6 +177,7 @@
       <param name="base_global_planner" value="ugv_planner/UGVPlanner"/>
       <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS"/>
       <rosparam file="$(find mipp_description)/config/uav_planner.yaml" command="load"/>
+      <param name="UGVPlanner/robot_namespace"     value="/$(arg uav_name)"/>
       <rosparam file="$(find mipp_description)/config/uav_costmap_common.yaml" command="load" ns="global_costmap" />
       <rosparam file="$(find mipp_description)/config/uav_costmap_common.yaml" command="load" ns="local_costmap" />
       <rosparam file="$(find mipp_description)/config/uav_costmap_local.yaml" command="load" ns="local_costmap" />
