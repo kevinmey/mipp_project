@@ -1,0 +1,9 @@
+#goal definition
+float64 max_time
+---
+#result definition
+float64 time_used
+int64 voxels_discovered
+---
+#feedback
+int64 voxels_discovered
