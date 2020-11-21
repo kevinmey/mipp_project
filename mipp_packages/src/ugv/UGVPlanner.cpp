@@ -50,7 +50,7 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
 
   timer_replan_checker_ = n.createTimer(ros::Duration(2.0), boost::bind(&UGVPlanner::replanCheck, this));
 
-  pub_goal_ = n.advertise<geometry_msgs::PoseStamped>("/ugv/move_base_simple/goal", 1);
+  pub_goal_ = n.advertise<geometry_msgs::PoseStamped>(robot_namespace_+"/move_base_simple/goal", 1);
   pub_path_ = n.advertise<nav_msgs::Path>(robot_namespace_+"/UGVPlanner/path", 1);
   pub_viz_tree_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/viz_tree", 1);
   pub_viz_collision_tree_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/viz_collision_tree", 1);
@@ -60,7 +60,7 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
   pub_viz_subgoal_node_ = n.advertise<visualization_msgs::MarkerArray>(robot_namespace_+"/UGVPlanner/subgoal_node", 1);
   pub_viz_frontier_nodes_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/frontier_nodes", 1);
 
-  sub_initial_path_ = n.subscribe("/ugv/UGVFrontierExplorer/goal_path", 1, &UGVPlanner::subInitialPath, this);
+  sub_initial_path_ = n.subscribe(robot_namespace_+"/UGVFrontierExplorer/goal_path", 1, &UGVPlanner::subInitialPath, this);
   sub_odometry_ = n.subscribe("odometry/filtered", 1, &UGVPlanner::subOdometry, this);
 
   act_move_vehicle_server_ = new actionlib::SimpleActionServer<mipp_msgs::MoveVehicleAction>(n, std::string(robot_namespace_+"/UGVPlanner/move_vehicle_action"), boost::bind(&UGVPlanner::actMoveVehicle, this, _1), false);
