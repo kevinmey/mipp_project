@@ -42,6 +42,8 @@ double getClosestYaw(double from_yaw, double to_yaw, double max_yaw_delta);
 
 geometry_msgs::Vector3 getDirection(geometry_msgs::Point const from_point, geometry_msgs::Point const to_point);
 
+geometry_msgs::Point getRotatedPoint(double rotation_angle_rad, geometry_msgs::Point point, geometry_msgs::Point rotation_axis);
+
 geometry_msgs::Point normalize(geometry_msgs::Point const point);
 
 geometry_msgs::Vector3 normalize(geometry_msgs::Vector3 const vector);

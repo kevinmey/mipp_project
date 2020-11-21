@@ -64,6 +64,21 @@ geometry_msgs::Vector3 getDirection(geometry_msgs::Point const from_point, geome
   return normalize(direction);
 }
 
+geometry_msgs::Point getRotatedPoint(double rotation_angle_rad, geometry_msgs::Point point, geometry_msgs::Point rotation_axis)
+{
+  if (std::abs(rotation_angle_rad) < 0.01){
+    // Rotation is so small that it is virtually the same point
+    return point;
+  }
+
+  geometry_msgs::Point rotated_point = makePoint(point.x*std::cos(rotation_angle_rad) 
+                                               - point.y*std::sin(rotation_angle_rad),
+                                                 point.x*std::sin(rotation_angle_rad) 
+                                               + point.y*std::cos(rotation_angle_rad),
+                                                 point.z);
+  return makePoint(rotated_point.x + rotation_axis.x, rotated_point.y + rotation_axis.y, point.z);
+}
+
 geometry_msgs::Point normalize(geometry_msgs::Point const point)
 {
   double norm = sqrt(pow(point.x, 2.0) + pow(point.y, 2.0) + pow(point.z, 2.0));
