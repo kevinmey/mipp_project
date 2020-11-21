@@ -2,7 +2,8 @@
 
 // Constructor
   
-MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
+MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) 
+  : act_mipp_server_(n, "mipp_action", boost::bind(&MippPlanner::actMipp, this, _1), false) {
   ROS_INFO("MippPlanner object is being created.");
   planner_initialized_ = false;
 
@@ -21,11 +22,12 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   sub_ugv_goal_plan_  = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &MippPlanner::subUGVPlan, this);
   sub_octomap_        = n.subscribe("/octomap_binary", 1, &MippPlanner::subOctomap, this);
 
+  act_mipp_server_.start();
+
   // Wait for map
   received_octomap_ = false;
   ros::Rate rate_wait_map(1.0);
-  while(!received_octomap_)
-  {
+  while (!received_octomap_) {
     ROS_WARN("No map received yet, waiting...");
     ros::spinOnce();
     rate_wait_map.sleep();
@@ -36,6 +38,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   ugv_planner_.pub_goal_path_   = n.advertise<nav_msgs::Path>(ugv_ns_+"UGVFrontierExplorer/goal_path", 1);
   ugv_planner_.navigation_goal.pose.position.x = ugv_start_x_;
   ugv_planner_.navigation_goal.pose.position.y = ugv_start_y_;
+  ugv_planner_.ugv_odometry = std::make_shared<nav_msgs::Odometry>();
   ugv_planner_.init(n);
   // Make a UAVPlanner object as container for variables for each UAV
   for (int uav_id = 0; uav_id < nr_of_uavs_; uav_id++) {
@@ -80,9 +83,17 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) {
   ros::spinOnce();
   ugv_planner_.vehicle_state = IDLE;
   for (auto& uav_planner_it : uav_planners_) {
+    std::string uav_ns = "/uav"+std::to_string(uav_planner_it.uav_id);
+    uav_planner_it.pub_position_goal = n.advertise<geometry_msgs::PoseStamped>(uav_ns+"/uav_server/position_goal", 1);
+    // Global
+    uav_planner_it.global_ugv_odometry = ugv_planner_.ugv_odometry;
+    ROS_DEBUG("UAV use count %d: ugv_odometry", (int)uav_planner_it.global_ugv_odometry.use_count());
+    uav_planner_it.global_running_exploration = std::make_shared<bool>(running_exploration_);
+    ROS_DEBUG("UAV use count %d: running_exploration", (int)uav_planner_it.global_running_exploration.use_count());
     uav_planner_it.octomap = octomap_;
-    ROS_WARN("Glo use count %d", (int)octomap_.use_count());
-    ROS_WARN("UAV use count %d", (int)uav_planner_it.octomap.use_count());
+    ROS_DEBUG("Glo use count %d: octomap", (int)octomap_.use_count());
+    ROS_DEBUG("UAV use count %d: octomap", (int)uav_planner_it.octomap.use_count());
+    uav_planner_it.formation_pose = getFormationPose(uav_planner_it.uav_id);
     uav_planner_it.init(n);
   }
 
@@ -114,10 +125,10 @@ void MippPlanner::runUpdates() {
 
   // Check if UAVs are still fulfilling com constraints
   for (auto& uav_it : uav_planners_) {
-    uav_it.recovery_goal.header = ugv_planner_.ugv_odometry.header;
-    uav_it.recovery_goal.pose = ugv_planner_.ugv_odometry.pose.pose;
+    uav_it.recovery_goal.header = ugv_planner_.ugv_odometry->header;
+    uav_it.recovery_goal.pose = ugv_planner_.ugv_odometry->pose.pose;
     uav_it.recovery_goal.pose.position.z = (double)(uav_it.uav_id*0.75 + 1.5);
-    auto uav_distance = getDistanceBetweenPoints(ugv_planner_.ugv_odometry.pose.pose.position, uav_it.uav_odometry.pose.pose.position);
+    auto uav_distance = getDistanceBetweenPoints(ugv_planner_.ugv_odometry->pose.pose.position, uav_it.uav_odometry.pose.pose.position);
     uav_it.out_of_com_range = (uav_distance > com_range_);
   }
 
@@ -169,6 +180,16 @@ void MippPlanner::subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg)
   octomap_ = std::shared_ptr<octomap::OcTree> (dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(*octomap_msg)));
   received_octomap_ = true;
   ROS_WARN_THROTTLE(1.0, "Octomap size %d, use_count %d", (int)octomap_->calcNumNodes(), (int)octomap_.use_count());
+}
+
+// Actionlib
+
+void MippPlanner::actMipp(const mipp_msgs::MippGoalConstPtr &goal) {
+  ROS_DEBUG("actMipp");
+  if (!running_exploration_) {
+    ROS_WARN("Starting MIPP");
+    running_exploration_ = true;
+  }
 }
 
 // PLanner functions
@@ -237,7 +258,7 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   np.param<float>("ugv_start_y", ugv_start_y_, 0.0);
   np.param<std::string>("ugv_ns", ugv_ns_, "/ugv/");
   np.param<int>("nr_of_ugv_nav_waypoints", nr_of_ugv_nav_waypoints_, 6);
-  np.param<float>("ugv_nav_waypoint_max_distance", ugv_nav_waypoint_max_distance_, 1.5);
+  np.param<float>("ugv_nav_waypoint_max_distance", ugv_nav_waypoint_max_distance_, 2.0);
   np.param<bool>("add_nav_waypoint_at_goal", add_nav_waypoint_at_goal_, true);
   np.param<float>("ugv_sensor_radius", ugv_sensor_radius_, 7.5);
   // UAVS
@@ -248,6 +269,32 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   np.param<float>("uav_camera_hfov", uav_camera_hfov_, 1.02974);
   np.param<float>("uav_camera_ray_resolution", uav_camera_ray_resolution_, 1.0);
   np.param<float>("uav_camera_range", uav_camera_range_, 7.5);
+}
+
+geometry_msgs::Pose MippPlanner::getFormationPose(int uav_id) {
+  // Hard coded, sorry
+  geometry_msgs::Pose formation_pose;
+  formation_pose.position.z = (double)(uav_id*0.75 + 1.5);
+  formation_pose.orientation.w = 1.0;
+  switch (uav_id)
+  {
+  case 0:
+    formation_pose.position.x = 3.0;
+    formation_pose.position.y = 0.0;
+    break;
+  case 1:
+    formation_pose.position.x = -2.0;
+    formation_pose.position.y = -2.0;
+    break;
+  case 2:
+    formation_pose.position.x = -2.0;
+    formation_pose.position.y = 2.0;
+    break;
+  default:
+    ROS_ERROR("Couldn't find a hard coded formation for UAV%d", uav_id);
+    break;
+  }
+  return formation_pose;
 }
 
 // Visualization

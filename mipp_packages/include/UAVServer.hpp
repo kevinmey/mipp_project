@@ -116,6 +116,7 @@ private:
   bool uav_local_goal_received_;
   geometry_msgs::Twist uav_cmd_vel_;
   ros::Time uav_cmd_vel_received_time_;
+  bool uav_use_move_base_;
   //   State
   geometry_msgs::PoseStamped uav_pose_;
   geometry_msgs::Vector3Stamped uav_rpy_;

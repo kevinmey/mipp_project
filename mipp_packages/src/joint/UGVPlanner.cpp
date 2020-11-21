@@ -11,7 +11,7 @@ void UGVPlanner::init(ros::NodeHandle n) {
 }
 
 void UGVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
-  ugv_odometry = *odom_msg;
+  *ugv_odometry = *odom_msg;
 }
 
 /*

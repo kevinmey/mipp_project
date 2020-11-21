@@ -11,7 +11,16 @@
 #include "mipp_msgs/ExplorationPose.h"
 #include "mipp_msgs/StartExplorationAction.h"
 #include "mipp_msgs/MoveVehicleAction.h"
+#include "mipp_msgs/MippAction.h"
 #include "mipp_msgs/TakeoffComplete.h"
+
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2/utils.h>
+#include <angles/angles.h>
+
+#include <actionlib/server/simple_action_server.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
 
@@ -31,7 +40,7 @@
 
 //
 
-enum VehicleState { INIT=-1, IDLE=0, PLANNING=1, MOVING=2, RECOVERING=3, DONE=4 };
+enum VehicleState { INIT=-1, IDLE=0, PLANNING=1, MOVING=2, ESCORTING=3, RECOVERING=10, DONE=100 };
 
 struct UGVPlanner
 {
@@ -43,7 +52,7 @@ struct UGVPlanner
   ros::Subscriber sub_odometry;
   // General vehicle variables
   void init(ros::NodeHandle n);
-  nav_msgs::Odometry ugv_odometry;
+  std::shared_ptr<nav_msgs::Odometry> ugv_odometry;
   // Vehicle planner state
   void updateStateMachine();
   VehicleState vehicle_state;
@@ -70,6 +79,8 @@ struct UGVPlanner
 
 struct UAVPlanner
 {
+  // Publishers
+  ros::Publisher pub_position_goal;
   // Subscribers
   void subOdometry(const nav_msgs::OdometryConstPtr& odom_msg);
   ros::Subscriber sub_odometry;
@@ -81,6 +92,8 @@ struct UAVPlanner
   // General vehicle variables
   nav_msgs::Odometry uav_odometry;
   // Global Info (Stored in MippPlanner object)
+  std::shared_ptr<bool> global_running_exploration;
+  std::shared_ptr<nav_msgs::Odometry> global_ugv_odometry;
   std::vector<geometry_msgs::Point>* global_ugv_waypoints;
   std::map<int, std::vector<SensorCircle>>* global_sensor_coverages;
   std::map<int, nav_msgs::Path>* global_uav_paths;
@@ -113,6 +126,8 @@ struct UAVPlanner
   mipp_msgs::MoveVehicleGoal move_vehicle_goal;
   geometry_msgs::PoseStamped navigation_goal;
   nav_msgs::Path navigation_path;
+  // Escort formation
+  geometry_msgs::Pose formation_pose;
 };
 
 /* MOVED DEFINITION TO UTILS.HPP
@@ -142,12 +157,15 @@ private:
   void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   void subUGVPlan(const nav_msgs::PathConstPtr& path_msg);
   void subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg);
+  // Actionlib
+  void actMipp(const mipp_msgs::MippGoalConstPtr &goal);
   // Planner functions
   void runStateMachine();
   void makePlanIndividual(int vehicle_id);
   void makePlanSynchronous();
   // Utility functions
   void getParams(ros::NodeHandle np);
+  geometry_msgs::Pose getFormationPose(int uav_id);
   // Visualization functions
   void visualizeSensorCircle(SensorCircle sensor_circle);
   void visualizeSensorCoverages(std::vector<SensorCircle> sensor_coverages);
@@ -168,6 +186,10 @@ private:
   ros::Subscriber sub_ugv_goal_plan_;
   ros::Subscriber sub_octomap_;
   // Actionlib
+  actionlib::SimpleActionServer<mipp_msgs::MippAction> act_mipp_server_;
+  mipp_msgs::MoveVehicleGoal act_mipp_goal_;
+  mipp_msgs::MoveVehicleFeedback act_mipp_feedback_;
+  mipp_msgs::MoveVehicleResult act_mipp_result_;
   // Parameters
   std::string planner_world_frame_;
   //// General

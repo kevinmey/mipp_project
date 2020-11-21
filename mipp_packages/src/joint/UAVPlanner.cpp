@@ -48,7 +48,7 @@ void UAVPlanner::updateStateMachine() {
       if (takeoff_client.call(srv)) {
         if (srv.response.takeoff_complete) {
           ROS_INFO("UAV%d takeoff complete.", uav_id);
-          vehicle_state = IDLE;
+          vehicle_state = ESCORTING;
         }
         else {
           ROS_DEBUG("UAV%d still waiting for takeoff to complete.", uav_id);
@@ -92,6 +92,22 @@ void UAVPlanner::updateStateMachine() {
         vehicle_state = IDLE;
       }
       break;}
+    case ESCORTING: {
+      geometry_msgs::PoseStamped uav_escort_pose;
+      uav_escort_pose.header.frame_id = "world";
+      uav_escort_pose.header.stamp = ros::Time::now();
+
+      float ugv_yaw = makeRPYFromQuat(global_ugv_odometry->pose.pose.orientation).z;
+      geometry_msgs::Point ugv_position = global_ugv_odometry->pose.pose.position;
+      uav_escort_pose.pose.position = getRotatedPoint(ugv_yaw, formation_pose.position, makePoint(0,0,0));
+      uav_escort_pose.pose.position.x += ugv_position.x;
+      uav_escort_pose.pose.position.y += ugv_position.y;
+      uav_escort_pose.pose.orientation = global_ugv_odometry->pose.pose.orientation;
+      pub_position_goal.publish(uav_escort_pose);
+      ROS_WARN("UGV (%.2f, %.2f) -- (%.2f, %.2f) -> (%.2f, %.2f) %s", global_ugv_odometry->pose.pose.position.x, global_ugv_odometry->pose.pose.position.y,
+                                                                   formation_pose.position.x, formation_pose.position.y,
+                                                                   uav_escort_pose.pose.position.x, uav_escort_pose.pose.position.y, uav_escort_pose.header.frame_id.c_str());
+      break;}
     case RECOVERING: {
       ROS_WARN_THROTTLE(1.0, "Recovering UAV%d", uav_id);
       if (move_vehicle_client->getState().isDone()) {
@@ -111,10 +127,11 @@ void UAVPlanner::updateStateMachine() {
 }
 
 bool UAVPlanner::recoveryRequired() {
-  if ((no_viable_plan or out_of_com_range) and (vehicle_state != RECOVERING)) {
+  if ((no_viable_plan or out_of_com_range) and (vehicle_state != RECOVERING) and (vehicle_state != INIT)) {
     ROS_WARN("Recovery: Plan(%d), Range(%d), State(%d)", (int)no_viable_plan, (int)out_of_com_range, (int)vehicle_state);
     return true;
   }
+  return false;
 }
 
 void UAVPlanner::prepareForRecovery() {
@@ -256,7 +273,7 @@ void UAVPlanner::sendMoveVehicleGoal(float move_vehicle_time) {
   navigation_goal = *(navigation_path.poses.begin());
   move_vehicle_goal.goal_pose = navigation_goal;
   move_vehicle_goal.goal_path.poses.clear();
-  move_vehicle_goal.goal_path_to_be_improved = true;
+  move_vehicle_goal.goal_path_to_be_improved = false;
   move_vehicle_goal.goal_reached_radius = 1.0;
   move_vehicle_goal.goal_reached_yaw = 0.1;
   move_vehicle_goal.goal_reached_max_time = move_vehicle_time;
