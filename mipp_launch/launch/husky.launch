@@ -8,6 +8,7 @@
   <arg name="y" default="0.0"/>
   <arg name="z" default="0.0"/>
   <arg name="yaw" default="0.0"/>
+  <arg name="velocity" default="0.5"/>
   <arg name="laser_enabled" default="true"/> <!-- K: Changed to true -->
   <arg name="kinect_enabled" default="false"/>
   <arg name="urdf_extras" default="$(find mipp_description)/urdf/accessories/extras.urdf.xacro"/>
@@ -94,15 +95,18 @@
               -model $(arg robot_namespace)" />
 
     <!---
-      Run Move Base Demo 
+      Run Move Base Demo
     -->
-    <arg name="base_global_planner" default="ugv_planner/UGVPlanner"/>
-    <arg name="base_local_planner" default="teb_local_planner/TebLocalPlannerROS"/>
+    <arg name="base_global_planner"   default="ugv_planner/UGVPlanner"/>
+    <arg name="base_local_planner"    default="teb_local_planner/TebLocalPlannerROS"/>
 
     <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
       <param name="base_global_planner" value="$(arg base_global_planner)"/>
       <param name="base_local_planner" value="$(arg base_local_planner)"/>
       <rosparam file="$(find mipp_description)/config/husky_planner.yaml" command="load"/>
+      <param name="TebLocalPlannerROS/max_vel_x"              value="$(arg velocity)"/>
+      <param name="TebLocalPlannerROS/max_vel_x_backwards"    value="$(arg velocity)"/>
+      <param name="TebLocalPlannerROS/max_vel_theta"          value="$(arg velocity)"/>
       <!-- observation sources located in costmap_common.yaml -->
       <rosparam file="$(find mipp_description)/config/husky_costmap_common.yaml" command="load" ns="global_costmap" />
       <rosparam file="$(find mipp_description)/config/husky_costmap_common.yaml" command="load" ns="local_costmap" />
