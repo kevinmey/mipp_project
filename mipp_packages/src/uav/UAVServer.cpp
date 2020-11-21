@@ -71,7 +71,7 @@ void UAVServer::pubMavrosSetpoint()
   target_cmd_vel_.header.stamp = ros::Time::now();
   target_cmd_vel_.coordinate_frame = 8; // FRAME_BODY_NED
   //if ((ros::Time::now() - uav_cmd_vel_received_time_).toSec() < 0.5) {
-  if (getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position) > 5.0) {
+  if (uav_use_move_base_) {
     target_cmd_vel_.type_mask = 0b010111000111;
     target_cmd_vel_.velocity.x = uav_cmd_vel_.linear.x;
     target_cmd_vel_.velocity.y = uav_cmd_vel_.linear.y;
@@ -175,8 +175,9 @@ void UAVServer::subPositionGoal(const geometry_msgs::PoseStampedConstPtr& positi
 
     uav_position_goal_.header.frame_id = uav_world_frame_;
     uav_position_goal_.header.stamp = ros::Time::now();
-
-    pub_global_goal_.publish(uav_position_goal_);
+    if (uav_use_move_base_) {
+      pub_global_goal_.publish(uav_position_goal_);
+    }
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("subGlobalGoal: %s",ex.what());
@@ -264,8 +265,10 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
 
     uav_position_goal_.header.frame_id = uav_world_frame_;
     uav_position_goal_.header.stamp = ros::Time::now();
-
-    pub_global_goal_.publish(uav_position_goal_);
+    uav_use_move_base_ = goal->goal_path_to_be_improved;
+    if (uav_use_move_base_) {
+      pub_global_goal_.publish(uav_position_goal_);
+    }
 
     ros::Time start_time = ros::Time::now();
     bool goal_reached = false;
@@ -318,6 +321,7 @@ void UAVServer::takeoff() {
   ros::Rate rate(20.0);
   uav_takeoff_complete_ = false;
   uav_clearing_rotation_complete_ = false;
+  uav_use_move_base_= false;
 
   // Wait for FCU connection
   while(ros::ok() && !uav_state_.connected){
