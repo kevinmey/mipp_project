@@ -56,12 +56,20 @@ int resolveUri(std::string& uri);
 
 // Planner functions
 
-  float calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_b);
+float calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_b);
 
-  nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath);
+nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath);
 
-  geometry_msgs::Vector3 makeRPYFromQuat(geometry_msgs::Quaternion quat);
+geometry_msgs::Vector3 makeRPYFromQuat(geometry_msgs::Quaternion quat);
 
-  geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy);
+geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy);
 
-  SensorCircle makeSensorCircleFromUAVPose(geometry_msgs::Pose uav_pose, int uav_id, float sensor_range);
+geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Point rpy);
+
+geometry_msgs::Quaternion makeQuatFromRPY(double r, double p, double y);
+
+geometry_msgs::Quaternion makeQuatFromAddingTwoYaws(geometry_msgs::Quaternion quat_1, geometry_msgs::Quaternion quat_2);
+
+SensorCircle makeSensorCircleFromUAVPose(geometry_msgs::Pose uav_pose, int uav_id, float sensor_range);
+
+// Operators

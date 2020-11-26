@@ -214,6 +214,30 @@ geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy) {
   return quat;
 }
 
+geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Point rpy) {
+  ROS_DEBUG("makeQuatFromRPY (%.2f, %.2f, %.2f)", rpy.x, rpy.y, rpy.z);
+  tf2::Quaternion tf_quat;
+  tf_quat.setRPY(rpy.x, rpy.y, rpy.z);
+  geometry_msgs::Quaternion quat;
+  quat.x = tf_quat.x();
+  quat.y = tf_quat.y();
+  quat.z = tf_quat.z();
+  quat.w = tf_quat.w();
+  return quat;
+}
+
+geometry_msgs::Quaternion makeQuatFromRPY(double r, double p, double y) {
+  ROS_DEBUG("makeQuatFromRPY (%.2f, %.2f, %.2f)", r, p, y);
+  tf2::Quaternion tf_quat;
+  tf_quat.setRPY(r, p, y);
+  geometry_msgs::Quaternion quat;
+  quat.x = tf_quat.x();
+  quat.y = tf_quat.y();
+  quat.z = tf_quat.z();
+  quat.w = tf_quat.w();
+  return quat;
+}
+
 SensorCircle makeSensorCircleFromUAVPose(geometry_msgs::Pose uav_pose, int uav_id, float sensor_range) {
   ROS_DEBUG("makeSensorCircleFromUAVPose");
   SensorCircle sensor_circle;
@@ -227,4 +251,9 @@ SensorCircle makeSensorCircleFromUAVPose(geometry_msgs::Pose uav_pose, int uav_i
   sensor_circle.center.z = 0.0;
 
   return sensor_circle;
+}
+
+geometry_msgs::Quaternion makeQuatFromAddingTwoYaws(geometry_msgs::Quaternion quat_1, geometry_msgs::Quaternion quat_2) {
+  // Yes this is a dumb ass function but i cant be bothered to multiply quats
+  return makeQuatFromRPY(0.0, 0.0, makeRPYFromQuat(quat_1).z + makeRPYFromQuat(quat_2).z);
 }
