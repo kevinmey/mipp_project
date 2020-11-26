@@ -738,6 +738,7 @@ void UGVPlanner::replanCheck()
 
   bool collision_detected = false;
   geometry_msgs::Point collision_point;
+  double ignore_radius = 0.5;
 
   ROS_DEBUG("Path length %d", (int)path_.size());
   for (auto path_it = path_.begin(); path_it != path_.end(); ++path_it) {
@@ -752,7 +753,7 @@ void UGVPlanner::replanCheck()
     collision_point.z = std::next(path_it,1)->z;
     ROS_DEBUG("Point before: (%f, %f)", collision_point.x, collision_point.y);
     ROS_DEBUG("Point before: (%f, %f)", std::next(path_it,1)->x, std::next(path_it,1)->y);
-    if (!isPathCollisionFree(*path_it, collision_point, true)) {
+    if (!isPathCollisionFree(*path_it, collision_point, true) and (getDistanceBetweenPoints(collision_point, ugv_odometry_.pose.pose.position) > ignore_radius)) {
       collision_detected = true;
       visualizeSubgoal(collision_point, 1.0, 1.0, 0.0);
       ROS_DEBUG("Point after: (%f, %f)", collision_point.x, collision_point.y);
