@@ -9,12 +9,6 @@ UAVServer::UAVServer(ros::NodeHandle n, ros::NodeHandle np)
 
   // Initialize values
   getParams(np);
-  uav_position_goal_.header.frame_id = uav_local_frame_;
-  uav_position_goal_.header.stamp = ros::Time::now();
-  uav_position_goal_.pose.position.x = uav_start_x_;
-  uav_position_goal_.pose.position.y = uav_start_y_;
-  uav_position_goal_.pose.position.z = uav_takeoff_z_;
-  uav_position_goal_.pose.orientation.w = 1.0;
   // Establish publish timers and publishers
   pub_timer_mavros_setpoint_  = n.createTimer(ros::Duration(0.1), boost::bind(&UAVServer::pubMavrosSetpoint, this));
   pub_mavros_setpoint_        = n.advertise<geometry_msgs::PoseStamped>("uav_server/mavros_setpoint", 10);
@@ -79,11 +73,32 @@ void UAVServer::pubMavrosSetpoint()
     float e = uav_position_goal_.pose.position.z - uav_pose_.pose.position.z;
     target_cmd_vel_.velocity.z = k*e;
     target_cmd_vel_.yaw_rate = uav_cmd_vel_.angular.z;
-  }
+  }/*
+  else if (true) {
+    target_cmd_vel_.type_mask = 0b100111000111;
+    double uav_max_vel_ = 3.0;
+    double uav_diff_x = uav_position_goal_.pose.position.x - uav_pose_.pose.position.x;
+    double uav_diff_y = uav_position_goal_.pose.position.y - uav_pose_.pose.position.y;
+    double uav_diff_z = uav_position_goal_.pose.position.z - uav_pose_.pose.position.z;
+    double uav_diff_dist = getDistanceBetweenPoints(uav_position_goal_.pose.position, uav_pose_.pose.position);
+    target_cmd_vel_.velocity.x = (uav_diff_x/uav_diff_dist)*uav_max_vel_;
+    target_cmd_vel_.velocity.y = (uav_diff_y/uav_diff_dist)*uav_max_vel_;
+    target_cmd_vel_.velocity.z = (uav_diff_z/uav_diff_dist)*uav_max_vel_;
+    target_cmd_vel_.yaw = uav_position_goal_rpy_.z;
+  }*/
   else {
     geometry_msgs::PoseStamped mavros_setpoint;
-    geometry_msgs::TransformStamped mavros_setpoint_tf = tf_buffer_.lookupTransform(uav_local_frame_, uav_position_goal_.header.frame_id, ros::Time(0));
-    tf2::doTransform(uav_position_goal_, mavros_setpoint, mavros_setpoint_tf);
+    geometry_msgs::PoseStamped capped_position_goal = uav_position_goal_;
+    bool cap_distance = true;
+    float distance_cap = 3.0;
+    if (cap_distance and getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position) > distance_cap) {
+      capped_position_goal.pose.position = castRay(uav_pose_.pose.position, getDirection(uav_pose_.pose.position, uav_position_goal_.pose.position), distance_cap);
+      ROS_DEBUG("(%.2f, %.2f) -> (%.2f, %.2f) : (%.2f, %.2f)", uav_pose_.pose.position.x, uav_pose_.pose.position.y, 
+                                                              uav_position_goal_.pose.position.x, uav_position_goal_.pose.position.y,
+                                                              capped_position_goal.pose.position.x, capped_position_goal.pose.position.y);
+    }
+    geometry_msgs::TransformStamped mavros_setpoint_tf = tf_buffer_.lookupTransform(uav_local_frame_, capped_position_goal.header.frame_id, ros::Time(0));
+    tf2::doTransform(capped_position_goal, mavros_setpoint, mavros_setpoint_tf);
     target_cmd_vel_.type_mask = 0b100111111000;
     target_cmd_vel_.position.x = mavros_setpoint.pose.position.y;
     target_cmd_vel_.position.y = -mavros_setpoint.pose.position.x;
@@ -155,7 +170,7 @@ void UAVServer::subClickedPose(const geometry_msgs::PoseStampedConstPtr& clicked
 }
 
 void UAVServer::subPositionGoal(const geometry_msgs::PoseStampedConstPtr& position_goal_msg) {
-  ROS_INFO("subPositionGoal");
+  ROS_DEBUG("subPositionGoal");
 
   try{
     geometry_msgs::TransformStamped position_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, position_goal_msg->header.frame_id, ros::Time(0));
@@ -167,7 +182,7 @@ void UAVServer::subPositionGoal(const geometry_msgs::PoseStampedConstPtr& positi
     tf2::Matrix3x3(tf_quat).getRPY(uav_position_goal_rpy_.x, 
                                    uav_position_goal_rpy_.y, 
                                    uav_position_goal_rpy_.z);
-    ROS_INFO("New global goal: [%f,%f,%f,%f]",
+    ROS_DEBUG("New global goal: [%f,%f,%f,%f]",
               uav_position_goal_.pose.position.x, 
               uav_position_goal_.pose.position.y,
               uav_position_goal_.pose.position.z,
@@ -209,6 +224,13 @@ void UAVServer::subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg) {
     tf2::Matrix3x3(tf_quat).getRPY(uav_rpy_.vector.x, 
                                    uav_rpy_.vector.y, 
                                    uav_rpy_.vector.z);
+
+    // Store absolute velocity
+    uav_abs_vel_ = std::sqrt(std::pow(odometry_msg->twist.twist.linear.x, 2)
+                           + std::pow(odometry_msg->twist.twist.linear.y, 2)
+                           + std::pow(odometry_msg->twist.twist.linear.z, 2));
+    uav_abs_vel_max_ = (uav_abs_vel_max_ < uav_abs_vel_) ? uav_abs_vel_ : uav_abs_vel_max_;
+    ROS_DEBUG("Velocity: %.2f / %.2f", uav_abs_vel_, uav_abs_vel_max_);
 
     // Visualize drone
     if (visualizeDrone()) {
@@ -323,6 +345,39 @@ void UAVServer::takeoff() {
   uav_clearing_rotation_complete_ = false;
   uav_use_move_base_= false;
 
+  // Establish correct global goal
+  uav_position_goal_.header.frame_id = uav_world_frame_;
+  uav_position_goal_.header.stamp = ros::Time::now();
+  // Set position goal to world frame
+  bool got_tf = false;
+  while (!got_tf) {
+    try{
+      geometry_msgs::TransformStamped position_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, uav_local_frame_, ros::Time(0));
+      uav_position_goal_.pose.position.x = position_goal_tf.transform.translation.x;
+      uav_position_goal_.pose.position.y = position_goal_tf.transform.translation.y;
+      uav_position_goal_.pose.position.z = uav_takeoff_z_;
+      uav_position_goal_.pose.orientation.w = 1.0;
+      ROS_WARN("Global goal initialized to: [%.2f, %.2f, %.2f, %.2f]",
+            uav_position_goal_.pose.position.x, 
+            uav_position_goal_.pose.position.y,
+            uav_position_goal_.pose.position.z,
+            uav_position_goal_rpy_.z); 
+      got_tf = true;
+    }
+    catch (tf2::TransformException &ex) {
+      ROS_WARN("pubMavrosSetpoint: %s",ex.what());
+      ros::Duration(1.0).sleep();
+    }
+  }
+
+  // Establish mavros setpoint to be used in takeoff
+  geometry_msgs::PoseStamped mavros_setpoint;
+  mavros_setpoint.header.frame_id = uav_local_frame_;
+  mavros_setpoint.pose.position.x = 0.0;
+  mavros_setpoint.pose.position.y = 0.0;
+  mavros_setpoint.pose.position.z = uav_takeoff_z_;
+  mavros_setpoint.pose.orientation.w = 1.0;
+
   // Wait for FCU connection
   while(ros::ok() && !uav_state_.connected){
     ros::spinOnce();
@@ -334,7 +389,7 @@ void UAVServer::takeoff() {
 
   // Send a few setpoints before starting procedure
   for(int i = 50; ros::ok() && i > 0; --i){
-    pub_mavros_setpoint_.publish(uav_position_goal_);
+    pub_mavros_setpoint_.publish(mavros_setpoint);
     ros::spinOnce();
     rate.sleep();
   }
@@ -375,24 +430,21 @@ void UAVServer::takeoff() {
         uav_takeoff_complete_ = true;
       }
     }
-    pub_mavros_setpoint_.publish(uav_position_goal_);
+    pub_mavros_setpoint_.publish(mavros_setpoint);
     ros::spinOnce();
     rate.sleep();
   }
   ROS_INFO("Vehicle takeoff procedure complete");
 
-  uav_position_goal_.pose.position.x = 0.0;
-  uav_position_goal_.pose.position.y = 0.0;
-  uav_position_goal_.pose.position.z = uav_takeoff_z_;
   if (uav_do_clearing_rotation_) {
     ROS_INFO("Performing clearing rotation");
     double clearing_rotation_angle = 0.0;
     while (clearing_rotation_angle < 360.0) {
       double clearing_rotation = angles::from_degrees(clearing_rotation_angle);
       double angle_threshold = angles::from_degrees(10.0);
-      uav_position_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, clearing_rotation);
+      mavros_setpoint.pose.orientation = makeQuatFromRPY(0.0, 0.0, clearing_rotation);
       while (angles::shortest_angular_distance(uav_rpy_.vector.z, clearing_rotation) > angle_threshold) {
-        pub_mavros_setpoint_.publish(uav_position_goal_);
+        pub_mavros_setpoint_.publish(mavros_setpoint);
         ros::spinOnce();
         rate.sleep();
       }
@@ -403,29 +455,6 @@ void UAVServer::takeoff() {
     uav_clearing_rotation_complete_ = true;
   }
   uav_clearing_rotation_complete_ = true;
-  /*
-  geometry_msgs::Twist test_cmd_vel;
-  mavros_msgs::PositionTarget test_pos_target;
-  while (true) {
-    test_cmd_vel.linear.x = 0.5;
-    test_cmd_vel.linear.y = 0.0;
-    test_cmd_vel.linear.z = 0.0;
-    test_cmd_vel.angular.x = 0.0;
-    test_cmd_vel.angular.y = 0.0;
-    test_cmd_vel.angular.z = 0.5;
-
-    test_pos_target.header.frame_id = uav_body_frame_;
-    test_pos_target.header.stamp = ros::Time::now();
-    test_pos_target.coordinate_frame = 8; // FRAME_BODY_NED
-    test_pos_target.type_mask = 0b011111000111;
-    test_pos_target.velocity.x = 0.0;
-    test_pos_target.velocity.y = 0.5;
-    test_pos_target.velocity.z = 0.0;
-    test_pos_target.yaw_rate = 0.0;
-    
-    pub_mavros_cmd_vel_.publish(test_pos_target);
-    ros::Duration(0.05).sleep();
-  }*/
 }
 
 geometry_msgs::Quaternion UAVServer::makeQuatFromRPY(geometry_msgs::Vector3 rpy) {

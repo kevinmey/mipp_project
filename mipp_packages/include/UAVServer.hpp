@@ -120,6 +120,8 @@ private:
   //   State
   geometry_msgs::PoseStamped uav_pose_;
   geometry_msgs::Vector3Stamped uav_rpy_;
+  double uav_abs_vel_;
+  double uav_abs_vel_max_;
   mavros_msgs::State uav_state_;
   //   Sensor
 };
