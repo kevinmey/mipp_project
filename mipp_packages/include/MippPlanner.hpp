@@ -37,6 +37,7 @@
 #include <string>
 #include <cmath> /* sqrt, pow */
 #include <algorithm>    // std::min
+#include <random> 
 
 //
 
@@ -92,7 +93,8 @@ struct UAVPlanner
   // General vehicle variables
   nav_msgs::Odometry uav_odometry;
   // Global Info (Stored in MippPlanner object)
-  std::shared_ptr<bool> global_running_exploration;
+  std::shared_ptr<bool> global_run_exploration;
+  std::shared_ptr<bool> global_run_escorting;
   std::shared_ptr<nav_msgs::Odometry> global_ugv_odometry;
   std::vector<geometry_msgs::Point>* global_ugv_waypoints;
   std::map<int, std::vector<SensorCircle>>* global_sensor_coverages;
@@ -126,11 +128,33 @@ struct UAVPlanner
   mipp_msgs::MoveVehicleGoal move_vehicle_goal;
   geometry_msgs::PoseStamped navigation_goal;
   nav_msgs::Path navigation_path;
-  // Escort formation
-  geometry_msgs::PoseStamped getEscortPose(geometry_msgs::Pose ugv_pose);
-  nav_msgs::Path getEscortPath(geometry_msgs::Pose formation_pose, std::vector<geometry_msgs::Point> ugv_waypoints);
+  // Escort formation planner
+  void initFormationPoseBank();
+  geometry_msgs::Point getRandomCirclePoint(geometry_msgs::Point circle_center = makePoint(0,0,0), float circle_radius = 1.0);
+  float getRandomYaw(float yaw_deg_center = 0.0, float yaw_deg_range = 30.0);
+  geometry_msgs::PoseStamped getEscortPose(const geometry_msgs::Pose& ugv_pose, const geometry_msgs::Pose& uav_formation_pose);
+  nav_msgs::Path getEscortPath(const std::vector<geometry_msgs::Point>& ugv_waypoints, const geometry_msgs::Pose& uav_formation_pose);
+  //nav_msgs::Path getEscortPath(const std::vector<geometry_msgs::Point>& ugv_waypoints, const geometry_msgs::Pose& uav_formation_pose,
+  //                             const std::vector<geometry_msgs::Point>& formation_nudges_def = std::vector<geometry_msgs::Point>(),
+   //                            const bool formation_nudges_zero_pad = true);
   nav_msgs::Path escort_path;
   geometry_msgs::Pose formation_pose;
+  std::vector<geometry_msgs::Pose> formation_poses;
+  int formation_pose_idx;
+  // Rng
+  float sample_radius;
+  float sample_yaw_range;
+  std::default_random_engine rng_generator;
+  std::uniform_real_distribution<double> rng_unit_distribution;
+  // Collision check
+  void initCollisionPoints();
+  bool isPoseCollisionFree(const geometry_msgs::Point& pose, bool unmapped_is_collision = false);
+  bool isPathCollisionFree(const nav_msgs::Path& path);
+  std::vector<octomap::point3d> collision_points;
+  // Info gain
+  float getPoseInfoGain(geometry_msgs::Point origin, float yaw);
+  float getPathInfoGain(const mipp_msgs::ExplorationPath& path, const std::vector<SensorCircle>& sensor_coverages);
+  std::vector<tf2::Vector3> info_camera_rays;
 };
 
 /* MOVED DEFINITION TO UTILS.HPP
@@ -166,6 +190,8 @@ private:
   void runStateMachine();
   void makePlanIndividual(int vehicle_id);
   void makePlanSynchronous();
+  std::vector<geometry_msgs::Pose> getRandomFormation(const std::vector<geometry_msgs::Pose>& current_formation, 
+                                                      float euc_range, float yaw_range);
   // Utility functions
   void getParams(ros::NodeHandle np);
   geometry_msgs::Pose getFormationPose(int uav_id);
@@ -198,6 +224,13 @@ private:
   //// General
   bool do_visualization_;
   float com_range_;
+  //// Planner
+  geometry_msgs::Point getRandomCirclePoint(geometry_msgs::Point circle_center = makePoint(0,0,0), float circle_radius = 1.0);
+  float getRandomYaw(float yaw_deg_center = 0.0, float yaw_deg_range = 30.0);
+  float sample_radius_;
+  float sample_yaw_range_;
+  std::default_random_engine generator_;
+  std::uniform_real_distribution<double> unit_distribution_;
   //// UGV
   std::string ugv_ns_;
   int nr_of_ugv_nav_waypoints_;
@@ -214,7 +247,8 @@ private:
   float uav_camera_range_;
   std::vector<tf2::Vector3> uav_camera_corner_rays_;
   // Variables
-  bool running_exploration_;
+  bool run_exploration_;
+  bool run_escorting_;
   std::shared_ptr<octomap::OcTree> octomap_;
   bool received_octomap_;
   bool planner_initialized_;
