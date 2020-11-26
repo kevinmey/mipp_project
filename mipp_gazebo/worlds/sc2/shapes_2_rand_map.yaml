@@ -1,7 +1,6 @@
 image: shapes_2_map.pgm
 resolution: 0.200000
-origin: [-30.399999, -30.399999, 0.0]
+origin: [-30.0, -30.0, 0.0]  #[-30.399999, -30.399999, 0.0]
 negate: 0
 occupied_thresh: 0.65
 free_thresh: 0.196
-
