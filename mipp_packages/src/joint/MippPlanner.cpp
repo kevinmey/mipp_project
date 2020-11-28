@@ -3,7 +3,7 @@
 // Constructor
   
 MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np) 
-  : act_mipp_server_(n, "mipp_action", boost::bind(&MippPlanner::actMipp, this, _1), false) {
+  : act_mipp_server_(n, "/MippPlanner/start_mipp_action", boost::bind(&MippPlanner::actMipp, this, _1), false) {
   ROS_INFO("MippPlanner object is being created.");
   planner_initialized_ = false;
 
@@ -22,6 +22,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
   sub_ugv_goal_plan_  = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &MippPlanner::subUGVPlan, this);
   sub_octomap_        = n.subscribe("/octomap_binary", 1, &MippPlanner::subOctomap, this);
 
+  cli_planner_ready_ = n.advertiseService("/MippPlanner/planner_ready", &MippPlanner::cliIsPlannerReady, this);
   act_mipp_server_.start();
 
   // Random nr. generator and distributions
@@ -55,6 +56,8 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
     uav_planner.global_ugv_waypoints = &ugv_planner_.navigation_waypoints;
     uav_planner.global_sensor_coverages = &uav_sensor_coverages_;
     uav_planner.global_uav_paths = &uav_paths_;
+    uav_planner.global_run_exploration = &run_exploration_;
+    uav_planner.global_run_escorting = &run_escorting_;
     uav_planner.camera_range = uav_camera_range_;
     // Add object to list
     uav_planners_.push_back(uav_planner);
@@ -95,10 +98,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
     uav_planner_it.pub_position_goal = n.advertise<geometry_msgs::PoseStamped>(uav_ns+"/uav_server/position_goal", 1);
     // Global
     uav_planner_it.global_ugv_odometry = ugv_planner_.ugv_odometry;
-    ROS_DEBUG("UAV use count %d: ugv_odometry", (int)uav_planner_it.global_ugv_odometry.use_count());
-    uav_planner_it.global_run_exploration = std::make_shared<bool>(run_exploration_);
-    uav_planner_it.global_run_escorting = std::make_shared<bool>(run_escorting_);
-    ROS_DEBUG("UAV use count %d: run_exploration", (int)uav_planner_it.global_run_exploration.use_count());
+    ROS_WARN("UAV use count %d: ugv_odometry", (int)uav_planner_it.global_ugv_odometry.use_count());
     uav_planner_it.octomap = octomap_;
     ROS_WARN("Glo use count %d: octomap", (int)octomap_.use_count());
     ROS_WARN("UAV use count %d: octomap", (int)uav_planner_it.octomap.use_count());
@@ -107,6 +107,8 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
     uav_planner_it.sample_yaw_range = sample_yaw_range_;
     // Info
     uav_planner_it.info_camera_rays = uav_camera_rays;
+    // Escort
+    uav_planner_it.initFormationPoseBank(nr_of_uavs_);
     // Init
     uav_planner_it.init(n);
   }
@@ -207,16 +209,75 @@ void MippPlanner::subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg)
     uav_planner.octomap = octomap_;
   }
   received_octomap_ = true;
-  ROS_WARN_THROTTLE(1.0, "Octomap size %d, use_count %d", (int)octomap_->calcNumNodes(), (int)octomap_.use_count());
+  octomap_size_ = (int)octomap_->calcNumNodes();
+  ROS_DEBUG_THROTTLE(1.0, "Octomap size %d, use_count %d", octomap_size_, (int)octomap_.use_count());
+
+}
+
+// Services
+
+bool MippPlanner::cliIsPlannerReady(std_srvs::SetBool::Request& request, std_srvs::SetBool::Response& response) {
+  ROS_DEBUG("cliIsPlannerReady");
+  response.success = planner_initialized_;
+  for (auto& uav_planner_it : uav_planners_) {
+    mipp_msgs::TakeoffComplete srv;
+    if (uav_planner_it.takeoff_client.call(srv)) {
+      response.success = response.success and srv.response.takeoff_complete;
+    }
+    else {
+      ROS_ERROR("UAV%d couldn't call takeoff_complete server.", uav_planner_it.uav_id);
+    }
+  }
+  return true;
 }
 
 // Actionlib
 
-void MippPlanner::actMipp(const mipp_msgs::MippGoalConstPtr &goal) {
-  ROS_DEBUG("actMipp");
-  if (!running_exploration_) {
-    ROS_WARN("Starting MIPP");
-    running_exploration_ = true;
+void MippPlanner::actMipp(const mipp_msgs::StartMippGoalConstPtr &goal) {
+  ROS_WARN("actMipp");
+
+  while (!planner_initialized_) {
+    ROS_WARN("Planner still initializing...");
+    ros::spinOnce();
+    ros::Duration(1.0).sleep();
+  }
+
+  bool uavs_taken_off = false;
+  while (!uavs_taken_off) {
+    ROS_WARN("UAVs still taking off...");
+    uavs_taken_off = true;
+    for (auto const& uav_planner_it :uav_planners_) {
+      uavs_taken_off = uavs_taken_off and (uav_planner_it.vehicle_state != INIT);
+    }
+    ros::spinOnce();
+    ros::Duration(1.0).sleep();
+  }
+
+  // Start
+  ROS_INFO("Starting MIPP with mode %d.", (int)(goal->mipp_mode));
+  ros::Time start_time = ros::Time::now();
+  for (auto const& uav_planner_it : uav_planners_) {
+    switch (goal->mipp_mode)
+    {
+    case mipp_msgs::StartMippGoal::EXPLORATION_MODE:
+      ROS_INFO("UAV%d planner set to: EXPLORATION_MODE.", uav_planner_it.uav_id);
+      run_exploration_ = true;
+      break;
+    case mipp_msgs::StartMippGoal::ESCORTING_MODE:
+      ROS_INFO("UAV%d planner set to: ESCORTING_MODE.", uav_planner_it.uav_id);
+      run_escorting_ = true;
+      break;
+    default:
+      ROS_ERROR("Got weird value for mipp_mode: %d", (int)(goal->mipp_mode));
+      break;
+    }
+  }
+  while ((ros::Time::now() - start_time).toSec() < goal->max_time) {
+    act_mipp_feedback_.voxels_discovered = octomap_size_;
+    act_mipp_feedback_.time_used = (ros::Time::now() - start_time).toSec();
+    act_mipp_server_.publishFeedback(act_mipp_feedback_);
+    ros::spinOnce();
+    ros::Duration(0.5).sleep();
   }
 }
 

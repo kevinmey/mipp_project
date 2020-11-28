@@ -11,7 +11,7 @@
 #include "mipp_msgs/ExplorationPose.h"
 #include "mipp_msgs/StartExplorationAction.h"
 #include "mipp_msgs/MoveVehicleAction.h"
-#include "mipp_msgs/MippAction.h"
+#include "mipp_msgs/StartMippAction.h"
 #include "mipp_msgs/TakeoffComplete.h"
 
 #include <tf2_ros/buffer.h>
@@ -28,6 +28,7 @@
 #include <nav_msgs/Path.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Bool.h>
+#include <std_srvs/SetBool.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
@@ -93,8 +94,8 @@ struct UAVPlanner
   // General vehicle variables
   nav_msgs::Odometry uav_odometry;
   // Global Info (Stored in MippPlanner object)
-  std::shared_ptr<bool> global_run_exploration;
-  std::shared_ptr<bool> global_run_escorting;
+  bool* global_run_exploration;
+  bool* global_run_escorting;
   std::shared_ptr<nav_msgs::Odometry> global_ugv_odometry;
   std::vector<geometry_msgs::Point>* global_ugv_waypoints;
   std::map<int, std::vector<SensorCircle>>* global_sensor_coverages;
@@ -129,7 +130,7 @@ struct UAVPlanner
   geometry_msgs::PoseStamped navigation_goal;
   nav_msgs::Path navigation_path;
   // Escort formation planner
-  void initFormationPoseBank();
+  void initFormationPoseBank(int nr_of_uavs);
   geometry_msgs::Point getRandomCirclePoint(geometry_msgs::Point circle_center = makePoint(0,0,0), float circle_radius = 1.0);
   float getRandomYaw(float yaw_deg_center = 0.0, float yaw_deg_range = 30.0);
   geometry_msgs::PoseStamped getEscortPose(const geometry_msgs::Pose& ugv_pose, const geometry_msgs::Pose& uav_formation_pose);
@@ -184,8 +185,10 @@ private:
   void subClickedPoint(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
   void subUGVPlan(const nav_msgs::PathConstPtr& path_msg);
   void subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg);
+  // Services
+  bool cliIsPlannerReady(std_srvs::SetBool::Request& request, std_srvs::SetBool::Response& response);
   // Actionlib
-  void actMipp(const mipp_msgs::MippGoalConstPtr &goal);
+  void actMipp(const mipp_msgs::StartMippGoalConstPtr &goal);
   // Planner functions
   void runStateMachine();
   void makePlanIndividual(int vehicle_id);
@@ -215,10 +218,11 @@ private:
   ros::Subscriber sub_ugv_goal_plan_;
   ros::Subscriber sub_octomap_;
   // Actionlib
-  actionlib::SimpleActionServer<mipp_msgs::MippAction> act_mipp_server_;
-  mipp_msgs::MoveVehicleGoal act_mipp_goal_;
-  mipp_msgs::MoveVehicleFeedback act_mipp_feedback_;
-  mipp_msgs::MoveVehicleResult act_mipp_result_;
+  ros::ServiceServer cli_planner_ready_;
+  actionlib::SimpleActionServer<mipp_msgs::StartMippAction> act_mipp_server_;
+  mipp_msgs::StartMippGoal act_mipp_goal_;
+  mipp_msgs::StartMippFeedback act_mipp_feedback_;
+  mipp_msgs::StartMippResult act_mipp_result_;
   // Parameters
   std::string planner_world_frame_;
   //// General
@@ -249,8 +253,9 @@ private:
   // Variables
   bool run_exploration_;
   bool run_escorting_;
-  std::shared_ptr<octomap::OcTree> octomap_;
+  std::shared_ptr<octomap::OcTree> octomap_; 
   bool received_octomap_;
+  int octomap_size_;
   bool planner_initialized_;
   //// Collaborative
   std::map<int, std::vector<SensorCircle>> uav_sensor_coverages_;

@@ -122,7 +122,7 @@
       <arg name="uav_start_y"           value="$(arg initial_y)"/>
       <arg name="uav_takeoff_z"         value="$(arg takeoff_z)"/>
       <arg name="uav_planner_rate"      value="$(arg uav_planner_rate)"/>
-      <arg name="uav_max_ray_distance"      value="3.0"/>
+      <arg name="uav_max_ray_distance"      value="5.0"/>
     </include>
 
     <!-- Relay/republish pointcloud to common cloud for OctoMap -->
@@ -145,9 +145,9 @@
     <node pkg="mipp_packages" type="octomap_clearer_node" name="octomap_clearer_node" respawn="true" output="screen">
       <param name="vehicle_name"                value="$(arg uav_name)" />
       <param name="vehicle_ground_truth_topic"  value="/gazebo/ground_truth_$(arg uav_name)" />
-      <param name="vehicle_size_x"              value="0.6" />
-      <param name="vehicle_size_y"              value="0.6" />
-      <param name="vehicle_size_z"              value="0.5" />
+      <param name="vehicle_size_x"              value="0.4" />
+      <param name="vehicle_size_y"              value="0.4" />
+      <param name="vehicle_size_z"              value="0.4" />
     </node>
     
     <node pkg="mipp_packages" type="communication_constraint_visualizer_node" name="communication_constraint_visualizer_node" respawn="true" output="screen">

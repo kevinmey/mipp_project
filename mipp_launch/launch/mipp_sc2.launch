@@ -17,9 +17,9 @@
   <arg name="ugv_start_x"              default="-25.0"/>
   <arg name="ugv_start_y"              default="-25.0"/>
 
-  <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  10"/>
-  <node pkg="tf" type="static_transform_publisher" name="tf_world_map_link" args="0 0 0 0 0 0  /world /map  10"/>
-  <node pkg="tf" type="static_transform_publisher" name="tf_base_frd_link" args="0 0 0 0 0 0  /world /base_link_frd  10"/>
+  <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  25"/>
+  <node pkg="tf" type="static_transform_publisher" name="tf_world_map_link" args="0 0 0 0 0 0  /world /map  25"/>
+  <node pkg="tf" type="static_transform_publisher" name="tf_base_frd_link" args="0 0 0 0 0 0  /world /base_link_frd  1"/>
 
 
 
@@ -142,11 +142,14 @@
   <!--- 
     Run monitor
   -->
-  <node name="mipp_monitor_node" pkg="mipp_packages" type="mipp_monitor_node">
+  <arg name="tour_file_names" default="[$(find mipp_launch)/bags/sc2_tour_1a.bag, $(find mipp_launch)/bags/sc2_tour_1b.bag, $(find mipp_launch)/bags/sc2_tour_1c.bag]"/>
+  <node name="mipp_monitor_node" pkg="mipp_packages" type="mipp_monitor_node" output="screen">
     <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
     <param name="write_path"                value="false" />
-    <param name="read_path"                 value="true" />
-    <param name="path_file_name"            value="/home/kevin/catkin_ws/src/mipp_project/mipp_launch/bags/sc2_path_1.bag" />
+    <param name="read_path"                 value="false" />
+    <param name="path_file_name"            value="$(find mipp_launch)/bags/sc2_path_1.bag" />
+    <param name="read_tour"                 value="true" />
+    <rosparam param="tour_file_names" subst_value="True">$(arg tour_file_names)</rosparam>
   </node>
 
 </launch>

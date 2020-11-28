@@ -25,7 +25,6 @@ void UAVPlanner::init(ros::NodeHandle n) {
   move_vehicle_client = new actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>(uav_move_vehicle_client_name, true);
   move_vehicle_client->waitForServer(ros::Duration(10.0));
   // Escort
-  initFormationPoseBank();
   // Rng
   std::random_device rd;  // Non-deterministic random nr. to seed generator
   rng_generator = std::default_random_engine(rd());
@@ -40,7 +39,7 @@ void UAVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
 }
 
 void UAVPlanner::updateStateMachine() {
-  ROS_INFO_THROTTLE(1.0, "UAV%d STATE: %d", uav_id, vehicle_state);
+  ROS_DEBUG_THROTTLE(1.0, "UAV%d STATE: %d", uav_id, vehicle_state);
   
   // Check first if UAV needs to be recovered
   if (recoveryRequired()) {
@@ -58,10 +57,10 @@ void UAVPlanner::updateStateMachine() {
         if (srv.response.takeoff_complete) {
           ROS_INFO("UAV%d takeoff complete.", uav_id);
           if (uav_id == 0) {
-            vehicle_state = ESCORTING;
+            vehicle_state = IDLE;
           }
           else {
-            vehicle_state = ESCORTING;
+            vehicle_state = IDLE;
           }
         }
         else {
@@ -73,7 +72,8 @@ void UAVPlanner::updateStateMachine() {
       }
       break;}
     case IDLE: {
-      if (global_run_exploration) {
+      ROS_INFO("UAV%d bools (%d, %d).", uav_id, (int)(*global_run_exploration), (int)(*global_run_escorting));
+      if (*global_run_exploration) {
         if (exploration_result.paths.empty()) {
           float exploration_max_time = 1.0;
           sendExplorationGoal(exploration_max_time);
@@ -90,7 +90,7 @@ void UAVPlanner::updateStateMachine() {
           ROS_WARN("UAV%d is idle when it should be exploring", uav_id);
         }
       }
-      else if (global_run_escorting) {
+      else if (*global_run_escorting) {
         vehicle_state = ESCORTING;
       }
       else {
@@ -101,7 +101,15 @@ void UAVPlanner::updateStateMachine() {
       if (exploration_client->getState().isDone()) {
         navigation_path.poses.clear();
         exploration_result = exploration_client->getResult().get()->result;
-        vehicle_state = IDLE;
+        if (exploration_result.paths.empty()) {
+          ROS_WARN("UAV%d didn't get any paths from exploration planning, initiating recovery", uav_id);
+          prepareForRecovery();
+          sendRecoverVehicleGoal();
+          vehicle_state = RECOVERING;
+        }
+        else {
+          vehicle_state = IDLE;
+        }
       }
       break;}
     case MOVING: {
@@ -182,7 +190,7 @@ void UAVPlanner::prepareForRecovery() {
 void UAVPlanner::sendRecoverVehicleGoal() {
   move_vehicle_goal.goal_pose = recovery_goal;
   move_vehicle_goal.goal_path.poses.clear();
-  move_vehicle_goal.goal_path_to_be_improved = true;
+  move_vehicle_goal.goal_path_to_be_improved = false;
   move_vehicle_goal.goal_reached_radius = 2.0;
   move_vehicle_goal.goal_reached_yaw = 3.14;
   move_vehicle_goal.goal_reached_max_time = 1000.0;
@@ -310,7 +318,7 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
   }
   navigation_path = best_path;
   float time_used = (ros::Time::now() - begin_time).toSec();
-  ROS_INFO("UAV%d selected path nr. %d after %.2f seconds", uav_id, best_path_nr, time_used);
+  ROS_DEBUG("UAV%d selected path nr. %d after %.2f seconds", uav_id, best_path_nr, time_used);
 }
 
 void UAVPlanner::sendMoveVehicleGoal(float move_vehicle_time) {
@@ -328,41 +336,64 @@ void UAVPlanner::sendMoveVehicleGoal(float move_vehicle_time) {
 
 // Escort planning
 
-void UAVPlanner::initFormationPoseBank() {
+void UAVPlanner::initFormationPoseBank(int nr_of_uavs) {
   ROS_DEBUG("initFormationPoseBank");
   // I <3 Hard coding stuff...
   int nr_of_poses = 7;
   geometry_msgs::Pose pose_near, pose_far;
 
-  switch (uav_id)
-  {
-  case 0:
-    // UAV0 special case only has 1 pose
-    formation_pose.position = makePoint(2.0, 0.0, (double)(uav_id*0.75 + 1.5));
-    formation_pose.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
-    formation_poses.push_back(formation_pose);
-    return;
-    break;
-  case 1:
-    pose_near.position = makePoint(0.0, 0.0, (double)(uav_id*0.75 + 1.5));
-    pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, -(60.0/180.0)*M_PI));
-    pose_far.position = makePoint(0.0, -6.0, (double)(uav_id*0.75 + 1.5));
-    pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
-    formation_pose = pose_near;
-    break;
-  case 2:
-    formation_pose.position.x = -2.0;
-    formation_pose.position.y = 2.0;
-    pose_near.position = makePoint(0.0, 0.0, (double)(uav_id*0.75 + 1.5));
-    pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, (60.0/180.0)*M_PI));
-    pose_far.position = makePoint(0.0, 6.0, (double)(uav_id*0.75 + 1.5));
-    pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
-    formation_pose = pose_near;
-    break;
-  default:
-    ROS_ERROR("Couldn't find a hard coded formation for UAV%d", uav_id);
-    return;
-    break;
+  if (nr_of_uavs == 2) {
+    switch (uav_id)
+    {
+    case 0:
+      pose_near.position = makePoint(2.0, 0.0, (double)(uav_id*0.75 + 1.5));
+      pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, -(30.0/180.0)*M_PI));
+      pose_far.position = makePoint(0.0, -3.0, (double)(uav_id*0.75 + 1.5));
+      pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
+      formation_pose = pose_near;
+      break;
+    case 1:
+      pose_near.position = makePoint(0.0, 0.0, (double)(uav_id*0.75 + 1.5));
+      pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, (30.0/180.0)*M_PI));
+      pose_far.position = makePoint(0.0, 3.0, (double)(uav_id*0.75 + 1.5));
+      pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
+      formation_pose = pose_near;
+      break;
+    default:
+      ROS_ERROR("Couldn't find a hard coded formation for UAV%d", uav_id);
+      return;
+      break;
+    }    
+  }
+  else {
+    switch (uav_id)
+    {
+    case 0:
+      // UAV0 special case only has 1 pose
+      formation_pose.position = makePoint(2.0, 0.0, (double)(uav_id*0.75 + 1.5));
+      formation_pose.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
+      formation_poses.push_back(formation_pose);
+      return;
+      break;
+    case 1:
+      pose_near.position = makePoint(0.0, 0.0, (double)(uav_id*0.75 + 1.5));
+      pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, -(60.0/180.0)*M_PI));
+      pose_far.position = makePoint(0.0, -6.0, (double)(uav_id*0.75 + 1.5));
+      pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
+      formation_pose = pose_near;
+      break;
+    case 2:
+      pose_near.position = makePoint(0.0, 0.0, (double)(uav_id*0.75 + 1.5));
+      pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, (60.0/180.0)*M_PI));
+      pose_far.position = makePoint(0.0, 6.0, (double)(uav_id*0.75 + 1.5));
+      pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
+      formation_pose = pose_near;
+      break;
+    default:
+      ROS_ERROR("Couldn't find a hard coded formation for UAV%d", uav_id);
+      return;
+      break;
+    }
   }
 
   float formation_distance = getDistanceBetweenPoints(pose_near.position, pose_far.position);

@@ -209,33 +209,36 @@ void UAVInformativeExplorer::actStartExploration(const mipp_msgs::StartExplorati
   act_exploration_result_.result.header.frame_id = uav_world_frame_;
   act_exploration_result_.result.header.stamp = ros::Time::now();
   act_exploration_result_.result.paths.clear();
-  // Reverse iterate through exploration nodes, since most informational nodes are listed last
-  std::map<double, Node>::reverse_iterator node_rit;
-  for (node_rit = exploration_nodes_.rbegin(); node_rit != exploration_nodes_.rend(); ++node_rit) {
-    mipp_msgs::ExplorationPath exploration_path;
-    Node node_on_path = node_rit->second;
-    while (node_on_path.getParent() != nullptr) {
-      mipp_msgs::ExplorationPose exploration_pose;
-      exploration_pose.pose = makePoseFromNode(node_on_path);
-      exploration_pose.pose_rank = node_on_path.rank_;
-      exploration_pose.gain = node_on_path.gain_indiv_;
-      exploration_path.poses.insert(exploration_path.poses.begin(), exploration_pose);
 
-      node_on_path = *(node_on_path.getParent());
+  if (!exploration_nodes_.empty()) {
+    // Reverse iterate through exploration nodes, since most informational nodes are listed last
+    std::map<double, Node>::reverse_iterator node_rit;
+    for (node_rit = exploration_nodes_.rbegin(); node_rit != exploration_nodes_.rend(); ++node_rit) {
+      mipp_msgs::ExplorationPath exploration_path;
+      Node node_on_path = node_rit->second;
+      while (node_on_path.getParent() != nullptr) {
+        mipp_msgs::ExplorationPose exploration_pose;
+        exploration_pose.pose = makePoseFromNode(node_on_path);
+        exploration_pose.pose_rank = node_on_path.rank_;
+        exploration_pose.gain = node_on_path.gain_indiv_;
+        exploration_path.poses.insert(exploration_path.poses.begin(), exploration_pose);
+
+        node_on_path = *(node_on_path.getParent());
+      }
+      act_exploration_result_.result.paths.push_back(exploration_path);
     }
-    act_exploration_result_.result.paths.push_back(exploration_path);
+
+    // Append a path containing only the current pose as final pose
+    mipp_msgs::ExplorationPose current_pose;
+    current_pose.pose = makePoseFromNode(root_);
+    current_pose.gain = root_.gain_indiv_;
+    mipp_msgs::ExplorationPath current_pose_path;
+    current_pose_path.poses.push_back(current_pose);
+    act_exploration_result_.result.paths.push_back(current_pose_path);
   }
 
-  // Append a path containing only the current pose as final pose
-  mipp_msgs::ExplorationPose current_pose;
-  current_pose.pose = makePoseFromNode(root_);
-  current_pose.gain = root_.gain_indiv_;
-  mipp_msgs::ExplorationPath current_pose_path;
-  current_pose_path.poses.push_back(current_pose);
-  act_exploration_result_.result.paths.push_back(current_pose_path);
-
   act_exploration_server_.setSucceeded(act_exploration_result_);
-  ROS_WARN("Succeeded with %d paths", (int)act_exploration_result_.result.paths.size());
+  ROS_DEBUG("Succeeded with %d paths", (int)act_exploration_result_.result.paths.size());
   planner_action_in_progress_ = false;
 }
 
@@ -411,35 +414,40 @@ void UAVInformativeExplorer::runExploration() {
     rate.sleep();
   }
 
-  std::map<double, Node>::iterator exploration_nodes_itr;
-  ROS_DEBUG("\tNODE\tGAIN\tGAIN_IND"); 
-  for (exploration_nodes_itr = exploration_nodes_.begin(); exploration_nodes_itr != exploration_nodes_.end(); ++exploration_nodes_itr) { 
-    ROS_DEBUG("\t%d\t%f\t%f", exploration_nodes_itr->second.id_, exploration_nodes_itr->first, exploration_nodes_itr->second.gain_indiv_);
+  if (exploration_nodes_.empty()) {
+    ROS_ERROR("Explorer didn't find any feasible exploration paths.");
   }
-
-  path_.clear();
-  Node node_on_path = exploration_nodes_.rbegin()->second;
-  while (node_on_path.getParent() != nullptr) {
-    path_.push_front(makePoseStampedFromNode(node_on_path));
-    ROS_DEBUG("Node: %d", (int)node_on_path.id_);
-
-    if (node_on_path.getParent()->id_ == 0) {
-      uav_position_goal_.header.frame_id = uav_world_frame_;
-      uav_position_goal_.header.stamp = ros::Time::now();
-      uav_position_goal_.pose.position = node_on_path.position_;
-      uav_position_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, node_on_path.yaw_);
-      break;
+  else {
+    std::map<double, Node>::iterator exploration_nodes_itr;
+    ROS_DEBUG("\tNODE\tGAIN\tGAIN_IND"); 
+    for (exploration_nodes_itr = exploration_nodes_.begin(); exploration_nodes_itr != exploration_nodes_.end(); ++exploration_nodes_itr) { 
+      ROS_DEBUG("\t%d\t%f\t%f", exploration_nodes_itr->second.id_, exploration_nodes_itr->first, exploration_nodes_itr->second.gain_indiv_);
     }
-    node_on_path = *(node_on_path.getParent());
-  }
-  ROS_INFO("Done");
 
-  planner_sample_centers_.clear();
+    path_.clear();
+    Node node_on_path = exploration_nodes_.rbegin()->second;
+    while (node_on_path.getParent() != nullptr) {
+      path_.push_front(makePoseStampedFromNode(node_on_path));
+      ROS_DEBUG("Node: %d", (int)node_on_path.id_);
 
-  // Visualize the paths if this isn't an action (aka called by the collaborative exploration planner)
-  if (!planner_action_in_progress_) {
-    visualizePath();
-    visualizePathFOVs(1.0);
+      if (node_on_path.getParent()->id_ == 0) {
+        uav_position_goal_.header.frame_id = uav_world_frame_;
+        uav_position_goal_.header.stamp = ros::Time::now();
+        uav_position_goal_.pose.position = node_on_path.position_;
+        uav_position_goal_.pose.orientation = makeQuatFromRPY(0.0, 0.0, node_on_path.yaw_);
+        break;
+      }
+      node_on_path = *(node_on_path.getParent());
+    }
+    ROS_DEBUG("Done");
+
+    planner_sample_centers_.clear();
+
+    // Visualize the paths if this isn't an action (aka called by the collaborative exploration planner)
+    if (!planner_action_in_progress_) {
+      visualizePath();
+      visualizePathFOVs(1.0);
+    }
   }
 }
 
@@ -689,6 +697,27 @@ bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, g
       return false;
     }
     degrees_to_check -= 45;
+  }
+
+  // Check on path at interval
+  float check_interval = 0.75;
+  float check_interval_i = 1;
+  while (check_interval*check_interval_i < distance) {
+    geometry_msgs::Point check_point = castRay(point_a, direction_ab, check_interval*check_interval_i);
+    double uav_radius = 1.0;
+    int degrees_to_check = 360;
+    while (degrees_to_check > 0) {
+      double ray_yaw = angles::from_degrees(degrees_to_check);
+      ray_rot_mat.setEulerYPR(ray_yaw, 0.0, 0.0);
+      tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
+      om_ray_direction = octomap::point3d(ray_direction.x(), ray_direction.y(), ray_direction.z());
+      bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, true, uav_radius);
+      if (hit_occupied) {
+        return false;
+      }
+      degrees_to_check -= 45;
+    }
+    check_interval_i++;
   }
 
   // Return whether there was a collision or not

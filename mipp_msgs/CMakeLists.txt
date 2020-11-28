@@ -52,7 +52,10 @@ add_service_files(
 
 add_action_files(
   DIRECTORY action
-  FILES StartExploration.action MoveVehicle.action Mipp.action
+  FILES 
+  StartExploration.action 
+  MoveVehicle.action 
+  StartMipp.action
 )
 
 ## Generate added messages and services with any dependencies listed here

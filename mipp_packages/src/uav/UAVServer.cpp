@@ -279,7 +279,7 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
     tf2::Matrix3x3(tf_quat).getRPY(uav_position_goal_rpy_.x, 
                                    uav_position_goal_rpy_.y, 
                                    uav_position_goal_rpy_.z);
-    ROS_INFO("New global goal: [%f,%f,%f,%f]",
+    ROS_DEBUG("New global goal: [%f,%f,%f,%f]",
               uav_position_goal_.pose.position.x, 
               uav_position_goal_.pose.position.y,
               uav_position_goal_.pose.position.z,
@@ -304,7 +304,7 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
         act_move_vehicle_result_.time_used = (ros::Time::now() - start_time).toSec();
         act_move_vehicle_server_.setSucceeded(act_move_vehicle_result_);
         goal_reached = true;
-        ROS_INFO("UAV %d reached its navigation goal after %.2f seconds.", uav_id_, act_move_vehicle_result_.time_used);
+        ROS_DEBUG("UAV %d reached its navigation goal after %.2f seconds.", uav_id_, act_move_vehicle_result_.time_used);
         break;
       }
       ros::spinOnce();

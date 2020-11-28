@@ -61,7 +61,7 @@ void UGVPlanner::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_
   pub_viz_frontier_nodes_ = n.advertise<visualization_msgs::Marker>(robot_namespace_+"/UGVPlanner/frontier_nodes", 1);
 
   sub_initial_path_ = n.subscribe(robot_namespace_+"/UGVFrontierExplorer/goal_path", 1, &UGVPlanner::subInitialPath, this);
-  sub_odometry_ = n.subscribe("odometry/filtered", 1, &UGVPlanner::subOdometry, this);
+  sub_odometry_ = n.subscribe(robot_namespace_+"/odometry/filtered", 1, &UGVPlanner::subOdometry, this);
 
   act_move_vehicle_server_ = new actionlib::SimpleActionServer<mipp_msgs::MoveVehicleAction>(n, std::string(robot_namespace_+"/UGVPlanner/move_vehicle_action"), boost::bind(&UGVPlanner::actMoveVehicle, this, _1), false);
   //act_move_vehicle_server_->registerGoalCallback(boost::bind(&UGVPlanner::actMoveVehicle, this));
@@ -129,6 +129,20 @@ void UGVPlanner::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
   act_move_vehicle_ = true;
   act_move_vehicle_goal_ = *goal;
   pub_goal_.publish(goal->goal_pose);
+
+  ros::Time start_time = ros::Time::now();
+  while (   (getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, goal->goal_pose.pose.position) > goal->goal_reached_radius)
+        and ((ros::Time::now() - start_time).toSec() < goal->goal_reached_max_time)) {
+    ROS_DEBUG("(%.2f, %.2f), (%.2f, %.2f), (%.2f)", ugv_odometry_.pose.pose.position.x, ugv_odometry_.pose.pose.position.y,
+                                    goal->goal_pose.pose.position.x, goal->goal_pose.pose.position.x, goal->goal_reached_radius);
+    act_move_vehicle_feedback_.goal_euc_distance = getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, goal->goal_pose.pose.position);
+    act_move_vehicle_feedback_.goal_yaw_distance = 1.0;
+    act_move_vehicle_server_->publishFeedback(act_move_vehicle_feedback_);
+    ros::spinOnce();
+    ros::Duration(0.5).sleep();
+  }
+  act_move_vehicle_result_.time_used = (ros::Time::now() - start_time).toSec();
+  act_move_vehicle_server_->setSucceeded(act_move_vehicle_result_);
 }
 
 /* 

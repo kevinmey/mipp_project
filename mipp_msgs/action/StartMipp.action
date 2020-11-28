@@ -1,4 +1,9 @@
 #goal definition
+uint8 EXPLORATION_MODE=0
+uint8 ESCORTING_MODE=1
+uint8 HYBRID_MODE=2
+
+uint8 mipp_mode
 float64 max_time
 ---
 #result definition
@@ -6,4 +11,5 @@ float64 time_used
 int64 voxels_discovered
 ---
 #feedback
+float64 time_used
 int64 voxels_discovered
