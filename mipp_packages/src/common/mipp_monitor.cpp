@@ -6,11 +6,13 @@
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
 
+#include "mipp_msgs/StartMippAction.h"
 #include "mipp_msgs/MoveVehicleAction.h"
 #include "mipp_msgs/MippMonitor.h"
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <std_msgs/Bool.h>
+#include <std_srvs/SetBool.h>
 
 #include <string>
 #include <utils.hpp>
@@ -47,16 +49,23 @@ private:
   void subOdometry(const nav_msgs::OdometryConstPtr& odom_msg, int vehicle_id);
   void subStart(const std_msgs::BoolConstPtr& start_msg);
   void subPath(const nav_msgs::PathConstPtr& path_msg);
+  void startMipp();
   // Params
+  bool auto_start_;
   int nr_of_uavs_;
   float frequency_;
   bool write_path_;
   bool read_path_;
+  bool read_tour_;
+  int planner_mode_;
   std::string path_bag_name_;
   rosbag::Bag path_bag_;
+  std::vector<std::string> tour_bag_names_;
+  std::vector<rosbag::Bag> tour_bags_;
   // Variables
   std::vector<Vehicle> vehicles_;
   nav_msgs::Path path_;
+  std::vector<nav_msgs::Path> tour_;
   bool started_;
   // Publishers
   ros::Timer pub_timer_;
@@ -65,22 +74,31 @@ private:
   // Subscribers
   ros::Subscriber sub_start_;
   ros::Subscriber sub_path_;
+  // Services
+  ros::ServiceClient cli_planner_ready_;
   // Actionlib
+  actionlib::SimpleActionClient<mipp_msgs::StartMippAction>* start_mipp_client;
+  mipp_msgs::StartMippGoal start_mipp_goal;
   actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>* move_vehicle_client;
   mipp_msgs::MoveVehicleGoal move_vehicle_goal;
   // TF
 };
 
-MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np)
-{
-  ROS_WARN("MippMonitor object is being created.");
+MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
+  ROS_WARN("MippMonitor object is being createdi.");
 
+  int count = 0;
+
+  np.param<int>("planner_mode", planner_mode_, 1);
+  np.param<bool>("auto_start", auto_start_, true);
   np.param<int>("nr_of_uavs", nr_of_uavs_, 1);
   np.param<float>("frequency", frequency_, 10.0);
   // Write/read path for UGV for scenario 2
   np.param<bool>("write_path", write_path_, true);
   np.param<bool>("read_path", read_path_, true);
-  np.param<std::string>("path_file_name", path_bag_name_, "/home/kevin/catkin_ws/src/mipp_project/mipp_launch/bags/sx2_path_1.bag");
+  np.param<std::string>("path_file_name", path_bag_name_, "$(find mipp_launch)/bags/sc2_path_1.bag");
+  np.param<bool>("read_tour", read_tour_, false);
+  np.param("tour_file_names", tour_bag_names_, std::vector<std::string>());
 
   path_.poses.clear();
   started_ = false;
@@ -88,10 +106,19 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np)
   pub_timer_    = n.createTimer(ros::Duration(1.0/frequency_), boost::bind(&MippMonitor::pubMonitor, this));
   pub_monitor_  = n.advertise<mipp_msgs::MippMonitor>("/MippMonitor/monitor", 1);
   pub_path_     = n.advertise<nav_msgs::Path>("/MippMonitor/path", 1);
+
   sub_start_    = n.subscribe("/MippMonitor/start", 1, &MippMonitor::subStart, this);
   sub_path_     = n.subscribe("/ugv/UGVPlanner/path", 1, &MippMonitor::subPath, this);
-  std::string uav_move_vehicle_client_name = "/ugv/UGVPlanner/move_vehicle_action";
-  move_vehicle_client = new actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>(uav_move_vehicle_client_name, true);
+
+  std::string cli_planner_ready_name = "/MippPlanner/planner_ready";
+  cli_planner_ready_ = n.serviceClient<std_srvs::SetBool>(cli_planner_ready_name);
+
+  std::string start_mipp_client_name = "/MippPlanner/start_mipp_action";
+  start_mipp_client = new actionlib::SimpleActionClient<mipp_msgs::StartMippAction>(start_mipp_client_name, true);
+  start_mipp_client->waitForServer(ros::Duration(10.0));
+
+  std::string move_vehicle_client_name = "/ugv/UGVPlanner/move_vehicle_action";
+  move_vehicle_client = new actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>(move_vehicle_client_name, true);
   move_vehicle_client->waitForServer(ros::Duration(10.0));
 
   int nr_of_vehicles = 1 + nr_of_uavs_;
@@ -115,13 +142,22 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np)
   ros::Rate loop_rate(frequency_);
   while (ros::ok())
   {
+    if (auto_start_ and !started_) {
+      std_srvs::SetBool srv;
+      if (cli_planner_ready_.call(srv)) {
+        if (srv.response.success) startMipp();
+        else ROS_INFO_THROTTLE(5.0, "Mipp planner not ready... yet");
+      }
+      else {
+        ROS_ERROR("Couldn't call planner_ready server.");
+      }
+    }
     ros::spinOnce();
     loop_rate.sleep();
   }
 }
 
-MippMonitor::~MippMonitor()
-{
+MippMonitor::~MippMonitor() {
   ROS_WARN("MippMonitor object is being deleted.");
 }
 
@@ -179,14 +215,25 @@ void MippMonitor::subPath(const nav_msgs::PathConstPtr& path_msg) {
     path_bag_.open(path_bag_name_, rosbag::bagmode::Write);
     path_bag_.write("test_path", ros::Time::now(), path_);
     path_bag_.close();
+    path_.poses.clear();
   }
 }
 
 void MippMonitor::subStart(const std_msgs::BoolConstPtr& start_msg) {
   ROS_DEBUG("subStart");
 
-  if (!started_ and read_path_) {
-    ROS_WARN("Reading path from bag %s", path_bag_name_.c_str());
+  startMipp();
+}
+
+void MippMonitor::startMipp() {
+
+  if (started_) {
+    ROS_WARN("Already started");
+    return;
+  }
+
+  if (read_path_) {
+    ROS_INFO("Reading path from bag %s", path_bag_name_.c_str());
 
     nav_msgs::Path::ConstPtr path;
     path_bag_.open(path_bag_name_, rosbag::bagmode::Read);
@@ -201,6 +248,8 @@ void MippMonitor::subStart(const std_msgs::BoolConstPtr& start_msg) {
       }
     }
 
+    path_bag_.close();
+
     move_vehicle_goal.goal_pose = *(path->poses.rbegin());
     move_vehicle_goal.goal_path.poses = path->poses;
     move_vehicle_goal.goal_path_to_be_improved = false;
@@ -209,8 +258,72 @@ void MippMonitor::subStart(const std_msgs::BoolConstPtr& start_msg) {
     move_vehicle_goal.goal_reached_max_time = 100.0;
     move_vehicle_client->sendGoal(move_vehicle_goal);
 
+    start_mipp_goal.max_time = 1000.0;
+    start_mipp_goal.mipp_mode = planner_mode_;
+    start_mipp_client->sendGoal(start_mipp_goal);
+
     started_ = true;
   }
+  else if (read_tour_) {
+    ROS_INFO("Reading tour, got %d file names", (int)tour_bag_names_.size());
+    for (auto const& tour_bag_name : tour_bag_names_) {
+      ROS_INFO("Reading tour bag: %s", tour_bag_name.c_str());
+      nav_msgs::Path::ConstPtr path;
+      rosbag::Bag tour_bag;
+      tour_bag.open(tour_bag_name, rosbag::bagmode::Read);
+      for (rosbag::MessageInstance const m: rosbag::View(tour_bag)) {
+        path = m.instantiate<nav_msgs::Path>();
+        if (path != nullptr) {
+          ROS_WARN("Read out tour with length %d", (int)path->poses.size());
+        }
+        else {
+          ROS_ERROR("Failed to read tour.");
+          return;
+        }
+      }
+      tour_bag.close();
+      //tour_bags_.push_back(tour_bag);
+      tour_.push_back(*path);
+    }
+
+    started_ = true;
+    float goal_wait_time = 10.0;
+    int goal_nr = 1;
+    start_mipp_goal.max_time = 1000.0;
+    start_mipp_goal.mipp_mode = planner_mode_;
+    start_mipp_client->sendGoal(start_mipp_goal);
+    for (auto const& tour_path : tour_) {
+      ROS_DEBUG("Tour: Goal %d with path of length %d", goal_nr, (int)tour_path.poses.size());
+          
+      move_vehicle_goal.goal_pose = *(tour_path.poses.rbegin());
+      move_vehicle_goal.goal_path.poses = tour_path.poses;
+      move_vehicle_goal.goal_path_to_be_improved = false;
+      move_vehicle_goal.goal_reached_radius = 0.5;
+      move_vehicle_goal.goal_reached_yaw = 1.57;
+      move_vehicle_goal.goal_reached_max_time = 120.0;
+      move_vehicle_client->sendGoal(move_vehicle_goal);
+
+      while (!move_vehicle_client->getState().isDone()) {
+        ROS_INFO_THROTTLE(1.0, "Moving to goal nr. %d", goal_nr);
+        ros::spinOnce();
+        ros::Duration(0.1).sleep();
+      }
+
+      ROS_INFO("Goal nr. %d reached, waiting %.1f seconds until next goal.", goal_nr, goal_wait_time);
+      ros::Time wait_start_time = ros::Time::now();
+      while ((ros::Time::now() - wait_start_time).toSec() < goal_wait_time) {
+        ROS_INFO_THROTTLE(1.0, "Waiting... %d", (int)(ros::Time::now() - wait_start_time).toSec());
+        ros::spinOnce();
+        ros::Duration(0.1).sleep();
+      }
+      goal_nr++;
+    }
+    ROS_WARN("Tour complete");
+  }
+  else {
+    ROS_WARN("Didn't read path or tour");
+  }
+
 }
 
 int main(int argc, char** argv){
