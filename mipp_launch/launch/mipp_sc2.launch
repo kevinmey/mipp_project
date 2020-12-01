@@ -34,9 +34,9 @@
   	<arg name="latch"                           value="false"/>
 		<arg name="filter_ground"                   value="false"/>
 		<arg name="pointcloud_min_z"                value="0.1"/>
-		<arg name="pointcloud_max_z"                value="5.0"/>
+		<arg name="pointcloud_max_z"                value="4.0"/>
 		<arg name="occupancy_min_z"                value="0.2"/>
-		<arg name="occupancy_max_z"                value="5.0"/>
+		<arg name="occupancy_max_z"                value="6.0"/>
 	  <remap from="cloud_in"          to="$(arg octomap_cloud_topic)" />
   </include>
 
@@ -144,6 +144,8 @@
   -->
   <arg name="tour_file_names" default="[$(find mipp_launch)/bags/sc2_tour_1a.bag, $(find mipp_launch)/bags/sc2_tour_1b.bag, $(find mipp_launch)/bags/sc2_tour_1c.bag]"/>
   <node name="mipp_monitor_node" pkg="mipp_packages" type="mipp_monitor_node" output="screen">
+    <param name="planner_mode"              value="2" />
+    <param name="auto_start"                value="true" />
     <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
     <param name="write_path"                value="false" />
     <param name="read_path"                 value="false" />

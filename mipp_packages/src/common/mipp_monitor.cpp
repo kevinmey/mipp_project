@@ -89,7 +89,7 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
 
   int count = 0;
 
-  np.param<int>("planner_mode", planner_mode_, 1);
+  np.param<int>("planner_mode", planner_mode_, 0);
   np.param<bool>("auto_start", auto_start_, true);
   np.param<int>("nr_of_uavs", nr_of_uavs_, 1);
   np.param<float>("frequency", frequency_, 10.0);
@@ -311,6 +311,8 @@ void MippMonitor::startMipp() {
 
       ROS_INFO("Goal nr. %d reached, waiting %.1f seconds until next goal.", goal_nr, goal_wait_time);
       ros::Time wait_start_time = ros::Time::now();
+      ros::spinOnce();
+      ros::Duration(0.1).sleep();
       while ((ros::Time::now() - wait_start_time).toSec() < goal_wait_time) {
         ROS_INFO_THROTTLE(1.0, "Waiting... %d", (int)(ros::Time::now() - wait_start_time).toSec());
         ros::spinOnce();

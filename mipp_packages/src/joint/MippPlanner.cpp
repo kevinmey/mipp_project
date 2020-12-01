@@ -53,6 +53,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
     UAVPlanner uav_planner;
     uav_planner.uav_id = uav_id;
     uav_planner.com_range = com_range_;
+    uav_planner.uav_altitude = uav_id*0.6 + 1.4;
     uav_planner.global_ugv_waypoints = &ugv_planner_.navigation_waypoints;
     uav_planner.global_sensor_coverages = &uav_sensor_coverages_;
     uav_planner.global_uav_paths = &uav_paths_;
@@ -138,12 +139,39 @@ void MippPlanner::runUpdates() {
   // Make UGV navigation waypoints
   ugv_planner_.createNavigationWaypoints(nr_of_ugv_nav_waypoints_, true);
   visualizeNavWaypoints();
+  // If in hybrid mode, check if switch needs to be done
+  ugv_planner_.navigation_goal_distance = getDistanceBetweenPoints(ugv_planner_.ugv_odometry->pose.pose.position, ugv_planner_.navigation_goal.pose.position);
+  ROS_INFO_THROTTLE(1.0, "Distance %.2f", ugv_planner_.navigation_goal_distance);
+  if (run_hybrid_) {
+    if (ugv_planner_.navigation_goal_distance < planner_hybrid_distance_ and run_escorting_) {
+      ROS_INFO("Switching to EXPLORATION_MODE");
+      for (auto& uav_planner_it : uav_planners_) {
+        *(uav_planner_it.global_run_exploration) = true;
+        *(uav_planner_it.global_run_escorting) = false;
+      }
+      run_exploration_ = true;
+      run_escorting_ = false;
+    }
+    else if (ugv_planner_.navigation_goal_distance > planner_hybrid_distance_ and run_exploration_) {
+      ROS_INFO("Switching to ESCORTING_MODE");
+      for (auto& uav_planner_it : uav_planners_) {
+        *(uav_planner_it.global_run_exploration) = false;
+        *(uav_planner_it.global_run_escorting) = true;
+      }
+      run_exploration_ = false;
+      run_escorting_ = true;
+    }
+    else if (!run_exploration_ and !run_escorting_) {
+      run_escorting_ = true;
+      run_exploration_ = false;
+    }
+  }
 
   // Check if UAVs are still fulfilling com constraints
   for (auto& uav_it : uav_planners_) {
     uav_it.recovery_goal.header = ugv_planner_.ugv_odometry->header;
     uav_it.recovery_goal.pose = ugv_planner_.ugv_odometry->pose.pose;
-    uav_it.recovery_goal.pose.position.z = (double)(uav_it.uav_id*0.75 + 1.5);
+    uav_it.recovery_goal.pose.position.z = uav_it.uav_altitude;
     auto uav_distance = getDistanceBetweenPoints(ugv_planner_.ugv_odometry->pose.pose.position, uav_it.uav_odometry.pose.pose.position);
     uav_it.out_of_com_range = (uav_distance > com_range_);
   }
@@ -200,6 +228,7 @@ void MippPlanner::subUGVPlan(const nav_msgs::PathConstPtr& path_msg) {
   ROS_DEBUG("subUGVPlan");
 
   ugv_planner_.navigation_path = *path_msg;
+  ugv_planner_.navigation_goal = *(path_msg->poses.rbegin());
 }
 
 void MippPlanner::subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg) {
@@ -266,6 +295,10 @@ void MippPlanner::actMipp(const mipp_msgs::StartMippGoalConstPtr &goal) {
     case mipp_msgs::StartMippGoal::ESCORTING_MODE:
       ROS_INFO("UAV%d planner set to: ESCORTING_MODE.", uav_planner_it.uav_id);
       run_escorting_ = true;
+      break;
+    case mipp_msgs::StartMippGoal::HYBRID_MODE:
+      ROS_INFO("UAV%d planner set to: HYBRID_MODE.", uav_planner_it.uav_id);
+      run_hybrid_ = true;
       break;
     default:
       ROS_ERROR("Got weird value for mipp_mode: %d", (int)(goal->mipp_mode));
@@ -376,6 +409,7 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   // General
   np.param<std::string>("planner_world_frame", planner_world_frame_, "world");
   np.param<float>("planner_com_range", com_range_, 10.0);
+  np.param<float>("planner_hybrid_distance", planner_hybrid_distance_, 5.0);
   // Planners
   np.param<float>("planner_sample_radius", sample_radius_, 0.1);
   np.param<float>("planner_sample_yaw_range", sample_yaw_range_, 6.0);

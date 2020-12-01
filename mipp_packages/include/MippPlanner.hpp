@@ -74,6 +74,7 @@ struct UGVPlanner
   nav_msgs::Path navigation_path_init;  // Initial RRT vertices making up "path" to frontier node goal
   nav_msgs::Path navigation_path;       // Plan returned from UGVPlanner which optimizes the inital path
   std::vector<geometry_msgs::Point> navigation_waypoints;  // Waypoints created from poses on path which are within a set distance
+  float navigation_goal_distance;
   float navigation_waypoint_max_dist;
   bool navigation_paused;
   // Communication
@@ -88,6 +89,7 @@ struct UAVPlanner
   ros::Subscriber sub_odometry;
   // General vehicle parameters
   void init(ros::NodeHandle n);
+  float uav_altitude;
   int uav_id;
   float com_range;
   std::shared_ptr<octomap::OcTree> octomap;
@@ -135,9 +137,6 @@ struct UAVPlanner
   float getRandomYaw(float yaw_deg_center = 0.0, float yaw_deg_range = 30.0);
   geometry_msgs::PoseStamped getEscortPose(const geometry_msgs::Pose& ugv_pose, const geometry_msgs::Pose& uav_formation_pose);
   nav_msgs::Path getEscortPath(const std::vector<geometry_msgs::Point>& ugv_waypoints, const geometry_msgs::Pose& uav_formation_pose);
-  //nav_msgs::Path getEscortPath(const std::vector<geometry_msgs::Point>& ugv_waypoints, const geometry_msgs::Pose& uav_formation_pose,
-  //                             const std::vector<geometry_msgs::Point>& formation_nudges_def = std::vector<geometry_msgs::Point>(),
-   //                            const bool formation_nudges_zero_pad = true);
   nav_msgs::Path escort_path;
   geometry_msgs::Pose formation_pose;
   std::vector<geometry_msgs::Pose> formation_poses;
@@ -147,6 +146,8 @@ struct UAVPlanner
   float sample_yaw_range;
   std::default_random_engine rng_generator;
   std::uniform_real_distribution<double> rng_unit_distribution;
+  // LOS
+  bool doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b);
   // Collision check
   void initCollisionPoints();
   bool isPoseCollisionFree(const geometry_msgs::Point& pose, bool unmapped_is_collision = false);
@@ -228,6 +229,7 @@ private:
   //// General
   bool do_visualization_;
   float com_range_;
+  float planner_hybrid_distance_;
   //// Planner
   geometry_msgs::Point getRandomCirclePoint(geometry_msgs::Point circle_center = makePoint(0,0,0), float circle_radius = 1.0);
   float getRandomYaw(float yaw_deg_center = 0.0, float yaw_deg_range = 30.0);
@@ -253,6 +255,7 @@ private:
   // Variables
   bool run_exploration_;
   bool run_escorting_;
+  bool run_hybrid_;
   std::shared_ptr<octomap::OcTree> octomap_; 
   bool received_octomap_;
   int octomap_size_;

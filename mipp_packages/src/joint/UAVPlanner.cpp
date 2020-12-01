@@ -39,7 +39,8 @@ void UAVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
 }
 
 void UAVPlanner::updateStateMachine() {
-  ROS_DEBUG_THROTTLE(1.0, "UAV%d STATE: %d", uav_id, vehicle_state);
+  ROS_INFO_THROTTLE(1.0, "UAV%d STATE: %d", uav_id, vehicle_state);
+  ROS_INFO_THROTTLE(1.0, "UAV%d bools (%d, %d).", uav_id, (int)(*global_run_exploration), (int)(*global_run_escorting));
   
   // Check first if UAV needs to be recovered
   if (recoveryRequired()) {
@@ -72,7 +73,6 @@ void UAVPlanner::updateStateMachine() {
       }
       break;}
     case IDLE: {
-      ROS_INFO("UAV%d bools (%d, %d).", uav_id, (int)(*global_run_exploration), (int)(*global_run_escorting));
       if (*global_run_exploration) {
         if (exploration_result.paths.empty()) {
           float exploration_max_time = 1.0;
@@ -88,6 +88,8 @@ void UAVPlanner::updateStateMachine() {
         }
         else {
           ROS_WARN("UAV%d is idle when it should be exploring", uav_id);
+          exploration_result.paths.clear();
+          navigation_path.poses.clear();
         }
       }
       else if (*global_run_escorting) {
@@ -123,7 +125,7 @@ void UAVPlanner::updateStateMachine() {
       }
       break;}
     case ESCORTING: {
-      if (!global_run_escorting) {
+      if (!*(global_run_escorting)) {
         vehicle_state = IDLE;
         break;
       }
@@ -209,7 +211,7 @@ void UAVPlanner::sendExplorationGoal(float exploration_time) {
   }
   exploration_goal.sampling_centers = *global_ugv_waypoints;
   exploration_goal.sampling_radius = 7.0;
-  exploration_goal.sampling_z = (double)(uav_id*0.75 + 1.5);
+  exploration_goal.sampling_z = uav_altitude;
   exploration_goal.sampling_z_interval = 0.1;
   exploration_client->sendGoal(exploration_goal);
 
@@ -263,7 +265,9 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
     for (auto const& pose_it : path_it.poses) {
       com_constraint_satisfied = com_constraint_satisfied 
                              and getDistanceBetweenPoints(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx))) < com_range
-                             and getDistanceBetweenPoints(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx+1))) < com_range;
+                             and getDistanceBetweenPoints(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx+1))) < com_range
+                             and doPointsHaveLOS(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx)))
+                             and doPointsHaveLOS(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx+1)));
       nav_waypoint_idx++;
     }
 
@@ -346,16 +350,16 @@ void UAVPlanner::initFormationPoseBank(int nr_of_uavs) {
     switch (uav_id)
     {
     case 0:
-      pose_near.position = makePoint(2.0, 0.0, (double)(uav_id*0.75 + 1.5));
+      pose_near.position = makePoint(2.0, 0.0, uav_altitude);
       pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, -(30.0/180.0)*M_PI));
-      pose_far.position = makePoint(0.0, -3.0, (double)(uav_id*0.75 + 1.5));
+      pose_far.position = makePoint(0.0, -3.0, uav_altitude);
       pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
       formation_pose = pose_near;
       break;
     case 1:
-      pose_near.position = makePoint(0.0, 0.0, (double)(uav_id*0.75 + 1.5));
+      pose_near.position = makePoint(0.0, 0.0, uav_altitude);
       pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, (30.0/180.0)*M_PI));
-      pose_far.position = makePoint(0.0, 3.0, (double)(uav_id*0.75 + 1.5));
+      pose_far.position = makePoint(0.0, 3.0, uav_altitude);
       pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
       formation_pose = pose_near;
       break;
@@ -370,22 +374,22 @@ void UAVPlanner::initFormationPoseBank(int nr_of_uavs) {
     {
     case 0:
       // UAV0 special case only has 1 pose
-      formation_pose.position = makePoint(2.0, 0.0, (double)(uav_id*0.75 + 1.5));
+      formation_pose.position = makePoint(2.0, 0.0, uav_altitude);
       formation_pose.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
       formation_poses.push_back(formation_pose);
       return;
       break;
     case 1:
-      pose_near.position = makePoint(0.0, 0.0, (double)(uav_id*0.75 + 1.5));
+      pose_near.position = makePoint(0.0, 0.0, uav_altitude);
       pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, -(60.0/180.0)*M_PI));
-      pose_far.position = makePoint(0.0, -6.0, (double)(uav_id*0.75 + 1.5));
+      pose_far.position = makePoint(0.0, -6.0, uav_altitude);
       pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
       formation_pose = pose_near;
       break;
     case 2:
-      pose_near.position = makePoint(0.0, 0.0, (double)(uav_id*0.75 + 1.5));
+      pose_near.position = makePoint(0.0, 0.0, uav_altitude);
       pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, (60.0/180.0)*M_PI));
-      pose_far.position = makePoint(0.0, 6.0, (double)(uav_id*0.75 + 1.5));
+      pose_far.position = makePoint(0.0, 6.0, uav_altitude);
       pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
       formation_pose = pose_near;
       break;
@@ -589,6 +593,28 @@ nav_msgs::Path UAVPlanner::getEscortPath(const std::vector<geometry_msgs::Point>
   return escort_path;
 }
 */
+
+// LOS
+
+bool UAVPlanner::doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b) {
+  ROS_DEBUG("doPointsHaveLOS");
+
+  double occupancy_threshold = octomap->getOccupancyThres();
+  float point_distance = getDistanceBetweenPoints(point_a, point_b);
+  octomap::point3d om_end_point;
+
+  octomap::point3d om_point_a(point_a.x, point_a.y, point_a.z);
+  geometry_msgs::Vector3 direction_ab = getDirection(point_a, point_b);
+  octomap::point3d om_direction_ab(direction_ab.x, direction_ab.y, direction_ab.z);
+  bool hit_occupied_ab = octomap->castRay(om_point_a, om_direction_ab, om_end_point, true, point_distance);
+
+  octomap::point3d om_point_b(point_b.x, point_b.y, point_b.z);
+  geometry_msgs::Vector3 direction_ba = getDirection(point_b, point_a);
+  octomap::point3d om_direction_ba(direction_ba.x, direction_ba.y, direction_ba.z);
+  bool hit_occupied_ba = octomap->castRay(om_point_b, om_direction_ba, om_end_point, true, point_distance);
+
+  return (!hit_occupied_ab and !hit_occupied_ba);
+}
 
 // Collision
 
