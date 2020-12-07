@@ -119,7 +119,7 @@ void UAVPlanner::updateStateMachine() {
       ROS_DEBUG("UAV%d: Length of uav_paths: (%d, %d)", uav_id, (int)global_uav_paths->size(), (int)global_uav_paths->at(uav_id).poses.size());
       if (move_vehicle_client->getState().isDone()) {
         exploration_result.paths.clear();
-        global_sensor_coverages->at(uav_id).clear();
+        //global_sensor_coverages->at(uav_id).clear();
         global_uav_paths->at(uav_id).poses.clear();
         vehicle_state = IDLE;
       }
@@ -225,8 +225,11 @@ bool UAVPlanner::isExplorationDone() {
 std::vector<SensorCircle> UAVPlanner::getExistingSensorCoverages() {
   std::vector<SensorCircle> existing_sensor_coverages;
   for (auto const& uav_it : *global_sensor_coverages) {
-    for (auto const& coverage_it : uav_it.second) {
-      existing_sensor_coverages.push_back(coverage_it);
+    if (uav_it.first != uav_id) {
+      // Only consider other sensor coverages
+      for (auto const& coverage_it : uav_it.second) {
+        existing_sensor_coverages.push_back(coverage_it);
+      }
     }
   }
   return existing_sensor_coverages;
@@ -273,20 +276,22 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
 
     // Compute total path gain
     if (com_constraint_satisfied) {
-      float path_gain = 0.0;    // Record this paths gain (will be sum of pose gains accounting for sensor overlap)
+      float path_info_gain = 0.0;    // Record this paths gain (will be sum of pose gains accounting for sensor overlap)
       std::vector<SensorCircle> path_sensor_coverages;  // Will be filled with previous poses in the path
       for (auto const& pose_it : path_it.poses) {
         float pose_gain = pose_it.gain/pose_it.pose_rank;
         SensorCircle pose_sensor_coverage = makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range);
 
-        /* Waypoint multiplier to encourage sensor circles close to the UGV path
-        float pose_sensor_multiplier_threshold = 5.0; // m away from (at least) one waypoint to get multiplier
+        /* Waypoint multiplier to encourage sensor circles close to the UGV path*/
+        float pose_sensor_multiplier_threshold = 5.0; // m away from (at least) one waypoint start getting multiplier
+        float pose_sensor_multiplier_max = 5.0; // Maximum multiplier available
         float pose_sensor_multiplier = 1.0;
         for (auto const& waypoint_it : *global_ugv_waypoints) {
-          if (getDistanceBetweenPoints(pose_sensor_coverage.center, waypoint_it) < pose_sensor_multiplier_threshold) {
-            pose_sensor_multiplier = 3.0;
-          }
-        }*/
+          float distance = getDistanceBetweenPoints(pose_sensor_coverage.center, waypoint_it);
+          pose_sensor_multiplier = std::max(pose_sensor_multiplier, pose_sensor_multiplier_max*(pose_sensor_multiplier_threshold - distance));
+        }
+
+        // Overlap
         float pose_sensor_coverage_overlap = 0.0; // Will record area of overlap
         for (auto const& sensor_coverage_it : existing_sensor_coverages) {
           pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
@@ -296,9 +301,12 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
         }
         // Need ratio of sensor coverage area to sensor overlap area (capped at max 1, aka 100%)
         double pose_sensor_coverage_overlap_ratio = pose_sensor_coverage_overlap / (M_PI*pow(pose_sensor_coverage.radius, 2));
-        path_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain; //*pose_sensor_multiplier;
+        path_info_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain*pose_sensor_multiplier;
         path_sensor_coverages.push_back(pose_sensor_coverage);
+        ROS_DEBUG("Pose gain: (%.2f) * %.2f = %.2f", pose_sensor_coverage_overlap_ratio, pose_gain, (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain);
       }
+      ROS_DEBUG("Path gain: %.2f - %.2f", path_info_gain, path_it.length);
+      float path_gain = 20.0*path_info_gain - path_it.length;
       if (path_gain > best_path_gain) {
         ROS_DEBUG("New path selected, gain increased from %.2f to %.2f", best_path_gain, path_gain);
         std::vector<nav_msgs::Path> viz_path;
