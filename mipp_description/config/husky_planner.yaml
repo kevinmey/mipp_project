@@ -25,6 +25,8 @@ UGVPlanner:
   planner_max_ray_distance: 2.0
   step_size: 0.05
 
+  planner_replan_enabled: false
+
   # Robot
   footprint_model: # types: "point", "circular", "two_circles", "line", "polygon"
     type: "circular"

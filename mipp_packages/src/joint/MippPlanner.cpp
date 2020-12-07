@@ -67,6 +67,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
   // Set general variables
   run_exploration_ = false;
   run_escorting_ = false;
+  run_hybrid_ = false;
 
   // Set UGV variables
   ugv_planner_.navigation_waypoint_max_dist = ugv_nav_waypoint_max_distance_;
@@ -143,8 +144,8 @@ void MippPlanner::runUpdates() {
   ugv_planner_.navigation_goal_distance = getDistanceBetweenPoints(ugv_planner_.ugv_odometry->pose.pose.position, ugv_planner_.navigation_goal.pose.position);
   ROS_INFO_THROTTLE(1.0, "Distance %.2f", ugv_planner_.navigation_goal_distance);
   if (run_hybrid_) {
-    if (ugv_planner_.navigation_goal_distance < planner_hybrid_distance_ and run_escorting_) {
-      ROS_INFO("Switching to EXPLORATION_MODE");
+    if (ugv_planner_.navigation_goal_distance < planner_hybrid_distance_) {
+      ROS_INFO_COND(run_escorting_, "Switching to EXPLORATION_MODE");
       for (auto& uav_planner_it : uav_planners_) {
         *(uav_planner_it.global_run_exploration) = true;
         *(uav_planner_it.global_run_escorting) = false;
@@ -152,8 +153,8 @@ void MippPlanner::runUpdates() {
       run_exploration_ = true;
       run_escorting_ = false;
     }
-    else if (ugv_planner_.navigation_goal_distance > planner_hybrid_distance_ and run_exploration_) {
-      ROS_INFO("Switching to ESCORTING_MODE");
+    else if (ugv_planner_.navigation_goal_distance > planner_hybrid_distance_) {
+      ROS_INFO_COND(run_exploration_, "Switching to ESCORTING_MODE");
       for (auto& uav_planner_it : uav_planners_) {
         *(uav_planner_it.global_run_exploration) = false;
         *(uav_planner_it.global_run_escorting) = true;
@@ -291,19 +292,27 @@ void MippPlanner::actMipp(const mipp_msgs::StartMippGoalConstPtr &goal) {
     case mipp_msgs::StartMippGoal::EXPLORATION_MODE:
       ROS_INFO("UAV%d planner set to: EXPLORATION_MODE.", uav_planner_it.uav_id);
       run_exploration_ = true;
+      run_escorting_ = false;
+      run_hybrid_ = false;
       break;
     case mipp_msgs::StartMippGoal::ESCORTING_MODE:
       ROS_INFO("UAV%d planner set to: ESCORTING_MODE.", uav_planner_it.uav_id);
+      run_exploration_ = false;
       run_escorting_ = true;
+      run_hybrid_ = false;
       break;
     case mipp_msgs::StartMippGoal::HYBRID_MODE:
       ROS_INFO("UAV%d planner set to: HYBRID_MODE.", uav_planner_it.uav_id);
+      run_exploration_ = false;
+      run_escorting_ = false;
       run_hybrid_ = true;
       break;
     default:
       ROS_ERROR("Got weird value for mipp_mode: %d", (int)(goal->mipp_mode));
       break;
     }
+    *(uav_planner_it.global_run_exploration) = run_exploration_;
+    *(uav_planner_it.global_run_escorting) = run_escorting_;
   }
   while ((ros::Time::now() - start_time).toSec() < goal->max_time) {
     act_mipp_feedback_.voxels_discovered = octomap_size_;

@@ -479,7 +479,7 @@ Visualization Manager:
           Marker Topic: /uav0/uav_server/viz_uav
           Name: Drone
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -487,7 +487,7 @@ Visualization Manager:
           Marker Topic: /uav0/viz_constraint
           Name: Communication constraint
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -495,7 +495,7 @@ Visualization Manager:
           Marker Topic: /uav0/uav_server/viz_line_to_goal
           Name: Line to goal
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Group
@@ -671,7 +671,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                {}
+                "": true
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -776,7 +776,7 @@ Visualization Manager:
           Marker Topic: /uav1/uav_server/viz_uav
           Name: Drone
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -784,7 +784,7 @@ Visualization Manager:
           Marker Topic: /uav1/viz_constraint
           Name: Communication constraint
           Namespaces:
-            {}
+            "": true
           Queue Size: 100
           Value: true
         - Class: rviz/Group
@@ -960,7 +960,7 @@ Visualization Manager:
               Marker Topic: /uav1/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                {}
+                "": true
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -1428,7 +1428,7 @@ Visualization Manager:
       Marker Topic: /MippPlanner/viz_uav_path_fovs
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -1436,7 +1436,7 @@ Visualization Manager:
       Marker Topic: /MippPlanner/viz_uav_paths
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Image
@@ -1537,6 +1537,14 @@ Visualization Manager:
       Transport Hint: raw
       Unreliable: false
       Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /MippMonitor/viz_tour
+      Name: Marker
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 89; 120; 76
@@ -1567,25 +1575,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 81.5978775024414
+      Distance: 40.6345100402832
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 6.997875213623047
-        Y: -16.596141815185547
-        Z: 5.3696741815656424e-5
+        X: -2.251206398010254
+        Y: -1.072601318359375
+        Z: 5.1789393182843924e-5
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 0.9397968649864197
       Target Frame: fcu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 4.7086076736450195
+      Yaw: 0.5535991787910461
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10

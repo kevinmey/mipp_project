@@ -14,6 +14,9 @@
 #include <std_msgs/Bool.h>
 #include <std_srvs/SetBool.h>
 
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+
 #include <string>
 #include <utils.hpp>
 
@@ -71,6 +74,7 @@ private:
   ros::Timer pub_timer_;
   ros::Publisher pub_monitor_;
   ros::Publisher pub_path_;
+  ros::Publisher pub_viz_tour_;
   // Subscribers
   ros::Subscriber sub_start_;
   ros::Subscriber sub_path_;
@@ -106,6 +110,7 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
   pub_timer_    = n.createTimer(ros::Duration(1.0/frequency_), boost::bind(&MippMonitor::pubMonitor, this));
   pub_monitor_  = n.advertise<mipp_msgs::MippMonitor>("/MippMonitor/monitor", 1);
   pub_path_     = n.advertise<nav_msgs::Path>("/MippMonitor/path", 1);
+  pub_viz_tour_ = n.advertise<visualization_msgs::Marker>("/MippMonitor/viz_tour", 1);
 
   sub_start_    = n.subscribe("/MippMonitor/start", 1, &MippMonitor::subStart, this);
   sub_path_     = n.subscribe("/ugv/UGVPlanner/path", 1, &MippMonitor::subPath, this);
@@ -247,8 +252,27 @@ void MippMonitor::startMipp() {
         return;
       }
     }
-
     path_bag_.close();
+
+    bool visualize_path = true;
+    if (visualize_path) {
+      visualization_msgs::Marker tour_marker;
+      tour_marker.header.frame_id = "world";
+      tour_marker.header.stamp = ros::Time::now();
+      tour_marker.id = 0;
+      tour_marker.type = visualization_msgs::Marker::LINE_STRIP;
+      tour_marker.action = visualization_msgs::Marker::ADD;
+      tour_marker.pose.orientation.w = 1.0;
+      tour_marker.scale.x = 0.2;
+      tour_marker.color.a = 0.5;
+      tour_marker.color.r = 0.1;
+      tour_marker.color.g = 1.0;
+      tour_marker.color.b = 0.1;
+      for (auto const& pose_it : path->poses) {
+        tour_marker.points.push_back(pose_it.pose.position);
+      }
+      pub_viz_tour_.publish(tour_marker);
+    }
 
     move_vehicle_goal.goal_pose = *(path->poses.rbegin());
     move_vehicle_goal.goal_path.poses = path->poses;
@@ -284,6 +308,28 @@ void MippMonitor::startMipp() {
       tour_bag.close();
       //tour_bags_.push_back(tour_bag);
       tour_.push_back(*path);
+    }
+
+    bool visualize_tour = true;
+    if (visualize_tour) {
+      visualization_msgs::Marker tour_marker;
+      tour_marker.header.frame_id = "world";
+      tour_marker.header.stamp = ros::Time::now();
+      tour_marker.id = 0;
+      tour_marker.type = visualization_msgs::Marker::LINE_STRIP;
+      tour_marker.action = visualization_msgs::Marker::ADD;
+      tour_marker.pose.orientation.w = 1.0;
+      tour_marker.scale.x = 0.2;
+      tour_marker.color.a = 0.5;
+      tour_marker.color.r = 0.1;
+      tour_marker.color.g = 1.0;
+      tour_marker.color.b = 0.1;
+      for (auto const& tour_path_it : tour_) {
+        for (auto const& pose_it : tour_path_it.poses) {
+          tour_marker.points.push_back(pose_it.pose.position);
+        }
+      }
+      pub_viz_tour_.publish(tour_marker);
     }
 
     started_ = true;
