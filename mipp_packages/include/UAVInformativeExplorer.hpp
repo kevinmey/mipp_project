@@ -70,6 +70,7 @@ private:
   geometry_msgs::Point generateRandomPoint();
   void extendTreeRRTstar(geometry_msgs::Point candidate_point, double candidate_yaw);
   bool isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b);
+  geometry_msgs::Point getCollisionFreePoint(geometry_msgs::Point point_a, geometry_msgs::Point point_b);
   bool isGoalReached();
   // Visualization
   void visualizeUAVFOV();
@@ -128,6 +129,8 @@ private:
   double planner_max_neighbor_distance_;
   double planner_max_neighbor_yaw_;
   bool planner_unmapped_is_collision_;
+  double planner_collision_radius_;
+  double planner_collision_check_interval_;
   // Variables
   //   Map
   std::shared_ptr<octomap::OcTree> map_;

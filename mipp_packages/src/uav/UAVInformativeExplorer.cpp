@@ -215,6 +215,7 @@ void UAVInformativeExplorer::actStartExploration(const mipp_msgs::StartExplorati
     std::map<double, Node>::reverse_iterator node_rit;
     for (node_rit = exploration_nodes_.rbegin(); node_rit != exploration_nodes_.rend(); ++node_rit) {
       mipp_msgs::ExplorationPath exploration_path;
+      exploration_path.length = node_rit->second.cost_;
       Node node_on_path = node_rit->second;
       while (node_on_path.getParent() != nullptr) {
         mipp_msgs::ExplorationPose exploration_pose;
@@ -266,6 +267,8 @@ void UAVInformativeExplorer::getParams(ros::NodeHandle np) {
   np.param<double>("planner_max_neighbor_distance", planner_max_neighbor_distance_, planner_max_ray_distance_);
   np.param<double>("planner_max_neighbor_yaw", planner_max_neighbor_yaw_, angles::from_degrees(90.0));
   np.param<bool>("planner_unmapped_is_collision", planner_unmapped_is_collision_, true);
+  np.param<double>("planner_collision_radius", planner_collision_radius_, 0.75);
+  np.param<double>("planner_collision_check_interval", planner_collision_check_interval_, 0.75);
 }
 
 void UAVInformativeExplorer::initVariables() {
@@ -398,6 +401,8 @@ void UAVInformativeExplorer::runExploration() {
       // Get as close to the sample yaw, without breaking the limit on neighbor yaw
       double new_yaw = getClosestYaw(nearest_neighbor->yaw_, sample_yaw, planner_max_neighbor_yaw_);
 
+      // Return collision free point
+      new_point = getCollisionFreePoint(new_point_ray_origin, new_point);
 
       // RRTstar algorithm
       extendTreeRRTstar(new_point, new_yaw);
@@ -453,56 +458,7 @@ void UAVInformativeExplorer::runExploration() {
 
 double UAVInformativeExplorer::calculateInformationGain(geometry_msgs::Point origin, geometry_msgs::Vector3 rpy) {
   ROS_DEBUG("calculateInformationGain");
-  uav_camera_information_points_.clear();
-
-  double ray_distance = uav_camera_range_;
-  tf2::Matrix3x3 ray_direction_rotmat;
-  ray_direction_rotmat.setEulerYPR(rpy.z, rpy.y, rpy.x);
-
-  octomap::point3d om_ray_origin = octomap::point3d(origin.x, origin.y, origin.z);
-  int hits = 0;
-  int occupied = 0;
-  int free = 0;
-  int unmapped = 0;
-  double occupancy_threshold = map_->getOccupancyThres();
-
-  for(tf2::Vector3 ray : uav_camera_rays_) {
-    tf2::Vector3 ray_direction = ray_direction_rotmat*ray*ray_distance;
-    octomap::point3d om_ray_direction = octomap::point3d(ray_direction.getX(), ray_direction.getY(), ray_direction.getZ());
-    octomap::point3d om_ray_end_cell;
-    bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, false, ray_distance);
-    if (hit_occupied) {
-      hits++;
-    }
-    geometry_msgs::Point ray_end_point;
-    ray_end_point.x = om_ray_end_cell.x();
-    ray_end_point.y = om_ray_end_cell.y();
-    ray_end_point.z = om_ray_end_cell.z();
-    
-    octomap::OcTreeNode* om_ray_end_node = map_->search(om_ray_end_cell);
-    if (om_ray_end_node != NULL) {
-      double node_occupancy = om_ray_end_node->getOccupancy();
-      ROS_DEBUG("Node value: %f", node_occupancy);
-      uav_camera_information_points_.push_back(std::pair<double, geometry_msgs::Point>(node_occupancy, ray_end_point));
-      if (node_occupancy < occupancy_threshold) {
-        free++;
-      }
-      else {
-        occupied++;
-      }
-    }
-    else {
-      //uav_camera_information_points_.push_back(std::pair<double, geometry_msgs::Point>(0.5, ray_end_point));
-      unmapped++;
-    }
-    
-  }
-  
-  visualizeInformationPoints();
-  ROS_DEBUG("Occupied: %d", occupied);
-  ROS_DEBUG("Free: %d", free);
-  ROS_DEBUG("Unmapped: %d", unmapped);
-  return unmapped;
+  return calculateInformationGain(origin, rpy.z);
 }
 
 double UAVInformativeExplorer::calculateInformationGain(geometry_msgs::Point origin, double yaw) {
@@ -514,9 +470,9 @@ double UAVInformativeExplorer::calculateInformationGain(geometry_msgs::Point ori
   ray_direction_rotmat.setEulerYPR(yaw, 0.0, 0.0);
 
   octomap::point3d om_ray_origin = octomap::point3d(origin.x, origin.y, origin.z);
-  int occupied = 0;
-  int free = 0;
-  int unmapped = 0;
+  double occupied = 0;
+  double free = 0;
+  double unmapped = 0;
   double occupancy_threshold = map_->getOccupancyThres();
 
   for(tf2::Vector3 ray : uav_camera_rays_) {
@@ -546,7 +502,7 @@ double UAVInformativeExplorer::calculateInformationGain(geometry_msgs::Point ori
     
   }
 
-  return unmapped;
+  return unmapped/((double)uav_camera_rays_.size());
 }
 
 geometry_msgs::Point UAVInformativeExplorer::generateRandomPoint() {
@@ -656,6 +612,7 @@ bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, g
   // Attempt to cast OctoMap ray
   geometry_msgs::Vector3 direction_ab = getDirection(point_a, point_b);
   double distance = getDistanceBetweenPoints(point_a, point_b);
+  if (distance < 0.01) return true; // Practically same point,  
 
   octomap::point3d om_ray_origin = octomap::point3d(point_a.x, point_a.y, point_a.z);
   octomap::point3d om_ray_direction = octomap::point3d(direction_ab.x, direction_ab.y, direction_ab.z);
@@ -685,14 +642,13 @@ bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, g
   tf2::Matrix3x3 ray_rot_mat;
   tf2::Vector3 unit_ray_direction(1.0, 0.0, 0.0);
 
-  double uav_radius = 1.0;
   int degrees_to_check = 360;
   while (degrees_to_check > 0) {
     double ray_yaw = angles::from_degrees(degrees_to_check);
     ray_rot_mat.setEulerYPR(ray_yaw, 0.0, 0.0);
     tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
     om_ray_direction = octomap::point3d(ray_direction.x(), ray_direction.y(), ray_direction.z());
-    bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, true, uav_radius);
+    bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, true, planner_collision_radius_);
     if (hit_occupied) {
       return false;
     }
@@ -700,18 +656,17 @@ bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, g
   }
 
   // Check on path at interval
-  float check_interval = 0.75;
   float check_interval_i = 1;
-  while (check_interval*check_interval_i < distance) {
-    geometry_msgs::Point check_point = castRay(point_a, direction_ab, check_interval*check_interval_i);
-    double uav_radius = 1.0;
+  while (planner_collision_check_interval_*check_interval_i < distance) {
+    geometry_msgs::Point check_point = castRay(point_a, direction_ab, planner_collision_check_interval_*check_interval_i);
+    om_ray_origin = octomap::point3d(check_point.x, check_point.y, check_point.z);
     int degrees_to_check = 360;
     while (degrees_to_check > 0) {
       double ray_yaw = angles::from_degrees(degrees_to_check);
       ray_rot_mat.setEulerYPR(ray_yaw, 0.0, 0.0);
       tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
       om_ray_direction = octomap::point3d(ray_direction.x(), ray_direction.y(), ray_direction.z());
-      bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, true, uav_radius);
+      bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, true, planner_collision_radius_);
       if (hit_occupied) {
         return false;
       }
@@ -722,6 +677,44 @@ bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, g
 
   // Return whether there was a collision or not
   return true;
+}
+
+geometry_msgs::Point UAVInformativeExplorer::getCollisionFreePoint(geometry_msgs::Point point_a, geometry_msgs::Point point_b) {
+  ROS_DEBUG("getCollisionFreePoint");
+
+  geometry_msgs::Point ret_point = point_a;
+
+  // Attempt to cast OctoMap ray
+  geometry_msgs::Vector3 direction_ab = getDirection(point_a, point_b);
+  double distance = getDistanceBetweenPoints(point_a, point_b);
+
+  octomap::point3d om_ray_origin = octomap::point3d(point_a.x, point_a.y, point_a.z);
+  octomap::point3d om_ray_direction = octomap::point3d(direction_ab.x, direction_ab.y, direction_ab.z);
+  octomap::point3d om_ray_end = octomap::point3d(point_b.x, point_b.y, point_b.z);
+  octomap::point3d om_ray_end_cell;
+
+  // Check on path at interval
+  tf2::Matrix3x3 ray_rot_mat;
+  tf2::Vector3 unit_ray_direction(1.0, 0.0, 0.0);
+  float check_interval_i = 1;
+  while (planner_collision_check_interval_*check_interval_i < distance) {
+    ret_point = castRay(point_a, direction_ab, planner_collision_check_interval_*check_interval_i);
+    om_ray_origin = octomap::point3d(ret_point.x, ret_point.y, ret_point.z);
+    int degrees_to_check = 360;
+    while (degrees_to_check > 0) {
+      double ray_yaw = angles::from_degrees(degrees_to_check);
+      ray_rot_mat.setEulerYPR(ray_yaw, 0.0, 0.0);
+      tf2::Vector3 ray_direction = ray_rot_mat*unit_ray_direction;
+      om_ray_direction = octomap::point3d(ray_direction.x(), ray_direction.y(), ray_direction.z());
+      bool hit_occupied = map_->castRay(om_ray_origin, om_ray_direction, om_ray_end_cell, true, planner_collision_radius_);
+      if (hit_occupied) {
+        return ret_point;
+      }
+      degrees_to_check -= 45;
+    }
+    check_interval_i++;
+  }
+  return ret_point;
 }
 
 bool UAVInformativeExplorer::isGoalReached() {
