@@ -426,7 +426,7 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   np.param<float>("ugv_start_x", ugv_start_x_, 0.0);
   np.param<float>("ugv_start_y", ugv_start_y_, 0.0);
   np.param<std::string>("ugv_ns", ugv_ns_, "/ugv/");
-  np.param<int>("nr_of_ugv_nav_waypoints", nr_of_ugv_nav_waypoints_, 6);
+  np.param<int>("nr_of_ugv_nav_waypoints", nr_of_ugv_nav_waypoints_, 5);
   np.param<float>("ugv_nav_waypoint_max_distance", ugv_nav_waypoint_max_distance_, 2.0);
   np.param<bool>("add_nav_waypoint_at_goal", add_nav_waypoint_at_goal_, true);
   np.param<float>("ugv_sensor_radius", ugv_sensor_radius_, 7.5);
