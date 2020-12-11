@@ -51,8 +51,8 @@ void UAVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
 }
 
 void UAVPlanner::updateStateMachine() {
-  ROS_INFO_THROTTLE(1.0, "UAV%d STATE: %d", uav_id, vehicle_state);
-  ROS_INFO_THROTTLE(1.0, "UAV%d bools (%d, %d).", uav_id, (int)(*global_run_exploration), (int)(*global_run_escorting));
+  ROS_DEBUG_THROTTLE(1.0, "UAV%d STATE: %d", uav_id, vehicle_state);
+  ROS_DEBUG_THROTTLE(1.0, "UAV%d bools (%d, %d).", uav_id, (int)(*global_run_exploration), (int)(*global_run_escorting));
   
   // Check first if UAV needs to be recovered
   if (recoveryRequired()) {

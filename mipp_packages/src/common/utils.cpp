@@ -197,6 +197,16 @@ nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath exp_path) {
   return path;
 }
 
+double makeYawFromQuat(geometry_msgs::Quaternion quat) {
+  ROS_DEBUG("makeYawFromQuat");
+  tf2::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);
+  geometry_msgs::Vector3 rpy;
+  tf2::Matrix3x3(tf_quat).getRPY(rpy.x, 
+                                 rpy.y, 
+                                 rpy.z);
+  return rpy.z;
+}
+
 geometry_msgs::Vector3 makeRPYFromQuat(geometry_msgs::Quaternion quat) {
   ROS_DEBUG("makeRPYFromQuat");
   tf2::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);

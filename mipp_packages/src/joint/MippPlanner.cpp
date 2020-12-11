@@ -371,10 +371,15 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   // General
   np.param<std::string>("planner_world_frame", planner_world_frame_, "world");
   np.param<float>("planner_com_range", com_range_, 10.0);
+  np.param<float>("planner_com_range_padding", com_range_padding_, ugv_nav_waypoint_max_distance_);
   np.param<float>("planner_hybrid_distance", planner_hybrid_distance_, 5.0);
   // Planners
   np.param<float>("planner_sample_radius", sample_radius_, 1.0);
-  np.param<float>("planner_sample_yaw_range", sample_yaw_range_, M_PI/3.0);
+  np.param<float>("planner_sample_yaw_range", sample_yaw_range_, M_PI/6.0);
+  // Utility
+  np.param<float>("c_info", c_info, 10.0);
+  np.param<float>("c_euc_dist", c_euc_dist, -1.0);
+  np.param<float>("c_yaw_dist", c_yaw_dist, -1.0);
   // UGV
   np.param<float>("ugv_start_x", ugv_start_x_, 0.0);
   np.param<float>("ugv_start_y", ugv_start_y_, 0.0);

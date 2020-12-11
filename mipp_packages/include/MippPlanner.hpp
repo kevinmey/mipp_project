@@ -238,6 +238,7 @@ private:
   //// General
   bool do_visualization_;
   float com_range_;
+  float com_range_padding_;
   float planner_hybrid_distance_;
   //// Planner
   void reshapeFormationUpdate();
@@ -250,9 +251,12 @@ private:
   float getFormationInfoGain(const std::vector<geometry_msgs::Pose>& formation_poses);
   bool isFormationCollisionFree(const std::vector<geometry_msgs::Pose>& formation_poses);
   float getDistanceBetweenFormations(const std::vector<geometry_msgs::Pose>& current_formation, const std::vector<geometry_msgs::Pose>& other_formation);
+  void getDistanceBetweenFormations(const std::vector<geometry_msgs::Pose>& current_formation, const std::vector<geometry_msgs::Pose>& other_formation,
+                                               float& ret_euc_distance, float& ret_yaw_distance);
   geometry_msgs::Pose getEscortPose(const geometry_msgs::Pose& formation_pose);
   geometry_msgs::Pose getEscortPose(const geometry_msgs::Pose& formation_pose, const geometry_msgs::Pose& ugv_pose);
   bool isFormationComConstrained(std::vector<geometry_msgs::Pose> formation);
+  float getFormationUtility(const std::vector<geometry_msgs::Pose>& formation, const std::vector<geometry_msgs::Pose>& current_formation);
   void visualizeFormations(std::map<float, std::vector<geometry_msgs::Pose>, std::greater<float>> formations);
   float sample_radius_;
   float sample_yaw_range_;
@@ -260,6 +264,10 @@ private:
   std::uniform_real_distribution<double> unit_distribution_;
   std::map<float, std::vector<geometry_msgs::Pose>, std::greater<float>> formation_bank_;
   std::vector<geometry_msgs::Pose> current_formation_;
+  //// Utility
+  float c_info;
+  float c_euc_dist; // pr m
+  float c_yaw_dist; // pr PI/3 = 60 deg
   //// UGV
   std::string ugv_ns_;
   int nr_of_ugv_nav_waypoints_;

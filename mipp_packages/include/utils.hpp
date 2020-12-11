@@ -62,6 +62,8 @@ float calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_
 
 nav_msgs::Path makePathFromExpPath(mipp_msgs::ExplorationPath);
 
+double makeYawFromQuat(geometry_msgs::Quaternion quat);
+
 geometry_msgs::Vector3 makeRPYFromQuat(geometry_msgs::Quaternion quat);
 
 geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy);

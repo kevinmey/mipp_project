@@ -342,10 +342,11 @@ void MippMonitor::startMipp() {
       ROS_DEBUG("Tour: Goal %d with path of length %d", goal_nr, (int)tour_path.poses.size());
           
       move_vehicle_goal.goal_pose = *(tour_path.poses.rbegin());
+      move_vehicle_goal.goal_pose.pose.orientation = makeQuatFromYaw(M_PI/2.0);
       move_vehicle_goal.goal_path.poses = tour_path.poses;
       move_vehicle_goal.goal_path_to_be_improved = false;
       move_vehicle_goal.goal_reached_radius = 0.5;
-      move_vehicle_goal.goal_reached_yaw = 1.57;
+      move_vehicle_goal.goal_reached_yaw = M_PI/6.0;
       move_vehicle_goal.goal_reached_max_time = 120.0;
       move_vehicle_client->sendGoal(move_vehicle_goal);
 
