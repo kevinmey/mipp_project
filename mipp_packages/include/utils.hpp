@@ -34,6 +34,8 @@ double getDistanceBetweenPoints(geometry_msgs::Point p1, geometry_msgs::Point p2
 
 double getDistanceBetweenAngles(double angle_1, double angle_2);
 
+double getDistanceBetweenAnglesDegrees(double angle_1, double angle_2);
+
 geometry_msgs::Point castRay(geometry_msgs::Point const origin, geometry_msgs::Point const direction, double distance);
 
 geometry_msgs::Point castRay(geometry_msgs::Point const origin, geometry_msgs::Vector3 const direction, double distance);
@@ -67,6 +69,8 @@ geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Vector3 rpy);
 geometry_msgs::Quaternion makeQuatFromRPY(geometry_msgs::Point rpy);
 
 geometry_msgs::Quaternion makeQuatFromRPY(double r, double p, double y);
+
+geometry_msgs::Quaternion makeQuatFromYaw(double yaw);
 
 geometry_msgs::Quaternion makeQuatFromAddingTwoYaws(geometry_msgs::Quaternion quat_1, geometry_msgs::Quaternion quat_2);
 

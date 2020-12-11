@@ -70,6 +70,7 @@ add_executable(
     src/joint/MippPlanner.cpp
     src/joint/UGVPlanner.cpp
     src/joint/UAVPlanner.cpp
+    src/joint/FormationReshapePlanner.cpp
 )
 
 add_dependencies(

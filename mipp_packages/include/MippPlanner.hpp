@@ -155,8 +155,16 @@ struct UAVPlanner
   std::vector<octomap::point3d> collision_points;
   // Info gain
   float getPoseInfoGain(geometry_msgs::Point origin, float yaw);
+  float getPathInfoGain(const nav_msgs::Path& path, const std::vector<SensorCircle>& other_sensor_coverages, 
+                        std::vector<SensorCircle>& path_sensor_coverages);
   float getPathInfoGain(const mipp_msgs::ExplorationPath& path, const std::vector<SensorCircle>& sensor_coverages);
   std::vector<tf2::Vector3> info_camera_rays;
+  // Sampled formation reshaping
+  /*geometry_msgs::Pose getSampledPose(const geometry_msgs::Pose& current_pose);
+  std::default_random_engine rng_generator;
+  std::uniform_real_distribution<double> rng_unit_distribution;
+  float sample_radius_max;
+  float sample_yaw_radian_max;*/
 };
 
 /* MOVED DEFINITION TO UTILS.HPP
@@ -194,11 +202,10 @@ private:
   void runStateMachine();
   void makePlanIndividual(int vehicle_id);
   void makePlanSynchronous();
-  std::vector<geometry_msgs::Pose> getRandomFormation(const std::vector<geometry_msgs::Pose>& current_formation, 
-                                                      float euc_range, float yaw_range);
   // Utility functions
   void getParams(ros::NodeHandle np);
   geometry_msgs::Pose getFormationPose(int uav_id);
+  bool doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b);
   // Visualization functions
   void visualizeSensorCircle(SensorCircle sensor_circle);
   void visualizeSensorCoverages(std::vector<SensorCircle> sensor_coverages);
@@ -208,12 +215,14 @@ private:
 
   // Publishers
   ros::Timer tmr_run_updates_;
+  ros::Timer tmr_formation_reshape_planner_;
   ros::Publisher pub_ugv_pause_navigation_;
   ros::Publisher pub_viz_sensor_circle_;
   ros::Publisher pub_viz_sensor_coverages_;
   ros::Publisher pub_viz_uav_paths_;
   ros::Publisher pub_viz_uav_path_fovs_;
   ros::Publisher pub_viz_nav_waypoints_;
+  ros::Publisher pub_viz_formations_;
   // Subscribers
   ros::Subscriber sub_clicked_point_;
   ros::Subscriber sub_ugv_goal_plan_;
@@ -231,12 +240,26 @@ private:
   float com_range_;
   float planner_hybrid_distance_;
   //// Planner
+  void reshapeFormationUpdate();
+  std::vector<geometry_msgs::Pose> getRandomFormation(const std::vector<geometry_msgs::Pose>& current_formation, 
+                                                      float euc_range, float yaw_range);
+  std::vector<geometry_msgs::Pose> getRandomColFreeFormation(const std::vector<geometry_msgs::Pose>& current_formation, 
+                                                      float euc_range, float yaw_range);
   geometry_msgs::Point getRandomCirclePoint(geometry_msgs::Point circle_center = makePoint(0,0,0), float circle_radius = 1.0);
-  float getRandomYaw(float yaw_deg_center = 0.0, float yaw_deg_range = 30.0);
+  float getRandomYaw(float yaw_center = 0.0, float yaw_range = M_PI/6.0);
+  float getFormationInfoGain(const std::vector<geometry_msgs::Pose>& formation_poses);
+  bool isFormationCollisionFree(const std::vector<geometry_msgs::Pose>& formation_poses);
+  float getDistanceBetweenFormations(const std::vector<geometry_msgs::Pose>& current_formation, const std::vector<geometry_msgs::Pose>& other_formation);
+  geometry_msgs::Pose getEscortPose(const geometry_msgs::Pose& formation_pose);
+  geometry_msgs::Pose getEscortPose(const geometry_msgs::Pose& formation_pose, const geometry_msgs::Pose& ugv_pose);
+  bool isFormationComConstrained(std::vector<geometry_msgs::Pose> formation);
+  void visualizeFormations(std::map<float, std::vector<geometry_msgs::Pose>, std::greater<float>> formations);
   float sample_radius_;
   float sample_yaw_range_;
   std::default_random_engine generator_;
   std::uniform_real_distribution<double> unit_distribution_;
+  std::map<float, std::vector<geometry_msgs::Pose>, std::greater<float>> formation_bank_;
+  std::vector<geometry_msgs::Pose> current_formation_;
   //// UGV
   std::string ugv_ns_;
   int nr_of_ugv_nav_waypoints_;

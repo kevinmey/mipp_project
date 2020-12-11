@@ -671,7 +671,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -960,7 +960,7 @@ Visualization Manager:
               Marker Topic: /uav1/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                "": true
+                {}
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -1420,7 +1420,7 @@ Visualization Manager:
       Marker Topic: /MippPlanner/viz_sensor_coverages_
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -1543,6 +1543,14 @@ Visualization Manager:
       Name: Marker
       Namespaces:
         "": true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /MippPlanner/viz_formations
+      Name: MarkerArray
+      Namespaces:
+        {}
       Queue Size: 100
       Value: true
   Enabled: true

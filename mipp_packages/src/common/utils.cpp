@@ -18,6 +18,11 @@ double getDistanceBetweenAngles(double angle_1, double angle_2)
 	return std::abs(angles::shortest_angular_distance(angle_1, angle_2));
 }
 
+double getDistanceBetweenAnglesDegrees(double angle_1, double angle_2)
+{
+	return std::abs(angles::shortest_angular_distance(angles::from_degrees(angle_1), angles::from_degrees(angle_2)));
+}
+
 geometry_msgs::Point castRay(geometry_msgs::Point const origin, geometry_msgs::Point const direction, double distance)
 {
 	geometry_msgs::Point direction_norm = normalize(direction);
@@ -230,6 +235,18 @@ geometry_msgs::Quaternion makeQuatFromRPY(double r, double p, double y) {
   ROS_DEBUG("makeQuatFromRPY (%.2f, %.2f, %.2f)", r, p, y);
   tf2::Quaternion tf_quat;
   tf_quat.setRPY(r, p, y);
+  geometry_msgs::Quaternion quat;
+  quat.x = tf_quat.x();
+  quat.y = tf_quat.y();
+  quat.z = tf_quat.z();
+  quat.w = tf_quat.w();
+  return quat;
+}
+
+geometry_msgs::Quaternion makeQuatFromYaw(double yaw) {
+  ROS_DEBUG("makeQuatFromYaw (%.2f)", yaw);
+  tf2::Quaternion tf_quat;
+  tf_quat.setRPY(0.0, 0.0, angles::normalize_angle(yaw));
   geometry_msgs::Quaternion quat;
   quat.x = tf_quat.x();
   quat.y = tf_quat.y();

@@ -145,11 +145,11 @@
   -->
   <arg name="tour_file_names" default="[$(find mipp_launch)/bags/sc2_tour_1a.bag, $(find mipp_launch)/bags/sc2_tour_1b.bag, $(find mipp_launch)/bags/sc2_tour_1c.bag]"/>
   <node name="mipp_monitor_node" pkg="mipp_packages" type="mipp_monitor_node" output="screen">
-    <param name="planner_mode"              value="0" />
+    <param name="planner_mode"              value="1" />
     <param name="auto_start"                value="true" />
     <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
     <param name="write_path"                value="false" />
-    <param name="read_path"                 value="true" />
+    <param name="read_path"                 value="false" />
     <param name="path_file_name"            value="$(find mipp_launch)/bags/sc2_path_1.bag" />
     <param name="read_tour"                 value="true" />
     <rosparam param="tour_file_names" subst_value="True">$(arg tour_file_names)</rosparam>

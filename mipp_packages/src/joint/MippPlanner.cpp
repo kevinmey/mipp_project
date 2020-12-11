@@ -11,12 +11,14 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
   getParams(np);
 
   tmr_run_updates_              = n.createTimer(ros::Duration(0.2), boost::bind(&MippPlanner::runUpdates, this));
+  tmr_formation_reshape_planner_ = n.createTimer(ros::Duration(1.0), boost::bind(&MippPlanner::reshapeFormationUpdate, this));
   pub_ugv_pause_navigation_     = n.advertise<std_msgs::Bool>(ugv_ns_+"pause_navigation", 1);
   pub_viz_sensor_circle_        = n.advertise<visualization_msgs::Marker>("MippPlanner/viz_sensor_circle_", 1);
   pub_viz_sensor_coverages_     = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_sensor_coverages_", 1);
   pub_viz_uav_paths_            = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_uav_paths", 1);
   pub_viz_uav_path_fovs_        = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_uav_path_fovs", 1);
   pub_viz_nav_waypoints_        = n.advertise<visualization_msgs::Marker>("MippPlanner/viz_nav_waypoints", 1);
+  pub_viz_formations_           = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_formations", 1);
 
   sub_clicked_point_  = n.subscribe("/exploration/start_collaborative", 1, &MippPlanner::subClickedPoint, this);
   sub_ugv_goal_plan_  = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &MippPlanner::subUGVPlan, this);
@@ -29,6 +31,11 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
   std::random_device rd;  // Non-deterministic random nr. to seed generator
   generator_ = std::default_random_engine(rd());
   unit_distribution_ = std::uniform_real_distribution<double>(0.0, 1.0);
+
+  // Set general variables
+  run_exploration_ = false;
+  run_escorting_ = false;
+  run_hybrid_ = false;
 
   // Wait for map
   received_octomap_ = false;
@@ -63,11 +70,6 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
     // Add object to list
     uav_planners_.push_back(uav_planner);
   }
-
-  // Set general variables
-  run_exploration_ = false;
-  run_escorting_ = false;
-  run_hybrid_ = false;
 
   // Set UGV variables
   ugv_planner_.navigation_waypoint_max_dist = ugv_nav_waypoint_max_distance_;
@@ -176,17 +178,6 @@ void MippPlanner::runUpdates() {
     auto uav_distance = getDistanceBetweenPoints(ugv_planner_.ugv_odometry->pose.pose.position, uav_it.uav_odometry.pose.pose.position);
     uav_it.out_of_com_range = (uav_distance > com_range_);
   }
-
-  // Make random formation if in collision
-  /*
-  std::vector<geometry_msgs::Pose> current_formation;
-  for (auto& uav_it : uav_planners_) {
-    current_formation.push_back(uav_it.formation_pose);
-  }
-  std::vector<geometry_msgs::Pose> random_formation = getRandomFormation(current_formation, sample_radius_, sample_radius_);
-  for (int uav_id = 0; uav_id < uav_planners_.size(); uav_id++) {
-    uav_planners_[uav_id].formation_pose = random_formation[uav_id];
-  }*/
 
   // Visualize
   std::vector<nav_msgs::Path> uav_paths;
@@ -373,44 +364,6 @@ void MippPlanner::makePlanSynchronous() {
   ROS_WARN("Done");
 }
 
-geometry_msgs::Point MippPlanner::getRandomCirclePoint(geometry_msgs::Point circle_center, float circle_radius) {
-  ROS_DEBUG("generateRandomCirclePoint");
-  geometry_msgs::Point sample_point;
-
-  // Sample from unit circle, uniformly https://stackoverflow.com/a/50746409
-  double radius = circle_radius*sqrt(unit_distribution_(generator_));
-  double theta = unit_distribution_(generator_)*2.0*M_PI;
-  sample_point.x = radius*cos(theta);
-  sample_point.y = radius*sin(theta);
-  sample_point.z = circle_center.z;
-  ROS_DEBUG("Unit circle point (x,y) = (%f,%f)",sample_point.x,sample_point.y);
-
-  sample_point.x += circle_center.x;
-  sample_point.y += circle_center.y;
-
-  return sample_point;
-}
-
-float MippPlanner::getRandomYaw(float yaw_deg_center, float yaw_deg_range) {
-  ROS_DEBUG("generateRandomCirclePoint");
-  float random_yaw_deg = yaw_deg_center - (2.0*unit_distribution_(generator_) - 1.0)*yaw_deg_range;
-  return angles::normalize_angle(random_yaw_deg*(M_PI/180.0));
-}
-
-std::vector<geometry_msgs::Pose> MippPlanner::getRandomFormation(const std::vector<geometry_msgs::Pose>& current_formation, 
-                                                                 float euc_range, float yaw_range) {
-  ROS_DEBUG("getRandomFormation");
-  std::vector<geometry_msgs::Pose> random_formation;
-  for (auto const& formation_pose : current_formation) {
-    geometry_msgs::Pose random_pose;
-    random_pose.position = getRandomCirclePoint(formation_pose.position, euc_range);
-    float current_yaw = makeRPYFromQuat(formation_pose.orientation).z;
-    random_pose.orientation = makeQuatFromRPY(makePoint(0, 0, current_yaw + getRandomYaw(0.0, yaw_range)));
-    random_formation.push_back(random_pose);
-  }
-  return random_formation;
-}
-
 // Utility functions
 
 void MippPlanner::getParams(ros::NodeHandle np) {
@@ -420,8 +373,8 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   np.param<float>("planner_com_range", com_range_, 10.0);
   np.param<float>("planner_hybrid_distance", planner_hybrid_distance_, 5.0);
   // Planners
-  np.param<float>("planner_sample_radius", sample_radius_, 0.1);
-  np.param<float>("planner_sample_yaw_range", sample_yaw_range_, 6.0);
+  np.param<float>("planner_sample_radius", sample_radius_, 1.0);
+  np.param<float>("planner_sample_yaw_range", sample_yaw_range_, M_PI/3.0);
   // UGV
   np.param<float>("ugv_start_x", ugv_start_x_, 0.0);
   np.param<float>("ugv_start_y", ugv_start_y_, 0.0);
@@ -464,6 +417,26 @@ geometry_msgs::Pose MippPlanner::getFormationPose(int uav_id) {
     break;
   }
   return formation_pose;
+}
+
+bool MippPlanner::doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b) {
+  ROS_DEBUG("doPointsHaveLOS");
+
+  double occupancy_threshold = octomap_->getOccupancyThres();
+  float point_distance = getDistanceBetweenPoints(point_a, point_b);
+  octomap::point3d om_end_point;
+
+  octomap::point3d om_point_a(point_a.x, point_a.y, point_a.z);
+  geometry_msgs::Vector3 direction_ab = getDirection(point_a, point_b);
+  octomap::point3d om_direction_ab(direction_ab.x, direction_ab.y, direction_ab.z);
+  bool hit_occupied_ab = octomap_->castRay(om_point_a, om_direction_ab, om_end_point, true, point_distance);
+
+  octomap::point3d om_point_b(point_b.x, point_b.y, point_b.z);
+  geometry_msgs::Vector3 direction_ba = getDirection(point_b, point_a);
+  octomap::point3d om_direction_ba(direction_ba.x, direction_ba.y, direction_ba.z);
+  bool hit_occupied_ba = octomap_->castRay(om_point_b, om_direction_ba, om_end_point, true, point_distance);
+
+  return (!hit_occupied_ab and !hit_occupied_ba);
 }
 
 // Visualization
@@ -516,8 +489,18 @@ void MippPlanner::visualizeSensorCoverages(std::vector<SensorCircle> sensor_cove
     }
     marker.lifetime = ros::Duration();
     marker.id = marker_array.markers.size();
-
     marker_array.markers.push_back(marker);
+
+    visualization_msgs::Marker text_marker;
+    text_marker.header = marker.header;
+    text_marker.id = marker_array.markers.size();
+    text_marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    text_marker.action = visualization_msgs::Marker::ADD;
+    text_marker.pose.position = circle_it->center;
+    text_marker.color.a = 1.0;
+    text_marker.scale.z = 1.0;
+    text_marker.text = std::to_string(circle_it->vehicle_id).c_str();
+    marker_array.markers.push_back(text_marker);
   }
   pub_viz_sensor_coverages_.publish(marker_array);
 }

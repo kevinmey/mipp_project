@@ -25,6 +25,14 @@ void UAVPlanner::init(ros::NodeHandle n) {
   move_vehicle_client = new actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>(uav_move_vehicle_client_name, true);
   move_vehicle_client->waitForServer(ros::Duration(10.0));
   // Escort
+  try
+  {
+    //formation_pose = formation_poses.back();
+  }
+  catch(const std::exception& e)
+  {
+    std::cerr << e.what() << '\n';
+  }
   // Rng
   std::random_device rd;  // Non-deterministic random nr. to seed generator
   rng_generator = std::default_random_engine(rd());
@@ -32,6 +40,10 @@ void UAVPlanner::init(ros::NodeHandle n) {
   // Collision
   initCollisionPoints();
   // Info gain
+  // Sampled formation reshaping
+  //std::random_device rd;  // Non-deterministic random nr. to seed generator
+  //rng_generator = std::default_random_engine(rd());
+  //rng_unit_distribution = std::uniform_real_distribution<double>(0.0, 1.0);
 }
 
 void UAVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
@@ -129,19 +141,22 @@ void UAVPlanner::updateStateMachine() {
         vehicle_state = IDLE;
         break;
       }
-      int current_formation_pose_idx = formation_pose_idx;
-      formation_pose_idx = 0;
-      for (auto const& pose_it : formation_poses) {
-        if (formation_pose_idx > current_formation_pose_idx + 1) {
-          // Don't go beyond +1 formation in the bank at a time
-          break;
-        }
-        else if (isPathCollisionFree(getEscortPath(*global_ugv_waypoints, pose_it))) {
-          formation_pose = pose_it;
-          formation_pose_idx++;
-        }
-        else {
-          break;
+      bool use_formation_bank = false;
+      if (use_formation_bank) {
+        int current_formation_pose_idx = formation_pose_idx;
+        formation_pose_idx = 0;
+        for (auto const& pose_it : formation_poses) {
+          if (formation_pose_idx > current_formation_pose_idx + 1) {
+            // Don't go beyond +1 formation in the bank at a time
+            break;
+          }
+          else if (isPathCollisionFree(getEscortPath(*global_ugv_waypoints, pose_it))) {
+            formation_pose = pose_it;
+            formation_pose_idx++;
+          }
+          else {
+            break;
+          }
         }
       }
       geometry_msgs::PoseStamped uav_escort_pose = getEscortPose(global_ugv_odometry->pose.pose, formation_pose);
@@ -185,6 +200,7 @@ void UAVPlanner::prepareForRecovery() {
   exploration_result.paths.clear();
   move_vehicle_client->cancelAllGoals();
   navigation_path.poses.clear();
+  formation_pose = formation_poses.front();
 
   no_viable_plan = false;
 }
@@ -461,7 +477,6 @@ nav_msgs::Path UAVPlanner::getEscortPath(const std::vector<geometry_msgs::Point>
   escort_path.header.frame_id = "world";
   escort_path.header.stamp = ros::Time::now();
   geometry_msgs::Pose ugv_pose;
-  geometry_msgs::Point formation_nudge;
   ugv_pose.orientation = global_ugv_odometry->pose.pose.orientation;
   for (auto ugv_waypoint_it = ugv_waypoints.begin(); ugv_waypoint_it != ugv_waypoints.end(); ++ugv_waypoint_it) {
     ugv_pose.position = *ugv_waypoint_it;
@@ -493,84 +508,6 @@ nav_msgs::Path UAVPlanner::getEscortPath(const std::vector<geometry_msgs::Point>
   }
   return escort_path;
 }
-
-/*
-nav_msgs::Path UAVPlanner::getEscortPath(const std::vector<geometry_msgs::Point>& ugv_waypoints, const geometry_msgs::Pose& uav_formation_pose,
-                                         const std::vector<geometry_msgs::Point>& formation_nudges_def,
-                                         const bool formation_nudges_zero_pad) {
-  ROS_DEBUG("getEscortPath");
-  if (ugv_waypoints.empty()) {
-    ROS_ERROR("Got a 0 size UGV waypoint list.");
-  }
-
-  // Handle default values
-  std::vector<geometry_msgs::Point> formation_nudges;
-  if (formation_nudges_def.empty()) {
-    for (auto const& waypoint_it : ugv_waypoints) {
-      formation_nudges.push_back(makePoint(0,0,0));
-    }
-  }
-  else if (formation_nudges_def.size() != ugv_waypoints.size()) {
-    for (int waypoint_idx = 0; waypoint_idx < ugv_waypoints.size(); waypoint_idx++) {
-      try {
-        formation_nudges.push_back(formation_nudges_def.at(waypoint_idx));
-      }
-      catch (const std::out_of_range& oor) {
-        if (formation_nudges_zero_pad) {
-          formation_nudges.push_back(makePoint(0,0,0));
-        }
-        else {
-          formation_nudges.push_back(*formation_nudges_def.rend());
-        }
-      }
-    }
-  }
-  else {
-    formation_nudges = formation_nudges_def;
-  }
-  for (auto const& nudge_it : formation_nudges) {
-    ROS_DEBUG("Nudge: (%.2f, %.2f, %.2f)", nudge_it.x, nudge_it.y, nudge_it.z);
-  }
-
-  // Make path
-  nav_msgs::Path escort_path;
-  geometry_msgs::Vector3 escort_path_direction;
-  escort_path.header.frame_id = "world";
-  escort_path.header.stamp = ros::Time::now();
-  geometry_msgs::Pose ugv_pose;
-  geometry_msgs::Point formation_nudge;
-  ugv_pose.orientation = global_ugv_odometry->pose.pose.orientation;
-  for (auto ugv_waypoint_it = ugv_waypoints.begin(); ugv_waypoint_it != ugv_waypoints.end(); ++ugv_waypoint_it) {
-    ugv_pose.position = *ugv_waypoint_it;
-
-    float waypoint_distance = (std::next(ugv_waypoint_it) != ugv_waypoints.end()) ? getDistanceBetweenPoints(*ugv_waypoint_it, *std::next(ugv_waypoint_it)) 
-                                                                                  : getDistanceBetweenPoints(*ugv_waypoint_it, *std::prev(ugv_waypoint_it));
-    geometry_msgs::Vector3 waypoint_direction_vec = (std::next(ugv_waypoint_it) != ugv_waypoints.end()) ? getDirection(*ugv_waypoint_it, *std::next(ugv_waypoint_it)) 
-                                                                                                        : getDirection(*std::prev(ugv_waypoint_it), *ugv_waypoint_it);
-    float waypoint_direction_yaw = atan2(waypoint_direction_vec.y, waypoint_direction_vec.x);
-
-    if (ugv_waypoint_it == ugv_waypoints.begin()) {
-      // First pose should consider UGV orientation
-      ugv_pose.orientation = global_ugv_odometry->pose.pose.orientation;
-    }
-    else if (waypoint_distance < 0.01) {
-      // Waypoints basically on top of each other, ie. UGV will stand still at this point -> Cant deduce orientation, use last orientation
-      ugv_pose.orientation = ugv_pose.orientation;
-    }
-    else {
-      // Waypoints far enough that it makes sense to deduce
-      geometry_msgs::Vector3 waypoint_direction_vec = (std::next(ugv_waypoint_it) != ugv_waypoints.end()) ? getDirection(*ugv_waypoint_it, *std::next(ugv_waypoint_it)) 
-                                                                                                          : getDirection(*std::prev(ugv_waypoint_it), *ugv_waypoint_it);
-      float waypoint_direction_yaw = atan2(waypoint_direction_vec.y, waypoint_direction_vec.x);
-      ugv_pose.orientation = makeQuatFromRPY(makePoint(0, 0, waypoint_direction_yaw));
-    }
-    ROS_DEBUG("RPY: (%.2f, %.2f, %.2f, %.2f)", ugv_pose.orientation.x, ugv_pose.orientation.y, ugv_pose.orientation.z, ugv_pose.orientation.w);
-    geometry_msgs::PoseStamped escort_path_pose = getEscortPose(ugv_pose, uav_formation_pose);
-    escort_path.poses.push_back(escort_path_pose);
-  }
-  return escort_path;
-}
-*/
 
 // LOS
 
@@ -716,6 +653,35 @@ float UAVPlanner::getPoseInfoGain(geometry_msgs::Point origin, float yaw) {
     }
   }
   return unmapped/(float)(info_camera_rays.size());
+}
+
+float UAVPlanner::getPathInfoGain(const nav_msgs::Path& path, const std::vector<SensorCircle>& other_sensor_coverages, std::vector<SensorCircle>& ret_path_sensor_coverages) {
+  float path_info_gain = 0.0;    // Record this paths gain (will be sum of pose gains accounting for sensor overlap)
+  std::vector<SensorCircle> path_sensor_coverages;  // Will be filled with previous poses in the path
+  int pose_rank = 1;
+  for (auto const& pose_it : path.poses) {
+    float pose_yaw = makeRPYFromQuat(pose_it.pose.orientation).z;
+    float pose_gain = getPoseInfoGain(pose_it.pose.position, pose_yaw)/pose_rank;
+    SensorCircle pose_sensor_coverage = makeSensorCircleFromUAVPose(pose_it.pose, uav_id, camera_range);
+
+    // Overlap
+    float pose_sensor_coverage_overlap = 0.0; // Will record area of overlap
+    for (auto const& sensor_coverage_it : other_sensor_coverages) {
+      pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
+    }
+    for (auto const& sensor_coverage_it : path_sensor_coverages) {
+      pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
+    }
+    // Need ratio of sensor coverage area to sensor overlap area (capped at max 1, aka 100%)
+    double pose_sensor_coverage_overlap_ratio = pose_sensor_coverage_overlap / (M_PI*pow(pose_sensor_coverage.radius, 2));
+    path_info_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain;
+    path_sensor_coverages.push_back(pose_sensor_coverage);
+    ROS_DEBUG("Pose gain: (%.2f) * %.2f = %.2f", pose_sensor_coverage_overlap_ratio, pose_gain, (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain);
+
+    pose_rank++;
+  }
+  ret_path_sensor_coverages = path_sensor_coverages;
+  return path_info_gain;
 }
 
 float UAVPlanner::getPathInfoGain(const mipp_msgs::ExplorationPath& path, const std::vector<SensorCircle>& sensor_coverages) {
