@@ -245,7 +245,7 @@ private:
   std::vector<geometry_msgs::Pose> getRandomFormation(const std::vector<geometry_msgs::Pose>& current_formation, 
                                                       float euc_range, float yaw_range);
   std::vector<geometry_msgs::Pose> getRandomColFreeFormation(const std::vector<geometry_msgs::Pose>& current_formation, 
-                                                      float euc_range, float yaw_range);
+                                                      float euc_range, float yaw_range, float yaw_limit = -1.0);
   geometry_msgs::Point getRandomCirclePoint(geometry_msgs::Point circle_center = makePoint(0,0,0), float circle_radius = 1.0);
   float getRandomYaw(float yaw_center = 0.0, float yaw_range = M_PI/6.0);
   float getFormationInfoGain(const std::vector<geometry_msgs::Pose>& formation_poses);

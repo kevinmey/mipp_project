@@ -27,7 +27,7 @@ void UAVPlanner::init(ros::NodeHandle n) {
   // Escort
   try
   {
-    //formation_pose = formation_poses.back();
+    formation_pose = formation_poses.back();
   }
   catch(const std::exception& e)
   {

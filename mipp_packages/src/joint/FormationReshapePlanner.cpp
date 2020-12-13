@@ -37,6 +37,7 @@ void MippPlanner::reshapeFormationUpdate() {
 
     // Fill back to 10 with new random formations
     float sample_yaw_range = sample_yaw_range_;
+    float sample_yaw_limit = sample_yaw_range_;
     if (ugv_planner_.navigation_goal_distance < planner_hybrid_distance_) {
       float yaw_left = M_PI - sample_yaw_range_;
       sample_yaw_range += yaw_left*(1.0 - ugv_planner_.navigation_goal_distance/planner_hybrid_distance_);
@@ -45,7 +46,7 @@ void MippPlanner::reshapeFormationUpdate() {
     while (new_formation_bank.size() < 10) {
       ROS_DEBUG("Size %d, adding...", (int)new_formation_bank.size());
       bool make_collision_free = true;
-      std::vector<geometry_msgs::Pose> random_formation = getRandomColFreeFormation(current_formation_, sample_radius_, sample_yaw_range);
+      std::vector<geometry_msgs::Pose> random_formation = getRandomColFreeFormation(current_formation_, sample_radius_, sample_yaw_range, sample_yaw_limit);
       int counter = 0;
       formation_collision_free = isFormationCollisionFree(random_formation);
       while (!formation_collision_free) {
@@ -130,8 +131,11 @@ std::vector<geometry_msgs::Pose> MippPlanner::getRandomFormation(const std::vect
 }
 
 std::vector<geometry_msgs::Pose> MippPlanner::getRandomColFreeFormation(const std::vector<geometry_msgs::Pose>& current_formation, 
-                                                                        float euc_range, float yaw_range) {
+                                                                        float euc_range, float yaw_range, float yaw_limit) {
   ROS_DEBUG("getRandomColFreeFormation");
+  if (yaw_limit == -1.0) {
+    yaw_limit = yaw_range;
+  }
 
   std::vector<geometry_msgs::Pose> random_formation;
   if (current_formation.size() != uav_planners_.size()) {
@@ -148,6 +152,10 @@ std::vector<geometry_msgs::Pose> MippPlanner::getRandomColFreeFormation(const st
       random_pose.position = getRandomCirclePoint(current_pose.position, euc_range);
       float current_yaw = makeRPYFromQuat(current_pose.orientation).z;
       float random_yaw = getRandomYaw(0.0, yaw_range);
+      if (yaw_limit != -1.0) {
+        // yaw_limit has default value -1.0, only use if another value is given
+        random_yaw = getClosestYaw(current_yaw, random_yaw, yaw_limit);
+      }
       random_pose.orientation = makeQuatFromYaw(random_yaw);
       
       auto escort_path = uav_planner.getEscortPath(ugv_planner_.navigation_waypoints, random_pose);
@@ -299,6 +307,7 @@ bool MippPlanner::isFormationComConstrained(std::vector<geometry_msgs::Pose> for
       if (!doPointsHaveLOS(ugv_pose.position, escort_pose.position)) return false;
     }
   }
+  
   return true;
 }
 
