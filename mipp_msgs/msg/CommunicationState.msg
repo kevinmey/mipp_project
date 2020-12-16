@@ -2,9 +2,9 @@ uint8 STATE_WORKING=0
 uint8 STATE_RANGE_BROKEN=1
 uint8 STATE_LOS_BROKEN=2
 uint8 STATE_RANGE_LOS_BROKEN=3
-
 uint8 state
-uint8 vehicle_id
+int8 vehicle_id
+int8 base_station_id
 geometry_msgs/Point base_station_position
 geometry_msgs/Point vehicle_position
 geometry_msgs/Point los_lost_position

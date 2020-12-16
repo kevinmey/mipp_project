@@ -130,6 +130,9 @@ void ComConstraintVisualizer::updateConstraint(mipp_msgs::CommunicationState& co
     ROS_DEBUG("com_state changed to R+L BROKEN");
     com_state.state = mipp_msgs::CommunicationState::STATE_RANGE_LOS_BROKEN;
   }
+
+  // Update base station position
+  
   
   // Range constraint
   ROS_DEBUG("Check range");
@@ -304,6 +307,7 @@ ComConstraintVisualizer::ComConstraintVisualizer(ros::NodeHandle n, ros::NodeHan
   mipp_msgs::CommunicationState com_state;
   com_state.state = mipp_msgs::CommunicationState::STATE_WORKING;
   com_state.vehicle_id = vehicle_id_;
+  com_state.base_station_id = -1;
   range_counter_ = 0;
   los_counter_ = 0;
 

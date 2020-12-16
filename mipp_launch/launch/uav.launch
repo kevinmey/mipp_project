@@ -151,6 +151,7 @@
     </node>
     
     <node pkg="mipp_packages" type="communication_constraint_visualizer_node" name="communication_constraint_visualizer_node" respawn="true" output="screen">
+      <param name="vehicle_id"                  value="$(arg uav_id)" />
       <param name="world_frame"                 value="map" />
       <param name="vehicle_pose_topic"          value="$(arg ns)/mavros/local_position/pose" />
       <param name="base_station_odom_topic"     value="/ugv/odometry/filtered" />

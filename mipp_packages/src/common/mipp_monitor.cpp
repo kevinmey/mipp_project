@@ -9,6 +9,7 @@
 #include "mipp_msgs/StartMippAction.h"
 #include "mipp_msgs/MoveVehicleAction.h"
 #include "mipp_msgs/MippMonitor.h"
+#include "mipp_msgs/CommunicationState.h"
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <std_msgs/Bool.h>
@@ -24,6 +25,7 @@ enum VehicleType { UGV, UAV };
 
 struct Vehicle
 {
+  ros::Subscriber sub_com;
   ros::Subscriber sub_odom;
   // Vehicle state
   int id; // -1 of UGV, uav_id for UAVs
@@ -31,6 +33,7 @@ struct Vehicle
   geometry_msgs::Point position;
   float yaw;
   float distance_travelled;
+  mipp_msgs::CommunicationState com_state;
   // Vehicle visualization
 };
 
@@ -49,6 +52,7 @@ public:
   ~MippMonitor();
 private:
   void pubMonitor();
+  void subCom(const mipp_msgs::CommunicationStateConstPtr& com_msg, int vehicle_id);
   void subOdometry(const nav_msgs::OdometryConstPtr& odom_msg, int vehicle_id);
   void subStart(const std_msgs::BoolConstPtr& start_msg);
   void subPath(const nav_msgs::PathConstPtr& path_msg);
@@ -133,6 +137,8 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
     vehicle.distance_travelled = 0.0;
     if (vehicle.id != -1) {
       vehicle.type = UAV;
+      vehicle.com_state.state = mipp_msgs::CommunicationState::STATE_RANGE_LOS_BROKEN;
+      vehicle.sub_com = n.subscribe<mipp_msgs::CommunicationState>("/uav"+std::to_string(vehicle.id)+"/ComConstraintVisualizer/constraint_state", 1, boost::bind(&MippMonitor::subCom, this, _1, vehicle.id));
       vehicle.sub_odom = n.subscribe<nav_msgs::Odometry>("/gazebo/ground_truth_uav"+std::to_string(vehicle.id), 1, boost::bind(&MippMonitor::subOdometry, this, _1, vehicle.id));
     }
     else {
@@ -145,16 +151,32 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
   }
 
   ros::Rate loop_rate(frequency_);
+  bool planner_ready = false;
+  bool communication_ready = false;
   while (ros::ok())
   {
     if (auto_start_ and !started_) {
+      // Check if planner is ready
       std_srvs::SetBool srv;
       if (cli_planner_ready_.call(srv)) {
-        if (srv.response.success) startMipp();
+        if (srv.response.success) planner_ready = true;
         else ROS_INFO_THROTTLE(5.0, "Mipp planner not ready... yet");
       }
       else {
         ROS_ERROR("Couldn't call planner_ready server.");
+      }
+
+      // Check if communication is ready
+      communication_ready = true;
+      for (auto const& vehicle : vehicles_) {
+        if (vehicle.type == UAV) {
+          communication_ready = communication_ready and vehicle.com_state.state == mipp_msgs::CommunicationState::STATE_WORKING;
+        }
+      }
+      if (!communication_ready) ROS_INFO_THROTTLE(5.0, "Communication is not running... yet");
+
+      if (planner_ready and communication_ready) {
+        startMipp();
       }
     }
     ros::spinOnce();
@@ -190,6 +212,12 @@ void MippMonitor::pubMonitor() {
     }
   }
   pub_monitor_.publish(monitor_msg);
+}
+
+void MippMonitor::subCom(const mipp_msgs::CommunicationStateConstPtr& com_msg, int vehicle_id)
+{
+  ROS_DEBUG("subCom");
+  vehicles_[vehicle_id+1].com_state = *com_msg;
 }
 
 void MippMonitor::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg, int vehicle_id)

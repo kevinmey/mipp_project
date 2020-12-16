@@ -3,6 +3,8 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Odometry.h>
 
+#include "mipp_msgs/CommunicationState.h"
+
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
@@ -26,6 +28,7 @@ struct Vehicle
   geometry_msgs::Point position;
   cv::Point2i pixel_position;
   float yaw;
+  mipp_msgs::CommunicationState com_state;
   // Vehicle visualization
   cv::Scalar color;
   std::vector<cv::Point> shape;
@@ -77,6 +80,8 @@ MippVisualizer::MippVisualizer(ros::NodeHandle n, ros::NodeHandle np, image_tran
     vehicle.id = i-1;
     if (vehicle.id != -1) {
       vehicle.type = UAV;
+      vehicle.position =  makePoint(0.0, 0.0, 0.0);
+      vehicle.yaw = 0.0;
       vehicle.sub_odom = n.subscribe<nav_msgs::Odometry>("/gazebo/ground_truth_uav"+std::to_string(vehicle.id), 1, boost::bind(&MippVisualizer::odometryCallback, this, _1, vehicle.id));
       // UAV Shape is a triangle
       vehicle.shape.push_back(cv::Point2f(10.0*image_scale_, 0.0*image_scale_)); 
@@ -217,17 +222,21 @@ void MippVisualizer::buildImage()
   ROS_DEBUG("Size %d x %d -> %d x %d", image_size.width, image_size.height, image_.size().width, image_.size().height);
   ROS_DEBUG("Resolution %.2f -> %.2f", old_image_resolution, new_image_resolution);
 
+  // Draw com constraints
+  
+
   // Place vehicles on map
   for (auto &vehicle_it : vehicles_) {
     cv::Vec3b vehicle_color = (vehicle_it.type == UGV) ? cv::Vec3b(0,255,0) : cv::Vec3b(0,0,255);
     vehicle_it.pixel_position.x = (vehicle_it.position.x - image_origin_position_.x)/new_image_resolution;
     vehicle_it.pixel_position.y = (vehicle_it.position.y - image_origin_position_.y)/new_image_resolution;
-    ROS_DEBUG("Vehicle position (%.2f, %.2f) -> (%d, %d)", vehicle_it.position.x, vehicle_it.position.y, vehicle_it.pixel_position.x, vehicle_it.pixel_position.y);
+    ROS_DEBUG("Vehicle %d position (%.2f, %.2f) -> (%d, %d)", (int)vehicle_it.id, vehicle_it.position.x, vehicle_it.position.y, vehicle_it.pixel_position.x, vehicle_it.pixel_position.y);
     image_.at<cv::Vec3b>(vehicle_it.pixel_position) = vehicle_color;
     for (auto point_it = vehicle_it.shape.begin(); point_it != vehicle_it.shape.end() - 1; ++point_it) {
       cv::Point2i point_from = getRotatedPoint(vehicle_it.yaw, *point_it, vehicle_it.pixel_position);
       cv::Point2i point_to = getRotatedPoint(vehicle_it.yaw, *(point_it+1), vehicle_it.pixel_position);
-      cv::line(image_, point_from, point_to, vehicle_color, 2*image_scale_);
+      cv::line(image_, point_from, point_to, vehicle_color, 3*image_scale_);
+      ROS_DEBUG("Vehicle %d draw (%d, %d) -> (%d, %d)", (int)vehicle_it.id, point_from.x, point_from.y, point_to.x, point_to.y);
     }
   }
 
@@ -239,7 +248,7 @@ cv::Point MippVisualizer::getRotatedPoint(float rotation_angle_rad, cv::Point po
 {
     if (std::abs(rotation_angle_rad) < 0.01){
     	// Rotation is so small that it is virtually the same point
-    	return point;
+    	return cv::Point(point.x + rotation_axis.x, point.y + rotation_axis.y);;
     }
 
     cv::Point rotated_point = cv::Point(point.x*std::cos(rotation_angle_rad) 
