@@ -15,17 +15,17 @@ void MippPlanner::reshapeFormationUpdate() {
                 uav_it.formation_pose.position.y, 
                 uav_it.formation_pose.position.z);
     }
-    bool formation_collision_free = isFormationCollisionFree(current_formation_);
-    ROS_DEBUG_COND(formation_collision_free, "Current formation is collision free.");
+    bool formation_viable = isFormationCollisionFree(current_formation_) and isFormationComConstrained(current_formation_);
+    ROS_DEBUG_COND(formation_viable, "Current formation is collision free.");
 
     // Update formation bank
     std::map<float, std::vector<geometry_msgs::Pose>, std::greater<float>> new_formation_bank;
     ROS_DEBUG("Size %d, updating...", (int)formation_bank_.size());
     for (auto const& formation : formation_bank_) {
-      if (isFormationCollisionFree(formation.second) and isFormationComConstrained(formation.second)
-          and getDistanceBetweenFormations(current_formation_, formation.second) < sample_radius_) {
-        float formation_gain = getFormationInfoGain(formation.second);
-        new_formation_bank.insert(std::pair<float, std::vector<geometry_msgs::Pose>>(formation_gain, formation.second));
+      formation_viable = isFormationCollisionFree(formation.second) and isFormationComConstrained(formation.second);
+      if (formation_viable) {
+        float formation_utility = getFormationUtility(formation.second, current_formation_);
+        new_formation_bank.insert(std::pair<float, std::vector<geometry_msgs::Pose>>(formation_utility, formation.second));
       }
     }
 
@@ -41,20 +41,19 @@ void MippPlanner::reshapeFormationUpdate() {
     if (ugv_planner_.navigation_goal_distance < planner_hybrid_distance_) {
       float yaw_left = M_PI - sample_yaw_range_;
       sample_yaw_range += yaw_left*(1.0 - ugv_planner_.navigation_goal_distance/planner_hybrid_distance_);
-      ROS_INFO_THROTTLE(1.0, "Increasing yaw range to %.2f", sample_yaw_range);
+      ROS_DEBUG("Increasing yaw range to %.2f", sample_yaw_range);
     }
     while (new_formation_bank.size() < 10) {
       ROS_DEBUG("Size %d, adding...", (int)new_formation_bank.size());
       bool make_collision_free = true;
       std::vector<geometry_msgs::Pose> random_formation = getRandomColFreeFormation(current_formation_, sample_radius_, sample_yaw_range, sample_yaw_limit);
       int counter = 0;
-      formation_collision_free = isFormationCollisionFree(random_formation);
-      while (!formation_collision_free) {
+      bool formation_viable = isFormationCollisionFree(random_formation) and isFormationComConstrained(random_formation);
+      while (!formation_viable) {
         if (counter < 10) {
           random_formation = getRandomColFreeFormation(current_formation_, sample_radius_, sample_yaw_range);
-          formation_collision_free = isFormationCollisionFree(random_formation);
-          formation_collision_free = isFormationComConstrained(random_formation);
-          ROS_DEBUG_COND(formation_collision_free, "Found collision free formation after %d attempts.", counter);
+          formation_viable = isFormationCollisionFree(random_formation) and isFormationComConstrained(random_formation);
+          ROS_DEBUG_COND(formation_viable, "Found collision free formation after %d attempts.", counter);
           counter++;
         }
         else {
@@ -63,7 +62,7 @@ void MippPlanner::reshapeFormationUpdate() {
           for (auto const& uav_planner : uav_planners_) {
             random_formation.push_back(uav_planner.formation_poses.front());
           }
-          formation_collision_free = true;
+          formation_viable = true;
         }
         ros::spinOnce();
       }
@@ -279,6 +278,14 @@ geometry_msgs::Pose MippPlanner::getEscortPose(const geometry_msgs::Pose& format
 bool MippPlanner::isFormationComConstrained(std::vector<geometry_msgs::Pose> formation) {
   ROS_DEBUG("isFormationComConstrained");
 
+  // Check range
+  for (auto const& formation_pose : formation) {
+    float formation_distance = getDistanceBetweenPoints(makePoint(0,0,0), formation_pose.position);
+    ROS_INFO_THROTTLE(1.0, "Range %.2f > %.2f - %.2f ? %d", formation_distance, com_range_, com_range_padding_, (int)(formation_distance > (com_range_ - com_range_padding_)));
+    if (formation_distance > (com_range_ - com_range_padding_)) return false;
+  }
+
+  // Check LoS, along all waypoints
   std::vector<geometry_msgs::Pose> ugv_poses;
   for (auto const& ugv_waypoint : ugv_planner_.navigation_waypoints) {
     geometry_msgs::Pose ugv_pose;
@@ -299,11 +306,6 @@ bool MippPlanner::isFormationComConstrained(std::vector<geometry_msgs::Pose> for
   for (auto const& ugv_pose : ugv_poses) {
     for (auto const& formation_pose : formation) {
       geometry_msgs::Pose escort_pose = getEscortPose(formation_pose, ugv_pose);
-      if (!(getDistanceBetweenPoints(ugv_pose.position, escort_pose.position) < (com_range_ - com_range_padding_))) {
-        ROS_WARN_THROTTLE(1.0, "Out of range: %.2f, (%.2f, %.2f) -> (%.2f, %.2f)", getDistanceBetweenPoints(ugv_pose.position, escort_pose.position),
-                                ugv_pose.position.x, ugv_pose.position.y, escort_pose.position.x, escort_pose.position.y);
-        return false;
-      }
       if (!doPointsHaveLOS(ugv_pose.position, escort_pose.position)) return false;
     }
   }

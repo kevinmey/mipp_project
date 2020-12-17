@@ -371,7 +371,7 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   // General
   np.param<std::string>("planner_world_frame", planner_world_frame_, "world");
   np.param<float>("planner_com_range", com_range_, 10.0);
-  np.param<float>("planner_com_range_padding", com_range_padding_, ugv_nav_waypoint_max_distance_);
+  np.param<float>("planner_com_range_padding", com_range_padding_, 1.0);
   np.param<float>("planner_hybrid_distance", planner_hybrid_distance_, 5.0);
   // Planners
   np.param<float>("planner_sample_radius", sample_radius_, 1.0);
@@ -434,12 +434,12 @@ bool MippPlanner::doPointsHaveLOS(const geometry_msgs::Point point_a, const geom
   octomap::point3d om_point_a(point_a.x, point_a.y, point_a.z);
   geometry_msgs::Vector3 direction_ab = getDirection(point_a, point_b);
   octomap::point3d om_direction_ab(direction_ab.x, direction_ab.y, direction_ab.z);
-  bool hit_occupied_ab = octomap_->castRay(om_point_a, om_direction_ab, om_end_point, true, point_distance);
+  bool hit_occupied_ab = octomap_->castRay(om_point_a, om_direction_ab, om_end_point, false, point_distance);
 
   octomap::point3d om_point_b(point_b.x, point_b.y, point_b.z);
   geometry_msgs::Vector3 direction_ba = getDirection(point_b, point_a);
   octomap::point3d om_direction_ba(direction_ba.x, direction_ba.y, direction_ba.z);
-  bool hit_occupied_ba = octomap_->castRay(om_point_b, om_direction_ba, om_end_point, true, point_distance);
+  bool hit_occupied_ba = octomap_->castRay(om_point_b, om_direction_ba, om_end_point, false, point_distance);
 
   return (!hit_occupied_ab and !hit_occupied_ba);
 }
