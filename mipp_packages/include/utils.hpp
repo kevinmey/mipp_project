@@ -34,6 +34,8 @@ double getDistanceBetweenPoints(geometry_msgs::Point p1, geometry_msgs::Point p2
 
 double getDistanceBetweenAngles(double angle_1, double angle_2);
 
+double getDistanceBetweenAngles(geometry_msgs::Quaternion quat_1, geometry_msgs::Quaternion quat_2);
+
 double getDistanceBetweenAnglesDegrees(double angle_1, double angle_2);
 
 geometry_msgs::Point castRay(geometry_msgs::Point const origin, geometry_msgs::Point const direction, double distance);

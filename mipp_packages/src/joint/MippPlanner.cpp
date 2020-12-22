@@ -113,6 +113,10 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
     uav_planner_it.info_camera_rays = uav_camera_rays;
     // Escort
     uav_planner_it.initFormationPoseBank(nr_of_uavs_);
+    // Utility
+    uav_planner_it.c_info = c_info;
+    uav_planner_it.c_euc_dist = c_euc_dist;
+    uav_planner_it.c_yaw_dist = c_yaw_dist;
     // Init
     uav_planner_it.init(n);
   }

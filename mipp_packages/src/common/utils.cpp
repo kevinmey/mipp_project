@@ -18,6 +18,13 @@ double getDistanceBetweenAngles(double angle_1, double angle_2)
 	return std::abs(angles::shortest_angular_distance(angle_1, angle_2));
 }
 
+double getDistanceBetweenAngles(geometry_msgs::Quaternion quat_1, geometry_msgs::Quaternion quat_2)
+{
+	auto angle_1 = makeYawFromQuat(quat_1);
+  auto angle_2 = makeYawFromQuat(quat_2);
+  return std::abs(angles::shortest_angular_distance(angle_1, angle_2));
+}
+
 double getDistanceBetweenAnglesDegrees(double angle_1, double angle_2)
 {
 	return std::abs(angles::shortest_angular_distance(angles::from_degrees(angle_1), angles::from_degrees(angle_2)));

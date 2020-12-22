@@ -159,12 +159,11 @@ struct UAVPlanner
                         std::vector<SensorCircle>& path_sensor_coverages);
   float getPathInfoGain(const mipp_msgs::ExplorationPath& path, const std::vector<SensorCircle>& sensor_coverages);
   std::vector<tf2::Vector3> info_camera_rays;
-  // Sampled formation reshaping
-  /*geometry_msgs::Pose getSampledPose(const geometry_msgs::Pose& current_pose);
-  std::default_random_engine rng_generator;
-  std::uniform_real_distribution<double> rng_unit_distribution;
-  float sample_radius_max;
-  float sample_yaw_radian_max;*/
+  // Utility
+  float getPathUtility(const nav_msgs::Path& path, const std::vector<SensorCircle>& other_sensor_coverages);
+  float c_info;
+  float c_euc_dist; // pr m
+  float c_yaw_dist; // pr PI/3 = 60 deg
 };
 
 /* MOVED DEFINITION TO UTILS.HPP

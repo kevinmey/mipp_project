@@ -292,7 +292,8 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
 
     // Compute total path gain
     if (com_constraint_satisfied) {
-      float path_gain = getPathInfoGain(path_it, existing_sensor_coverages);
+      //float path_gain = getPathInfoGain(path_it, existing_sensor_coverages);
+      float path_gain = getPathUtility(makePathFromExpPath(path_it), existing_sensor_coverages);
       if (path_gain > best_path_gain) {
         ROS_DEBUG("New path selected, gain increased from %.2f to %.2f", best_path_gain, path_gain);
         std::vector<nav_msgs::Path> viz_path;
@@ -685,6 +686,7 @@ float UAVPlanner::getPathInfoGain(const nav_msgs::Path& path, const std::vector<
 }
 
 float UAVPlanner::getPathInfoGain(const mipp_msgs::ExplorationPath& path, const std::vector<SensorCircle>& sensor_coverages) {
+  ROS_DEBUG("getPathInfoGain");
   float path_info_gain = 0.0;    // Record this paths gain (will be sum of pose gains accounting for sensor overlap)
   std::vector<SensorCircle> path_sensor_coverages;  // Will be filled with previous poses in the path
   for (auto const& pose_it : path.poses) {
@@ -717,4 +719,21 @@ float UAVPlanner::getPathInfoGain(const mipp_msgs::ExplorationPath& path, const 
   ROS_DEBUG("Path gain: %.2f - %.2f", path_info_gain, path.length);
   float path_gain = 20.0*path_info_gain - path.length;
   return path_gain;
+}
+
+float UAVPlanner::getPathUtility(const nav_msgs::Path& path, const std::vector<SensorCircle>& other_sensor_coverages) {
+  ROS_DEBUG("getPathUtility");
+
+  std::vector<SensorCircle> ret_path_sensor_coverages; // unused
+  float path_info_gain = getPathInfoGain(path, other_sensor_coverages, ret_path_sensor_coverages);
+  float euc_dist = 0.0, yaw_dist = 0.0;
+  for (auto pose_it = path.poses.begin(); pose_it != path.poses.end(); ++pose_it) {
+    if (pose_it != path.poses.begin()) {
+      auto prev_pose = std::prev(pose_it)->pose;
+      auto cur_pose = pose_it->pose;
+      euc_dist += getDistanceBetweenPoints(prev_pose.position, cur_pose.position);
+      yaw_dist += getDistanceBetweenAngles(prev_pose.orientation, cur_pose.orientation);
+    }
+  }
+  return c_info*path_info_gain + c_euc_dist*euc_dist + c_yaw_dist*yaw_dist;
 }
