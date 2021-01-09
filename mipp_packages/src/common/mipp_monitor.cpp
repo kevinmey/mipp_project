@@ -399,6 +399,12 @@ void MippMonitor::startMipp() {
   }
   else {
     ROS_WARN("Didn't read path or tour");
+
+    start_mipp_goal.max_time = 1000.0;
+    start_mipp_goal.mipp_mode = planner_mode_;
+    start_mipp_client->sendGoal(start_mipp_goal);
+
+    started_ = true;
   }
 
 }
