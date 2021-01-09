@@ -137,6 +137,7 @@ struct UAVPlanner
   float getRandomYaw(float yaw_deg_center = 0.0, float yaw_deg_range = 30.0);
   geometry_msgs::PoseStamped getEscortPose(const geometry_msgs::Pose& ugv_pose, const geometry_msgs::Pose& uav_formation_pose);
   nav_msgs::Path getEscortPath(const std::vector<geometry_msgs::Point>& ugv_waypoints, const geometry_msgs::Pose& uav_formation_pose);
+  bool use_formation_bank;
   nav_msgs::Path escort_path;
   geometry_msgs::Pose formation_pose;
   std::vector<geometry_msgs::Pose> formation_poses;
@@ -286,6 +287,7 @@ private:
   bool run_exploration_;
   bool run_escorting_;
   bool run_hybrid_;
+  bool run_simple_formation_;
   std::shared_ptr<octomap::OcTree> octomap_; 
   bool received_octomap_;
   int octomap_size_;

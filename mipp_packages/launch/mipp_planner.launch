@@ -8,6 +8,7 @@
   <arg name="ugv_start_x"       default="0.0"/>
   <arg name="ugv_start_y"       default="0.0"/>
   <arg name="ugv_velocity"      default="1.0"/>
+  <arg name="run_simple_formation"      default="false"/>
 
   <node pkg="mipp_packages" type="mipp_planner_node" name="mipp_planner_node" output="screen">
     <param name="nr_of_uavs"                        value="$(arg nr_of_uavs)"/>
@@ -16,6 +17,7 @@
     <param name="ugv_start_x"                       value="$(arg ugv_start_x)"/>
     <param name="ugv_start_y"                       value="$(arg ugv_start_y)"/>
     <param name="ugv_nav_waypoint_max_distance"     value="$(eval arg('ugv_velocity')*2.0)"/>
+    <param name="run_simple_formation"              value="$(arg run_simple_formation)"/>
   </node>
 </launch>
 

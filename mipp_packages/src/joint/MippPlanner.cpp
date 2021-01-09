@@ -67,6 +67,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
     uav_planner.global_run_exploration = &run_exploration_;
     uav_planner.global_run_escorting = &run_escorting_;
     uav_planner.camera_range = uav_camera_range_;
+    uav_planner.use_formation_bank = run_simple_formation_;
     // Add object to list
     uav_planners_.push_back(uav_planner);
   }
@@ -146,6 +147,7 @@ void MippPlanner::runUpdates() {
   // Make UGV navigation waypoints
   ugv_planner_.createNavigationWaypoints(nr_of_ugv_nav_waypoints_, true);
   visualizeNavWaypoints();
+  
   // If in hybrid mode, check if switch needs to be done
   ugv_planner_.navigation_goal_distance = getDistanceBetweenPoints(ugv_planner_.ugv_odometry->pose.pose.position, ugv_planner_.navigation_goal.pose.position);
   ROS_INFO_THROTTLE(1.0, "Distance %.2f", ugv_planner_.navigation_goal_distance);
@@ -380,6 +382,7 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   // Planners
   np.param<float>("planner_sample_radius", sample_radius_, 1.0);
   np.param<float>("planner_sample_yaw_range", sample_yaw_range_, M_PI/6.0);
+  np.param<bool>("run_simple_formation", run_simple_formation_, true);
   // Utility
   np.param<float>("c_info", c_info, 10.0);
   np.param<float>("c_euc_dist", c_euc_dist, -1.0);
