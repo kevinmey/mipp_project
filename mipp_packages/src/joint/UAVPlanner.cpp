@@ -266,7 +266,7 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
 
   // Go through paths from the UAV explorer and pick the "best" one (most gain)
   nav_msgs::Path best_path;
-  float best_path_gain = 0.0;
+  float best_path_utility = 0.0;
   int best_path_nr = -1; // Record which path was chosen in the end, for fun mostly
   int path_nr = best_path_nr;
 
@@ -289,16 +289,17 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
       nav_waypoint_idx++;
     }
 
-    // Compute total path gain
+    // Compute total path utility
     if (com_constraint_satisfied) {
       //float path_gain = getPathInfoGain(path_it, existing_sensor_coverages);
-      float path_gain = getPathUtility(makePathFromExpPath(path_it), existing_sensor_coverages);
-      if (path_gain > best_path_gain) {
-        ROS_DEBUG("New path selected, gain increased from %.2f to %.2f", best_path_gain, path_gain);
+      //float path_utility = getPathUtility(makePathFromExpPath(path_it), existing_sensor_coverages);
+      float path_utility = getPathUtility(makePathFromExpPath(path_it), *global_ugv_waypoints, existing_sensor_coverages);
+      if (path_utility > best_path_utility) {
+        ROS_DEBUG("New path selected, gain increased from %.2f to %.2f", best_path_utility, path_utility);
         std::vector<nav_msgs::Path> viz_path;
         viz_path.push_back(makePathFromExpPath(path_it));
         viz_path.push_back(makePathFromExpPath(*exploration_result.paths.rbegin()));
-        best_path_gain = path_gain;
+        best_path_utility = path_utility;
         best_path = makePathFromExpPath(path_it);
         best_path_nr = path_nr;
       }
@@ -732,6 +733,41 @@ float UAVPlanner::getPathUtility(const nav_msgs::Path& path, const std::vector<S
       auto cur_pose = pose_it->pose;
       euc_dist += getDistanceBetweenPoints(prev_pose.position, cur_pose.position);
       yaw_dist += getDistanceBetweenAngles(prev_pose.orientation, cur_pose.orientation);
+    }
+  }
+  return c_info*path_info_gain + c_euc_dist*euc_dist + c_yaw_dist*yaw_dist;
+}
+
+float UAVPlanner::getPathUtility(const nav_msgs::Path& path, const std::vector<geometry_msgs::Point> ugv_waypoints, const std::vector<SensorCircle>& other_sensor_coverages) {
+  ROS_DEBUG("getPathUtility (free distance)");
+
+  std::vector<SensorCircle> ret_path_sensor_coverages; // unused
+  float path_info_gain = getPathInfoGain(path, other_sensor_coverages, ret_path_sensor_coverages);
+  float euc_dist = 0.0, yaw_dist = 0.0;
+  /* Waypoint wise free distance */
+  int pose_idx = 0;
+  for (auto pose_it = path.poses.begin(); pose_it != path.poses.end(); ++pose_it) {
+    pose_idx++;
+    if (pose_it != path.poses.begin()) {
+      // Calculate UGV travel, which will be "free distance" that UAV can travel
+      auto prev_ugv_point = ugv_waypoints.at(pose_idx-1);
+      auto ugv_point = ugv_waypoints.at(pose_idx);
+      auto free_x = ugv_point.x - prev_ugv_point.x;
+      auto free_y = ugv_point.y - prev_ugv_point.y;
+
+      auto prev_uav_pose = std::prev(pose_it)->pose;
+      auto uav_pose = pose_it->pose;
+      auto dist_x = uav_pose.position.x - prev_uav_pose.position.x - free_x;
+      auto dist_y = uav_pose.position.y - prev_uav_pose.position.y - free_y;
+      
+      auto dist_x_discounted = dist_x - free_x;
+      auto dist_y_discounted = dist_y - free_y;
+
+      euc_dist += sqrt(std::pow(dist_x_discounted,2) + std::pow(dist_y_discounted,2));
+      yaw_dist += getDistanceBetweenAngles(prev_uav_pose.orientation, uav_pose.orientation);
+
+      ROS_DEBUG("x: Free dist (%.2f), dist (%.2f), disc dist: (%.2f)", free_x, dist_x, dist_x_discounted);
+      ROS_DEBUG("y: Free dist (%.2f), dist (%.2f), disc dist: (%.2f)", free_y, dist_y, dist_y_discounted);
     }
   }
   return c_info*path_info_gain + c_euc_dist*euc_dist + c_yaw_dist*yaw_dist;
