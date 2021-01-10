@@ -141,7 +141,6 @@ void UAVPlanner::updateStateMachine() {
         vehicle_state = IDLE;
         break;
       }
-      bool use_formation_bank = false;
       if (use_formation_bank) {
         int current_formation_pose_idx = formation_pose_idx;
         formation_pose_idx = 0;
@@ -418,7 +417,7 @@ void UAVPlanner::initFormationPoseBank(int nr_of_uavs) {
   formation_pose_idx = 0;
 
   for (auto const& pose : formation_poses) {
-    ROS_WARN("Formation pose UAV%d: (%.2f, %.2f, %.2f)", uav_id, pose.position.x, pose.position.y, makeRPYFromQuat(pose.orientation).z);
+    ROS_DEBUG("Formation pose UAV%d: (%.2f, %.2f, %.2f)", uav_id, pose.position.x, pose.position.y, makeRPYFromQuat(pose.orientation).z);
   }
 }
 
@@ -542,7 +541,7 @@ void UAVPlanner::initCollisionPoints() {
   for (float point_yaw = 0.0; point_yaw < 360.0; point_yaw += 45.0) {
     collision_point = getRotatedPoint(point_yaw*(M_PI/180.0), makePoint(collision_radius, 0 ,0), makePoint(0, 0, 0));
     collision_points.push_back(octomap::point3d(collision_point.x, collision_point.y, collision_point.z));
-    ROS_WARN("Collision point (%.2f,%.2f,%.2f)", collision_point.x, collision_point.y, collision_point.z);
+    ROS_DEBUG("Collision point (%.2f,%.2f,%.2f)", collision_point.x, collision_point.y, collision_point.z);
   }
 }
 

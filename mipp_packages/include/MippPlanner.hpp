@@ -33,7 +33,8 @@
 #include <visualization_msgs/MarkerArray.h>
 
 #include <octomap_msgs/Octomap.h>
-#include "octomap_msgs/conversions.h"
+#include <octomap_msgs/conversions.h>
+#include <octomap_msgs/GetOctomap.h>
 
 #include <string>
 #include <cmath> /* sqrt, pow */
@@ -196,6 +197,7 @@ private:
   void subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg);
   // Services
   bool cliIsPlannerReady(std_srvs::SetBool::Request& request, std_srvs::SetBool::Response& response);
+  void cliGetOctomap();
   // Actionlib
   void actMipp(const mipp_msgs::StartMippGoalConstPtr &goal);
   // Planner functions
@@ -227,8 +229,11 @@ private:
   ros::Subscriber sub_clicked_point_;
   ros::Subscriber sub_ugv_goal_plan_;
   ros::Subscriber sub_octomap_;
-  // Actionlib
+  // Services
   ros::ServiceServer cli_planner_ready_;
+  ros::Timer cli_timer_get_octomap_;
+  ros::ServiceClient cli_get_octomap_;
+  // ACtionlib
   actionlib::SimpleActionServer<mipp_msgs::StartMippAction> act_mipp_server_;
   mipp_msgs::StartMippGoal act_mipp_goal_;
   mipp_msgs::StartMippFeedback act_mipp_feedback_;

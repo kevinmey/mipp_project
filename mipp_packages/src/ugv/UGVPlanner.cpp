@@ -306,9 +306,9 @@ bool UGVPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 
   ros::Rate rate(planner_rate_);
   ros::Time start_time = ros::Time::now();
+  double check_interval = 0.5;
   ros::Time last_check_time = ros::Time::now();
   double last_check_cost = goal_.cost_;
-  double check_interval = 1.0;
   while((ros::Time::now() - start_time).toSec() < planner_max_time_){
     ros::Time begin = ros::Time::now();
     

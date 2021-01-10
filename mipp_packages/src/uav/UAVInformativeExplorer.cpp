@@ -27,7 +27,9 @@ UAVInformativeExplorer::UAVInformativeExplorer(ros::NodeHandle n, ros::NodeHandl
   // Establish subscriptions
   sub_start_exploration_indiv_  = n.subscribe("/exploration/start_individual", 1, &UAVInformativeExplorer::subStartExploration, this);
   sub_odometry_       = n.subscribe("uav_server/ground_truth_uav", 1, &UAVInformativeExplorer::subOdometry, this);
-  sub_octomap_        = n.subscribe("/octomap_binary", 1, &UAVInformativeExplorer::subOctomap, this);
+  //sub_octomap_        = n.subscribe("/octomap_binary", 1, &UAVInformativeExplorer::subOctomap, this);
+  // Services
+  cli_get_octomap_    = n.serviceClient<octomap_msgs::GetOctomap>("/octomap_binary");
   // Actionlib
   act_exploration_server_.start();
   // TF
@@ -306,12 +308,24 @@ void UAVInformativeExplorer::initVariables() {
 
 void UAVInformativeExplorer::runExploration() {
   ROS_DEBUG("planPathToGoal");
-  // If map not initialized or in use by others, wait
+
+  // Get octomap, waiting if not able to
+  received_map_ = false;
   ros::Rate wait_rate(5.0);
   if (!received_map_) {
-    ros::spinOnce();
-    wait_rate.sleep();
+    octomap_msgs::GetOctomap octomap_srv;
+    if (cli_get_octomap_.call(octomap_srv)) {
+      map_ = std::shared_ptr<octomap::OcTree>(dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(octomap_srv.response.map)));
+      ROS_WARN("Got Octomap");
+      received_map_ = true;
+    }
+    else {
+      ROS_ERROR("Failed to get OctoMap");
+      ros::spinOnce();
+      wait_rate.sleep();
+    }
   }
+
   tree_.clear();
   exploration_nodes_.clear();
 

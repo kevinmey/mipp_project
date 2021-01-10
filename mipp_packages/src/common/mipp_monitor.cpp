@@ -18,6 +18,10 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include <octomap_msgs/Octomap.h>
+#include <octomap_msgs/conversions.h>
+#include <octomap_msgs/GetOctomap.h>
+
 #include <string>
 #include <utils.hpp>
 
@@ -56,6 +60,7 @@ private:
   void subOdometry(const nav_msgs::OdometryConstPtr& odom_msg, int vehicle_id);
   void subStart(const std_msgs::BoolConstPtr& start_msg);
   void subPath(const nav_msgs::PathConstPtr& path_msg);
+  void cliGetOctomap();
   void startMipp();
   // Params
   bool auto_start_;
@@ -81,9 +86,12 @@ private:
   ros::Publisher pub_viz_tour_;
   // Subscribers
   ros::Subscriber sub_start_;
+  ros::Subscriber sub_octomap_;
   ros::Subscriber sub_path_;
   // Services
   ros::ServiceClient cli_planner_ready_;
+  ros::Timer cli_timer_get_octomap_;
+  ros::ServiceClient cli_get_octomap_;
   // Actionlib
   actionlib::SimpleActionClient<mipp_msgs::StartMippAction>* start_mipp_client;
   mipp_msgs::StartMippGoal start_mipp_goal;
@@ -121,6 +129,9 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
 
   std::string cli_planner_ready_name = "/MippPlanner/planner_ready";
   cli_planner_ready_ = n.serviceClient<std_srvs::SetBool>(cli_planner_ready_name);
+
+  cli_timer_get_octomap_ = n.createTimer(ros::Duration(1.0), boost::bind(&MippMonitor::cliGetOctomap, this));
+  cli_get_octomap_ = n.serviceClient<octomap_msgs::GetOctomap>("/octomap_binary");
 
   std::string start_mipp_client_name = "/MippPlanner/start_mipp_action";
   start_mipp_client = new actionlib::SimpleActionClient<mipp_msgs::StartMippAction>(start_mipp_client_name, true);
@@ -218,6 +229,20 @@ void MippMonitor::subCom(const mipp_msgs::CommunicationStateConstPtr& com_msg, i
 {
   ROS_DEBUG("subCom");
   vehicles_[vehicle_id+1].com_state = *com_msg;
+}
+
+void MippMonitor::cliGetOctomap() {
+  ROS_DEBUG("cliGetOctomap");
+  octomap_msgs::GetOctomap octomap_srv;
+  if (cli_get_octomap_.call(octomap_srv)) {
+    auto octomap = dynamic_cast<octomap::OcTree*>(octomap_msgs::msgToMap(octomap_srv.response.map));
+    auto octomap_size_ = (int)octomap->calcNumNodes();
+    ROS_WARN("Octomap size %d, binary %d", (int)octomap_size_, (int)octomap_srv.response.map.binary);
+    delete octomap;
+  }
+  else {
+    ROS_ERROR("Failed to get OctoMap");
+  }
 }
 
 void MippMonitor::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg, int vehicle_id)

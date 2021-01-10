@@ -22,10 +22,13 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
 
   sub_clicked_point_  = n.subscribe("/exploration/start_collaborative", 1, &MippPlanner::subClickedPoint, this);
   sub_ugv_goal_plan_  = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &MippPlanner::subUGVPlan, this);
-  sub_octomap_        = n.subscribe("/octomap_binary", 1, &MippPlanner::subOctomap, this);
+  //sub_octomap_        = n.subscribe("/octomap_binary", 1, &MippPlanner::subOctomap, this);
 
   cli_planner_ready_ = n.advertiseService("/MippPlanner/planner_ready", &MippPlanner::cliIsPlannerReady, this);
   act_mipp_server_.start();
+
+  cli_timer_get_octomap_ = n.createTimer(ros::Duration(1.0), boost::bind(&MippPlanner::cliGetOctomap, this));
+  cli_get_octomap_ = n.serviceClient<octomap_msgs::GetOctomap>("/octomap_binary");
 
   // Random nr. generator and distributions
   std::random_device rd;  // Non-deterministic random nr. to seed generator
@@ -236,8 +239,6 @@ void MippPlanner::subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg)
     uav_planner.octomap = octomap_;
   }
   received_octomap_ = true;
-  octomap_size_ = (int)octomap_->calcNumNodes();
-  ROS_DEBUG_THROTTLE(1.0, "Octomap size %d, use_count %d", octomap_size_, (int)octomap_.use_count());
 
 }
 
@@ -256,6 +257,23 @@ bool MippPlanner::cliIsPlannerReady(std_srvs::SetBool::Request& request, std_srv
     }
   }
   return true;
+}
+
+void MippPlanner::cliGetOctomap() {
+  ROS_DEBUG("cliGetOctomap");
+  octomap_msgs::GetOctomap octomap_srv;
+  if (cli_get_octomap_.call(octomap_srv)) {
+    received_octomap_ = true;
+    octomap_ = std::shared_ptr<octomap::OcTree>(dynamic_cast<octomap::OcTree*>(octomap_msgs::msgToMap(octomap_srv.response.map)));
+    for (auto& uav_planner : uav_planners_) {
+      uav_planner.octomap = octomap_;
+    }
+    ROS_WARN("Got OctoMap");
+  }
+  else {
+    received_octomap_ = false;
+    ROS_ERROR("Failed to get OctoMap");
+  }
 }
 
 // Actionlib

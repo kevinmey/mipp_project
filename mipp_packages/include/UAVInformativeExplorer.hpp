@@ -24,7 +24,8 @@
 #include <visualization_msgs/Marker.h>
 
 #include <octomap_msgs/Octomap.h>
-#include "octomap_msgs/conversions.h"
+#include <octomap_msgs/conversions.h>
+#include <octomap_msgs/GetOctomap.h>
 
 #include <string>
 #include <math.h> /* sqrt, pow */
@@ -52,6 +53,8 @@ private:
   void subMavrosState(const mavros_msgs::State::ConstPtr& mavros_state_msg);
   void subOdometry(const nav_msgs::Odometry::ConstPtr& odometry_msg);
   void subOctomap(const octomap_msgs::Octomap::ConstPtr& octomap_msg);
+  // Services
+  ros::ServiceClient cli_get_octomap_;
   // Actionlib
   void actStartExploration(const mipp_msgs::StartExplorationGoalConstPtr &goal);
   // Utility functions

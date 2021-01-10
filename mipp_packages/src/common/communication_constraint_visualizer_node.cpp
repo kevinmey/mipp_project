@@ -6,7 +6,8 @@
 #include <tf2_ros/transform_broadcaster.h>
 
 #include <octomap_msgs/Octomap.h>
-#include "octomap_msgs/conversions.h"
+#include <octomap_msgs/conversions.h>
+#include <octomap_msgs/GetOctomap.h>
 
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
@@ -27,6 +28,7 @@ private:
   void vehiclePoseCallback(const geometry_msgs::PoseStampedConstPtr& pose_msg);
   void baseStationPoseCallback(const nav_msgs::OdometryConstPtr& odom_msg);
   void octomapCallback(const octomap_msgs::Octomap::ConstPtr& octomap_msg);
+  void cliGetOctomap();
   void updateConstraint(mipp_msgs::CommunicationState& com_state);
   // Params
   int vehicle_id_;
@@ -56,6 +58,8 @@ private:
   ros::Subscriber sub_base_station_pose_;
   ros::Subscriber sub_octomap_;
   ros::ServiceClient cli_takeoff_;
+  ros::Timer cli_timer_get_octomap_;
+  ros::ServiceClient cli_get_octomap_;
   // TF
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener* tf_listener_; 
@@ -98,10 +102,24 @@ void ComConstraintVisualizer::baseStationPoseCallback(const nav_msgs::OdometryCo
   }
 }
 
-void ComConstraintVisualizer::octomapCallback(const octomap_msgs::Octomap::ConstPtr& octomap_msg) {
+/*void ComConstraintVisualizer::octomapCallback(const octomap_msgs::Octomap::ConstPtr& octomap_msg) {
   ROS_DEBUG("ComConstraintVisualizer: octomapCallback");
   map_ = std::shared_ptr<octomap::OcTree> (dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(*octomap_msg)));
   received_map_ = true;
+}*/
+
+void ComConstraintVisualizer::cliGetOctomap() {
+  ROS_DEBUG("cliGetOctomap");
+  octomap_msgs::GetOctomap octomap_srv;
+  if (cli_get_octomap_.call(octomap_srv)) {
+    ROS_WARN("Got OctoMap");
+    map_ = std::shared_ptr<octomap::OcTree> (dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(octomap_srv.response.map)));
+    received_map_ = true;
+  }
+  else {
+    ROS_ERROR("Failed to get OctoMap");
+    received_map_ = false;
+  }
 }
 
 void ComConstraintVisualizer::updateConstraint(mipp_msgs::CommunicationState& com_state)
@@ -299,9 +317,11 @@ ComConstraintVisualizer::ComConstraintVisualizer(ros::NodeHandle n, ros::NodeHan
 
   sub_vehicle_pose_ = n.subscribe(vehicle_pose_topic_, 1, &ComConstraintVisualizer::vehiclePoseCallback, this);
   sub_base_station_pose_ = n.subscribe(base_station_odom_topic_, 1, &ComConstraintVisualizer::baseStationPoseCallback, this);
-  sub_octomap_        = n.subscribe("/octomap_binary", 1, &ComConstraintVisualizer::octomapCallback, this);
+  //sub_octomap_        = n.subscribe("/octomap_binary", 1, &ComConstraintVisualizer::octomapCallback, this);
   pub_constraint_state_ = n.advertise<mipp_msgs::CommunicationState>("ComConstraintVisualizer/constraint_state", 1);
   pub_viz_constraint_ = n.advertise<visualization_msgs::Marker>("viz_constraint", 1);
+  cli_timer_get_octomap_ = n.createTimer(ros::Duration(1.0), boost::bind(&ComConstraintVisualizer::cliGetOctomap, this));
+  cli_get_octomap_ = n.serviceClient<octomap_msgs::GetOctomap>("/octomap_binary");
   tf_listener_ = new tf2_ros::TransformListener(tf_buffer_);
 
   mipp_msgs::CommunicationState com_state;
