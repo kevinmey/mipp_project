@@ -7,6 +7,10 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
   ROS_INFO("MippPlanner object is being created.");
   planner_initialized_ = false;
 
+  /*if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {
+    ros::console::notifyLoggerLevelsChanged();
+  }*/
+
   // Initialize values
   getParams(np);
 
@@ -268,7 +272,7 @@ void MippPlanner::cliGetOctomap() {
     for (auto& uav_planner : uav_planners_) {
       uav_planner.octomap = octomap_;
     }
-    ROS_WARN("Got OctoMap");
+    ROS_DEBUG("Got OctoMap");
   }
   else {
     received_octomap_ = false;

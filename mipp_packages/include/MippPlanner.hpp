@@ -163,6 +163,8 @@ struct UAVPlanner
   std::vector<tf2::Vector3> info_camera_rays;
   // Utility
   float getPathUtility(const nav_msgs::Path& path, const std::vector<SensorCircle>& other_sensor_coverages);
+  float getPathUtility(const nav_msgs::Path& path, const std::vector<geometry_msgs::Point> ugv_waypoints, 
+                       const std::vector<SensorCircle>& other_sensor_coverages); // For "free distance" utility
   float c_info;
   float c_euc_dist; // pr m
   float c_yaw_dist; // pr PI/3 = 60 deg

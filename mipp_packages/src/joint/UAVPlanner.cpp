@@ -160,7 +160,7 @@ void UAVPlanner::updateStateMachine() {
       }
       geometry_msgs::PoseStamped uav_escort_pose = getEscortPose(global_ugv_odometry->pose.pose, formation_pose);
       navigation_path = getEscortPath(*global_ugv_waypoints, formation_pose);
-      if (!isPathCollisionFree(navigation_path)) {
+      if (use_formation_bank and !isPathCollisionFree(navigation_path)) {
         ROS_WARN_THROTTLE(1.0, "UAV%d escort path is in collision", uav_id);
         navigation_path.header.frame_id = "collision";
       }
@@ -552,6 +552,8 @@ bool UAVPlanner::isPathCollisionFree(const nav_msgs::Path& path) {
   bool unmapped_is_collision = true;
   for (auto const& pose_it : path.poses) {
     if (!isPoseCollisionFree(pose_it.pose.position, unmapped_is_collision)) {
+      ROS_DEBUG_COND(unmapped_is_collision, "Is unmapped (%.2f, %.2f)", pose_it.pose.position.x, pose_it.pose.position.y);
+      ROS_DEBUG_COND(!unmapped_is_collision, "Is in collision (%.2f, %.2f)", pose_it.pose.position.x, pose_it.pose.position.y);
       return false;
     }
     unmapped_is_collision = false;
@@ -565,7 +567,10 @@ bool UAVPlanner::isPathCollisionFree(const nav_msgs::Path& path) {
     geometry_msgs::Vector3 path_direction = getDirection(pose_it->pose.position, std::next(pose_it)->pose.position);
     while (check_interval*check_interval_i < path_distance) {
       geometry_msgs::Point check_point = castRay(pose_it->pose.position, path_direction, check_interval*check_interval_i);
-      if (!isPoseCollisionFree(check_point)) return false;
+      if (!isPoseCollisionFree(check_point)) {
+        ROS_DEBUG("Is in collision (%.2f, %.2f)", check_point.x, check_point.y);
+        return false;
+      }
       check_interval_i++;
     }
   }
