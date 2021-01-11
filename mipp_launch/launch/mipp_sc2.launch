@@ -1,24 +1,32 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="run_gazebo"  default="true"/>
-  <arg name="world_file_name"   default="sc2/shapes_2_rand" />
+  <arg name="world_name"        default="rand" />
+  <arg name="world_file_name"   default="sc2/shapes_2_$(arg world_name)" />
+  <!--<arg name="world_file_name"   default="disaster_60x60" />-->
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
   <arg name="gui"         default="false"/>
   <arg name="run_rviz"    default="true"/>
   <arg name="run_husky"   default="true"/>
   <arg name="run_uavs"    default="true"/>
-  <arg name="nr_of_uavs"  default="2"/>
+  <arg name="nr_of_uavs"  default="1"/>
   <arg name="uav_planner_rate"          default="150.0"/>
+  <arg name="uav_max_ray_distance"      default="4.0"/>
   <arg name="run_mipp_planner"          default="true"/>
   <arg name="com_range"                 default="10.0"/>
+  <arg name="octomap_resolution"        default="0.25"/>
   <arg name="octomap_rate"              default="2.0"/>
-  <arg name="octomap_cloud_topic"    default="/octomap/points"/>
-
+  <arg name="octomap_cloud_topic"       default="/octomap/points"/>
+  <arg name="run_map_server"            default="false"/>
+<!--
+  <arg name="ugv_start_x"              default="0.0"/>
+  <arg name="ugv_start_y"              default="0.0"/>
+-->
   <arg name="ugv_start_x"              default="-25.0"/>
   <arg name="ugv_start_y"              default="-25.0"/>
 
-  <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  25"/>
-  <node pkg="tf" type="static_transform_publisher" name="tf_world_map_link" args="0 0 0 0 0 0  /world /map  25"/>
+  <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  50"/>
+  <node pkg="tf" type="static_transform_publisher" name="tf_world_map_link" args="0 0 0 0 0 0  /world /map  50"/>
   <node pkg="tf" type="static_transform_publisher" name="tf_base_frd_link" args="0 0 0 0 0 0  /world /base_link_frd  1"/>
 
 
@@ -27,7 +35,7 @@
     Run OctoMap
   -->
   <include file="$(find mipp_launch)/launch/octomap_mapping.launch">
-    <arg name="resolution"                      value="0.20"/>
+    <arg name="resolution"                      value="$(arg octomap_resolution)"/>
     <arg name="frame_id"                        value="world"/>
 		<arg name="base_frame_id"                   value="base_footprint"/>
 		<arg name="sensor_model/max_range"          value="7.0"/>
@@ -48,6 +56,7 @@
     <arg name="initial_x"                 value="$(eval arg('ugv_start_x')+3)"/>
     <arg name="initial_y"                 value="$(eval arg('ugv_start_y')+0)"/>
     <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
+    <arg name="uav_max_ray_distance"      value="$(arg uav_max_ray_distance)"/>
     <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
@@ -61,6 +70,7 @@
     <arg name="initial_x"                 value="$(eval arg('ugv_start_x')-2)"/>
     <arg name="initial_y"                 value="$(eval arg('ugv_start_y')-2)"/>
     <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
+    <arg name="uav_max_ray_distance"      value="$(arg uav_max_ray_distance)"/>
     <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
@@ -74,6 +84,7 @@
     <arg name="initial_x"                 value="$(eval arg('ugv_start_x')-2)"/>
     <arg name="initial_y"                 value="$(eval arg('ugv_start_y')+2)"/>
     <arg name="uav_planner_rate"          value="$(arg uav_planner_rate)"/>
+    <arg name="uav_max_ray_distance"      value="$(arg uav_max_ray_distance)"/>
     <arg name="com_range"                 value="$(arg com_range)"/>
     <arg name="octomap_throttle_rate"     value="$(arg octomap_rate)"/>
     <arg name="octomap_cloud_topic"       value="$(arg octomap_cloud_topic)"/>
@@ -102,13 +113,14 @@
     Spawn single husky
   -->
   <arg name="ugv_ns"  default="/ugv"/>
+  <arg name="ugv_vel" default="0.5"/>
   <group if="$(arg run_husky)">
     <include file="$(find mipp_launch)/launch/husky.launch">
       <arg name="robot_namespace"         value="$(arg ugv_ns)"/>
       <arg name="x"                       value="$(arg ugv_start_x)"/>
       <arg name="y"                       value="$(arg ugv_start_y)"/>
-      <arg name="velocity"                value="0.5"/>
-      <arg name="no_static_map"           value="false"/>
+      <arg name="velocity"                value="$(arg ugv_vel)"/>
+      <arg name="no_static_map"           value="$(eval not arg('run_map_server'))"/>
       <arg name="no_sensor"               value="true"/>
     </include>
   </group>
@@ -123,6 +135,7 @@
       <arg name="ugv_ns"        value="/ugv/"/>
       <arg name="ugv_start_x"   value="$(arg ugv_start_x)"/>
       <arg name="ugv_start_y"   value="$(arg ugv_start_y)"/>
+      <arg name="run_simple_formation"   value="false"/>
     </include>
   </group>
   
@@ -130,13 +143,13 @@
     Map server 
   -->
   <arg name="map_file" default="$(find mipp_gazebo)/worlds/$(arg world_file_name)_map.yaml"/>
-  <node pkg="map_server" type="map_server" name="map_server" output="screen" args="$(arg map_file)">
+  <node pkg="map_server" type="map_server" name="map_server" output="screen" args="$(arg map_file)" if="$(arg run_map_server)">
   </node>
 
   <!--- 
     Run visualizer
   -->
-  <node name="mipp_visualizer_node" pkg="mipp_packages" type="mipp_visualizer_node">
+  <node name="mipp_visualizer_node" pkg="mipp_packages" type="mipp_visualizer_node" output="screen">
     <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
   </node>
 
@@ -145,13 +158,17 @@
   -->
   <arg name="tour_file_names" default="[$(find mipp_launch)/bags/sc2_tour_1a.bag, $(find mipp_launch)/bags/sc2_tour_1b.bag, $(find mipp_launch)/bags/sc2_tour_1c.bag]"/>
   <node name="mipp_monitor_node" pkg="mipp_packages" type="mipp_monitor_node" output="screen">
+    <param name="world_name"                value="$(arg world_name)" />
     <param name="planner_mode"              value="1" />
     <param name="auto_start"                value="true" />
+    <param name="ugv_vel"                   value="$(arg ugv_vel)"/>
     <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
+    <param name="frequency"                 value="1.0" />
+    <param name="resolution"                value="$(arg octomap_resolution)"/>
     <param name="write_path"                value="false" />
-    <param name="read_path"                 value="false" />
+    <param name="read_path"                 value="true" />
     <param name="path_file_name"            value="$(find mipp_launch)/bags/sc2_path_1.bag" />
-    <param name="read_tour"                 value="true" />
+    <param name="read_tour"                 value="false" />
     <rosparam param="tour_file_names" subst_value="True">$(arg tour_file_names)</rosparam>
   </node>
 

@@ -10,7 +10,7 @@
   <arg name="ugv_velocity"      default="1.0"/>
   <arg name="run_simple_formation"      default="false"/>
 
-  <node pkg="mipp_packages" type="mipp_planner_node" name="mipp_planner_node" output="screen">
+  <node pkg="mipp_packages" type="mipp_planner_node" name="mipp_planner_node" output="log">
     <param name="nr_of_uavs"                        value="$(arg nr_of_uavs)"/>
     <param name="planner_com_range"                 value="$(arg com_range)"/>
     <param name="ugv_ns"                            value="$(arg ugv_ns)"/>
