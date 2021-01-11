@@ -24,6 +24,9 @@
 
 #include <string>
 #include <utils.hpp>
+#include <fstream>
+#include <chrono>
+#include <ctime> 
 
 enum VehicleType { UGV, UAV };
 
@@ -63,9 +66,12 @@ private:
   void cliGetOctomap();
   void startMipp();
   // Params
+  std::string world_name_;
   bool auto_start_;
+  float ugv_vel_;
   int nr_of_uavs_;
   float frequency_;
+  float octomap_resolution_;
   bool write_path_;
   bool read_path_;
   bool read_tour_;
@@ -78,7 +84,10 @@ private:
   std::vector<Vehicle> vehicles_;
   nav_msgs::Path path_;
   std::vector<nav_msgs::Path> tour_;
+  float octomap_size_;  // [m^3]
   bool started_;
+  bool writing_csv_;
+  std::ofstream csv_file_;
   // Publishers
   ros::Timer pub_timer_;
   ros::Publisher pub_monitor_;
@@ -105,10 +114,13 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
 
   int count = 0;
 
+  np.param<std::string>("world_name", world_name_, "rand");
   np.param<int>("planner_mode", planner_mode_, 0);
   np.param<bool>("auto_start", auto_start_, true);
+  np.param<float>("ugv_vel", ugv_vel_, 0.5);
   np.param<int>("nr_of_uavs", nr_of_uavs_, 1);
-  np.param<float>("frequency", frequency_, 10.0);
+  np.param<float>("frequency", frequency_, 1.0);
+  np.param<float>("octomap_resolution", octomap_resolution_, 0.2);
   // Write/read path for UGV for scenario 2
   np.param<bool>("write_path", write_path_, true);
   np.param<bool>("read_path", read_path_, true);
@@ -118,6 +130,7 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
 
   path_.poses.clear();
   started_ = false;
+  writing_csv_ = false;
 
   pub_timer_    = n.createTimer(ros::Duration(1.0/frequency_), boost::bind(&MippMonitor::pubMonitor, this));
   pub_monitor_  = n.advertise<mipp_msgs::MippMonitor>("/MippMonitor/monitor", 1);
@@ -205,6 +218,7 @@ void MippMonitor::pubMonitor() {
   mipp_msgs::MippMonitor monitor_msg;
   monitor_msg.header.frame_id = "world";
   monitor_msg.header.stamp = ros::Time::now();
+  monitor_msg.octomap_size = octomap_size_;
   
   for (auto const& vehicle_it : vehicles_) {
     mipp_msgs::MippMonitorVehicle monitor_vehicle;
@@ -222,6 +236,16 @@ void MippMonitor::pubMonitor() {
       monitor_msg.uavs.push_back(monitor_vehicle);
     }
   }
+  
+  if (started_ and writing_csv_) {
+    ROS_INFO_THROTTLE(1.0, "Writing CSV...");
+    csv_file_ << octomap_size_;
+    for (auto const& vehicle : vehicles_) {
+      csv_file_ << "," << vehicle.distance_travelled;
+    }
+    csv_file_ << "\n";
+  }
+
   pub_monitor_.publish(monitor_msg);
 }
 
@@ -236,8 +260,10 @@ void MippMonitor::cliGetOctomap() {
   octomap_msgs::GetOctomap octomap_srv;
   if (cli_get_octomap_.call(octomap_srv)) {
     auto octomap = dynamic_cast<octomap::OcTree*>(octomap_msgs::msgToMap(octomap_srv.response.map));
-    auto octomap_size_ = (int)octomap->calcNumNodes();
-    ROS_WARN("Octomap size %d, binary %d", (int)octomap_size_, (int)octomap_srv.response.map.binary);
+    //auto octomap_size_unpruned = (int)octomap->calcNumNodes();
+    octomap->expand();
+    octomap_size_ = octomap->calcNumNodes()*std::pow(octomap_resolution_, 3);
+    //ROS_DEBUG("Octomap size %d / %d, binary %d", (int)octomap_size_, (int)octomap_size_unpruned, (int)octomap_srv.response.map.binary);
     delete octomap;
   }
   else {
@@ -290,6 +316,36 @@ void MippMonitor::startMipp() {
     return;
   }
 
+  ros::Time start_time = ros::Time::now();
+
+  // Open csv file for writing
+  std::string filename;
+  filename += world_name_ + "_";                                  // World name (low, high or rand)
+  int scenario = 0;                                               // Scenario (0:None, 1:Path, 2:Tour)
+  if (read_path_) scenario = 1;
+  else if (read_tour_) scenario = 2;
+  filename += "sce" + std::to_string(planner_mode_) + "_";
+  filename += "pla" + std::to_string(planner_mode_) + "_";        // Planner mode (0:Exp, 1:Form, 2:Hyb)
+  filename += "ugv" + std::to_string((int)(ugv_vel_*10)) + "_";   // UGV velocity * 10 (since 0.5 is normal)
+  filename += "uav" + std::to_string(nr_of_uavs_) + "_";          // Nr of UAVs (1, 2 or 3)
+  filename += ".csv";
+  ROS_WARN("Writing to CSV filename: %s", filename.c_str());
+
+  //
+  csv_file_.open("/home/kevin/csv/" + filename, std::ios_base::app);
+  csv_file_ << "Date_Time,Time_Used,Info";
+  for (auto const& vehicle : vehicles_) {
+    if (vehicle.type == UGV) {
+      csv_file_ << ",UGV_Dist";
+    }
+    else {
+      std::string uav_name = "UAV" + std::to_string(vehicle.id);
+      csv_file_ << "," + uav_name + "_dist";
+    }
+  }
+  csv_file_ << "\n";
+  writing_csv_ = false;
+
   if (read_path_) {
     ROS_INFO("Reading path from bag %s", path_bag_name_.c_str());
 
@@ -332,14 +388,21 @@ void MippMonitor::startMipp() {
     move_vehicle_goal.goal_path_to_be_improved = false;
     move_vehicle_goal.goal_reached_radius = 1.0;
     move_vehicle_goal.goal_reached_yaw = 0.1;
-    move_vehicle_goal.goal_reached_max_time = 100.0;
+    move_vehicle_goal.goal_reached_max_time = 600.0;
     move_vehicle_client->sendGoal(move_vehicle_goal);
 
-    start_mipp_goal.max_time = 1000.0;
+    start_mipp_goal.max_time = 600.0;
     start_mipp_goal.mipp_mode = planner_mode_;
     start_mipp_client->sendGoal(start_mipp_goal);
 
     started_ = true;
+
+    while (!move_vehicle_client->getState().isDone()) {
+      ros::spinOnce();
+      ros::Duration(0.1).sleep();
+    }
+    ROS_WARN("UGV arrived, stopping writing");
+    writing_csv_ = false;
   }
   else if (read_tour_) {
     ROS_INFO("Reading tour, got %d file names", (int)tour_bag_names_.size());
@@ -388,7 +451,7 @@ void MippMonitor::startMipp() {
     started_ = true;
     float goal_wait_time = 10.0;
     int goal_nr = 1;
-    start_mipp_goal.max_time = 1000.0;
+    start_mipp_goal.max_time = 720.0;
     start_mipp_goal.mipp_mode = planner_mode_;
     start_mipp_client->sendGoal(start_mipp_goal);
     for (auto const& tour_path : tour_) {
@@ -421,17 +484,37 @@ void MippMonitor::startMipp() {
       goal_nr++;
     }
     ROS_WARN("Tour complete");
+    //writing_csv_ = false;
   }
   else {
     ROS_WARN("Didn't read path or tour");
 
-    start_mipp_goal.max_time = 1000.0;
+    start_mipp_goal.max_time = 720.0;
     start_mipp_goal.mipp_mode = planner_mode_;
     start_mipp_client->sendGoal(start_mipp_goal);
 
     started_ = true;
   }
 
+  ROS_INFO_THROTTLE(1.0, "Writing CSV...");
+  // Date/Time
+  time_t t = time(0);
+  struct tm * now = localtime( & t );
+  char buffer[80];
+  strftime(buffer,80,"%Y/%m/%d-%H:%M",now);
+  std::string date_time = buffer;
+  csv_file_ << date_time;
+  // Time used
+  auto time_used = (ros::Time::now() - start_time).toSec();
+  csv_file_ << "," << time_used;
+  // Data
+  csv_file_ << "," << octomap_size_;
+  for (auto const& vehicle : vehicles_) {
+    csv_file_ << "," << vehicle.distance_travelled;
+  }
+  csv_file_ << "\n";
+  
+  csv_file_.close();
 }
 
 int main(int argc, char** argv){
