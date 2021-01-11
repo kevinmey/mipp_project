@@ -307,10 +307,10 @@
       <pose frame=''>23.4467 -2.48551 0 0 -0 1.5708</pose>
     </model>
     <state world_name='default'>
-      <sim_time>3335 384000000</sim_time>
-      <real_time>177 718271723</real_time>
-      <wall_time>1606385367 624543156</wall_time>
-      <iterations>177541</iterations>
+      <sim_time>3464 590000000</sim_time>
+      <real_time>135 850066451</real_time>
+      <wall_time>1610371456 479465539</wall_time>
+      <iterations>129206</iterations>
       <model name='asphalt_plane'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -353,7 +353,7 @@
       </model>
       <model name='unit_box_clone_0_clone_clone'>
         <pose frame=''>-11 16 1 0 2e-06 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>-11 16 1 0 2e-06 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -363,7 +363,7 @@
       </model>
       <model name='unit_box_clone_0_clone_clone_0'>
         <pose frame=''>1 -12 1 0 2e-06 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>1 -12 1 0 2e-06 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -373,7 +373,7 @@
       </model>
       <model name='unit_box_clone_0_clone_clone_1'>
         <pose frame=''>25 -19 1 0 2e-06 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>25 -19 1 0 2e-06 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -383,7 +383,7 @@
       </model>
       <model name='unit_box_clone_1_clone'>
         <pose frame=''>10 18 1 0 2e-06 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>10 18 1 0 2e-06 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -393,7 +393,7 @@
       </model>
       <model name='unit_box_clone_1_clone_0'>
         <pose frame=''>-22 6 1 0 2e-06 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>-22 6 1 0 2e-06 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -413,7 +413,7 @@
       </model>
       <model name='unit_box_clone_1_clone_2'>
         <pose frame=''>22 -5.5 1 0 2e-06 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>22 -5.5 1 0 2e-06 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -423,7 +423,7 @@
       </model>
       <model name='unit_box_clone_1_clone_3'>
         <pose frame=''>-8.5 23.5 1 0 2e-06 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>-8.5 23.5 1 0 2e-06 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -433,7 +433,7 @@
       </model>
       <model name='unit_box_clone_1_clone_4'>
         <pose frame=''>-9 3 1 0 2e-06 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>-9 3 1 0 2e-06 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -443,7 +443,7 @@
       </model>
       <model name='unit_box_clone_clone_clone'>
         <pose frame=''>12 2 1 3e-06 -0 1.5708</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>12 2 1 3e-06 -0 1.5708</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -463,7 +463,7 @@
       </model>
       <model name='unit_box_clone_clone_clone_1'>
         <pose frame=''>19.5 -0.5 1 0 -2e-06 -3.14159</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>19.5 -0.5 1 0 -2e-06 -3.14159</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -473,7 +473,7 @@
       </model>
       <model name='unit_box_clone_clone_clone_2'>
         <pose frame=''>14 27.5 1 0 2e-06 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>14 27.5 1 0 2e-06 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -483,7 +483,7 @@
       </model>
       <model name='unit_cylinder_clone_0_clone'>
         <pose frame=''>0.586728 23 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>0.586728 23 1 0 -0 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -493,7 +493,7 @@
       </model>
       <model name='unit_cylinder_clone_0_clone_0'>
         <pose frame=''>-12 -16 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>-12 -16 1 0 -0 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -503,7 +503,7 @@
       </model>
       <model name='unit_cylinder_clone_0_clone_1'>
         <pose frame=''>-23 24 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>-23 24 1 0 -0 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -513,7 +513,7 @@
       </model>
       <model name='unit_cylinder_clone_0_clone_2'>
         <pose frame=''>13 -12 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>13 -12 1 0 -0 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -523,7 +523,7 @@
       </model>
       <model name='unit_cylinder_clone_0_clone_3'>
         <pose frame=''>3.50072 10 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>3.50072 10 1 0 -0 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -533,7 +533,7 @@
       </model>
       <model name='unit_cylinder_clone_clone_clone'>
         <pose frame=''>22 13 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>22 13 1 0 -0 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -543,7 +543,7 @@
       </model>
       <model name='unit_cylinder_clone_clone_clone_0'>
         <pose frame=''>-21 -6 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
+        <scale>1 1 3</scale>
         <link name='link'>
           <pose frame=''>-21 -6 1 0 -0 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
@@ -597,7 +597,7 @@
     </state>
     <gui fullscreen='0'>
       <camera name='user_camera'>
-        <pose frame=''>-15.2359 -76.5357 44.5072 0 0.4218 1.2051</pose>
+        <pose frame=''>-50.0515 13.6224 64.8316 -0 0.825801 -0.138875</pose>
         <view_controller>orbit</view_controller>
         <projection_type>perspective</projection_type>
       </camera>
