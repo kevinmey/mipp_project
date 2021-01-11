@@ -10,7 +10,8 @@
   <arg name="initial_y"     default="0"/>
   <arg name="takeoff_z"     default="2.0"/>
 
-  <arg name="uav_planner_rate"     default="100.0"/>
+  <arg name="uav_planner_rate"      default="100.0"/>
+  <arg name="uav_max_ray_distance"  default="4.0"/>
 
   <arg name="com_range"     default="15.0"/>
 
@@ -122,7 +123,7 @@
       <arg name="uav_start_y"           value="$(arg initial_y)"/>
       <arg name="uav_takeoff_z"         value="$(arg takeoff_z)"/>
       <arg name="uav_planner_rate"      value="$(arg uav_planner_rate)"/>
-      <arg name="uav_max_ray_distance"      value="5.0"/>
+      <arg name="uav_max_ray_distance"  value="$(arg uav_max_ray_distance)"/>
     </include>
 
     <!-- Relay/republish pointcloud to common cloud for OctoMap -->
@@ -150,7 +151,7 @@
       <param name="vehicle_size_z"              value="0.4" />
     </node>
     
-    <node pkg="mipp_packages" type="communication_constraint_visualizer_node" name="communication_constraint_visualizer_node" respawn="true" output="screen">
+    <node pkg="mipp_packages" type="communication_constraint_visualizer_node" name="communication_constraint_visualizer_node" respawn="true" output="log">
       <param name="vehicle_id"                  value="$(arg uav_id)" />
       <param name="world_frame"                 value="map" />
       <param name="vehicle_pose_topic"          value="$(arg ns)/mavros/local_position/pose" />
