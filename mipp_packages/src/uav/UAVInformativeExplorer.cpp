@@ -316,7 +316,7 @@ void UAVInformativeExplorer::runExploration() {
     octomap_msgs::GetOctomap octomap_srv;
     if (cli_get_octomap_.call(octomap_srv)) {
       map_ = std::shared_ptr<octomap::OcTree>(dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(octomap_srv.response.map)));
-      ROS_WARN("Got Octomap");
+      ROS_DEBUG("Got Octomap");
       received_map_ = true;
     }
     else {

@@ -112,7 +112,7 @@ void ComConstraintVisualizer::cliGetOctomap() {
   ROS_DEBUG("cliGetOctomap");
   octomap_msgs::GetOctomap octomap_srv;
   if (cli_get_octomap_.call(octomap_srv)) {
-    ROS_WARN("Got OctoMap");
+    ROS_DEBUG("Got OctoMap");
     map_ = std::shared_ptr<octomap::OcTree> (dynamic_cast<octomap::OcTree*> (octomap_msgs::msgToMap(octomap_srv.response.map)));
     received_map_ = true;
   }
