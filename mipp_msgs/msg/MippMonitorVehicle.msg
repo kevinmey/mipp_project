@@ -2,7 +2,8 @@ uint8 id
 
 geometry_msgs/Point position
 float64 yaw
-float64 distance_travelled
+float64 euc_dist_travelled
+float64 yaw_dist_travelled
 
 int8 FSM_STATE_INIT=-1
 int8 FSM_STATE_IDLE=0
