@@ -225,7 +225,7 @@ void UAVPlanner::sendExplorationGoal(float exploration_time) {
     }
   }
   exploration_goal.sampling_centers = *global_ugv_waypoints;
-  exploration_goal.sampling_radius = 7.0;
+  exploration_goal.sampling_radius = com_range - com_range_padding;
   exploration_goal.sampling_z = uav_altitude;
   exploration_goal.sampling_z_interval = 0.1;
   exploration_client->sendGoal(exploration_goal);
@@ -494,7 +494,8 @@ nav_msgs::Path UAVPlanner::getEscortPath(const std::vector<geometry_msgs::Point>
     }
     else if (waypoint_distance < 0.01) {
       // Waypoints basically on top of each other, ie. UGV will stand still at this point -> Cant deduce orientation, use last orientation
-      ugv_pose.orientation = ugv_pose.orientation;
+      //ugv_pose.orientation = ugv_pose.orientation;
+      return escort_path;
     }
     else {
       // Waypoints far enough that it makes sense to deduce
