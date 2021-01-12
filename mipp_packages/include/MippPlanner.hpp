@@ -93,6 +93,7 @@ struct UAVPlanner
   float uav_altitude;
   int uav_id;
   float com_range;
+  float com_range_padding;
   std::shared_ptr<octomap::OcTree> octomap;
   // General vehicle variables
   nav_msgs::Odometry uav_odometry;
@@ -295,6 +296,7 @@ private:
   bool run_escorting_;
   bool run_hybrid_;
   bool run_simple_formation_;
+  bool reshaping_formation_;
   std::shared_ptr<octomap::OcTree> octomap_; 
   bool received_octomap_;
   int octomap_size_;
