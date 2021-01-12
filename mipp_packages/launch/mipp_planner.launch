@@ -9,8 +9,12 @@
   <arg name="ugv_start_y"       default="0.0"/>
   <arg name="ugv_velocity"      default="1.0"/>
   <arg name="run_simple_formation"      default="false"/>
+  <!--- Mipp server -->
+  <arg name="c_info"            default="10.0"/>
+  <arg name="c_euc_dist"        default="-1.0"/>
+  <arg name="c_yaw_dist"        default="-1.0"/>
 
-  <node pkg="mipp_packages" type="mipp_planner_node" name="mipp_planner_node" output="log">
+  <node pkg="mipp_packages" type="mipp_planner_node" name="mipp_planner_node" output="screen">
     <param name="nr_of_uavs"                        value="$(arg nr_of_uavs)"/>
     <param name="planner_com_range"                 value="$(arg com_range)"/>
     <param name="ugv_ns"                            value="$(arg ugv_ns)"/>
@@ -18,6 +22,10 @@
     <param name="ugv_start_y"                       value="$(arg ugv_start_y)"/>
     <param name="ugv_nav_waypoint_max_distance"     value="$(eval arg('ugv_velocity')*2.0)"/>
     <param name="run_simple_formation"              value="$(arg run_simple_formation)"/>
+    <!--- Mipp server -->
+    <param name="c_info"        value="$(arg c_info)"/>
+    <param name="c_euc_dist"    value="$(arg c_euc_dist)"/>
+    <param name="c_yaw_dist"    value="$(arg c_yaw_dist)"/>
   </node>
 </launch>
 

@@ -72,7 +72,8 @@
 			"cinttypes": "cpp",
 			"typeindex": "cpp",
 			"typeinfo": "cpp",
-			"*.ipp": "cpp"
+			"*.ipp": "cpp",
+			"filesystem": "cpp"
 		},
 		"python.autoComplete.extraPaths": [
 			"/home/kevin/catkin_ws/devel/lib/python2.7/dist-packages",

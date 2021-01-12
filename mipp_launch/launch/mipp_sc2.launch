@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="run_gazebo"  default="true"/>
-  <arg name="world_name"        default="rand" />
+  <arg name="world_name"        default="low" />
   <arg name="world_file_name"   default="sc2/shapes_2_$(arg world_name)" />
   <!--<arg name="world_file_name"   default="disaster_60x60" />-->
   <arg name="world_path"        default="$(find mipp_gazebo)/worlds/$(arg world_file_name).world" />
@@ -22,8 +22,21 @@
   <arg name="ugv_start_x"              default="0.0"/>
   <arg name="ugv_start_y"              default="0.0"/>
 -->
+<!--
   <arg name="ugv_start_x"              default="-25.0"/>
   <arg name="ugv_start_y"              default="-25.0"/>
+-->
+  <arg name="ugv_start_x"              default="0.0"/>
+  <arg name="ugv_start_y"              default="0.0"/>
+
+  <!-- PLANNER MODES 
+    0.  EXPLORATION_MODE
+    1.  SIMPLE_FORMATION_MODE
+    2.  RESAMPLING_FORMATION_MODE
+    3.  HYBRID_MODE
+    4.  SPLIT_MODE
+  -->
+  <arg name="planner_mode"             default="2"/>
 
   <node pkg="tf" type="static_transform_publisher" name="tf_map_odom_link" args="0 0 0 0 0 0  /map /odom  50"/>
   <node pkg="tf" type="static_transform_publisher" name="tf_world_map_link" args="0 0 0 0 0 0  /world /map  50"/>
@@ -126,7 +139,7 @@
   </group>
 
   <!--- 
-    Mipp server
+    Mipp planner
   -->
   <group if="$(arg run_mipp_planner)">
     <include file="$(find mipp_packages)/launch/mipp_planner.launch">
@@ -135,7 +148,10 @@
       <arg name="ugv_ns"        value="/ugv/"/>
       <arg name="ugv_start_x"   value="$(arg ugv_start_x)"/>
       <arg name="ugv_start_y"   value="$(arg ugv_start_y)"/>
-      <arg name="run_simple_formation"   value="false"/>
+      <!--- Mipp server -->
+      <arg name="c_info"        value="10.0"/>
+      <arg name="c_euc_dist"    value="-1.0"/>
+      <arg name="c_yaw_dist"    value="-1.0"/>
     </include>
   </group>
   
@@ -159,14 +175,14 @@
   <arg name="tour_file_names" default="[$(find mipp_launch)/bags/sc2_tour_1a.bag, $(find mipp_launch)/bags/sc2_tour_1b.bag, $(find mipp_launch)/bags/sc2_tour_1c.bag]"/>
   <node name="mipp_monitor_node" pkg="mipp_packages" type="mipp_monitor_node" output="screen">
     <param name="world_name"                value="$(arg world_name)" />
-    <param name="planner_mode"              value="1" />
+    <param name="planner_mode"              value="$(arg planner_mode)" />
     <param name="auto_start"                value="true" />
     <param name="ugv_vel"                   value="$(arg ugv_vel)"/>
     <param name="nr_of_uavs"                value="$(arg nr_of_uavs)" />
     <param name="frequency"                 value="1.0" />
     <param name="resolution"                value="$(arg octomap_resolution)"/>
     <param name="write_path"                value="false" />
-    <param name="read_path"                 value="true" />
+    <param name="read_path"                 value="false" />
     <param name="path_file_name"            value="$(find mipp_launch)/bags/sc2_path_1.bag" />
     <param name="read_tour"                 value="false" />
     <rosparam param="tour_file_names" subst_value="True">$(arg tour_file_names)</rosparam>
