@@ -314,14 +314,22 @@ ComConstraintVisualizer::ComConstraintVisualizer(ros::NodeHandle n, ros::NodeHan
   
   has_base_station_pose_ = false;
   has_vehicle_pose_ = false;
+  received_map_ = false;
+  
+  cli_timer_get_octomap_ = n.createTimer(ros::Duration(1.0), boost::bind(&ComConstraintVisualizer::cliGetOctomap, this));
+  cli_get_octomap_ = n.serviceClient<octomap_msgs::GetOctomap>("/octomap_binary");
+  while(!received_map_)
+  {
+    ROS_WARN("No map received yet, waiting...");
+    ros::spinOnce();
+    ros::Duration(0.5).sleep();
+  }
 
   sub_vehicle_pose_ = n.subscribe(vehicle_pose_topic_, 1, &ComConstraintVisualizer::vehiclePoseCallback, this);
   sub_base_station_pose_ = n.subscribe(base_station_odom_topic_, 1, &ComConstraintVisualizer::baseStationPoseCallback, this);
   //sub_octomap_        = n.subscribe("/octomap_binary", 1, &ComConstraintVisualizer::octomapCallback, this);
   pub_constraint_state_ = n.advertise<mipp_msgs::CommunicationState>("ComConstraintVisualizer/constraint_state", 1);
   pub_viz_constraint_ = n.advertise<visualization_msgs::Marker>("viz_constraint", 1);
-  cli_timer_get_octomap_ = n.createTimer(ros::Duration(1.0), boost::bind(&ComConstraintVisualizer::cliGetOctomap, this));
-  cli_get_octomap_ = n.serviceClient<octomap_msgs::GetOctomap>("/octomap_binary");
   tf_listener_ = new tf2_ros::TransformListener(tf_buffer_);
 
   mipp_msgs::CommunicationState com_state;
@@ -330,13 +338,6 @@ ComConstraintVisualizer::ComConstraintVisualizer(ros::NodeHandle n, ros::NodeHan
   com_state.base_station_id = -1;
   range_counter_ = 0;
   los_counter_ = 0;
-
-  while(!received_map_)
-  {
-    ROS_WARN("No map received yet, waiting...");
-    ros::spinOnce();
-    ros::Duration(0.5).sleep();
-  }
 
   ros::Rate loop_rate(publish_rate_);
   while (ros::ok())
