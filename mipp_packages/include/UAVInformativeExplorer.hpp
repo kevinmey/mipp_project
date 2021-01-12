@@ -72,6 +72,7 @@ private:
   double calculateInformationGain(geometry_msgs::Point origin, double yaw);
   geometry_msgs::Point generateRandomPoint();
   void extendTreeRRTstar(geometry_msgs::Point candidate_point, double candidate_yaw);
+  bool isPoseCollisionFree(geometry_msgs::Point pose);
   bool isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b);
   geometry_msgs::Point getCollisionFreePoint(geometry_msgs::Point point_a, geometry_msgs::Point point_b);
   bool isGoalReached();

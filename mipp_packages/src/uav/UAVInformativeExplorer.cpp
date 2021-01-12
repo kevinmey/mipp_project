@@ -602,6 +602,54 @@ void UAVInformativeExplorer::extendTreeRRTstar(geometry_msgs::Point candidate_po
   }
 }
 
+bool UAVInformativeExplorer::isPoseCollisionFree(geometry_msgs::Point pose) {
+  /*
+  / UNUSED AS OF NOW
+  */
+  ROS_DEBUG("isPoseCollisionFree");
+  double occupancy_threshold = map_->getOccupancyThres();
+  bool unmapped_is_collision = true;
+
+  // Check center point occupancy
+  octomap::OcTreeNode* om_center_node = map_->search(pose.x, pose.y, pose.z);
+  if (om_center_node != NULL) {
+    double node_occupancy = om_center_node->getOccupancy();
+    ROS_DEBUG("Node value: %f", node_occupancy);
+    if (node_occupancy > occupancy_threshold) {
+      // End node is occupied
+      return false;
+    }
+  }
+  else if (unmapped_is_collision) {
+    // End node is unmapped
+    return false;
+  }
+
+  // Iterate over bounding box
+  //for (auto leaf_it = map_->begin_leafs(), end = map_->end_leafs(); leaf_it != end; ++leaf_it) {
+  //  auto leaf_node = map_->
+  //}
+
+  /*
+  octomap::point3d om_center_point(pose.x, pose.y, pose.z);
+  octomap::point3d om_end_point;
+  for (auto const& collision_point_it : collision_points) {
+    bool hit_occupied = octomap->castRay(om_center_point, collision_point_it, om_end_point, true, 0.75);
+    if (hit_occupied) {return false;}
+    octomap::OcTreeNode* om_end_node = octomap->search(om_end_point.x(), om_end_point.y(), om_end_point.z());
+    if (om_end_node != NULL) {
+      double node_occupancy = om_end_node->getOccupancy();
+      ROS_DEBUG("Node value: %f", node_occupancy);
+      if (node_occupancy > occupancy_threshold) {
+        // End node is occupied
+        return false;
+      }
+    }
+  }*/
+
+  return true;
+}
+
 bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, geometry_msgs::Point point_b) {
   ROS_DEBUG("isPathCollisionFree");
 
@@ -622,6 +670,8 @@ bool UAVInformativeExplorer::isPathCollisionFree(geometry_msgs::Point point_a, g
       return false;
     }
   }
+
+  // Check if endpoint
 
   // Attempt to cast OctoMap ray
   geometry_msgs::Vector3 direction_ab = getDirection(point_a, point_b);
