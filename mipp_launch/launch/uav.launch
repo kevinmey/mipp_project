@@ -156,7 +156,7 @@
       <param name="world_frame"                 value="map" />
       <param name="vehicle_pose_topic"          value="/gazebo/ground_truth_$(arg uav_name)" />
       <param name="base_station_odom_topic"     value="/gazebo/ground_truth_ugv" />
-      <param name="base_station_antenna_height" value="0.6" />
+      <param name="base_station_antenna_height" value="1.0" />
       <param name="communication_range"         value="$(arg com_range)" />
       <param name="publish_rate"                value="10.0" />
       <param name="counter_ceiling"             value="10" />

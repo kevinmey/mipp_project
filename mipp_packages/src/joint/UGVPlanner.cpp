@@ -84,8 +84,9 @@ void UGVPlanner::createNavigationWaypoints(int nr_of_ugv_nav_waypoints, bool add
   }
 
   // Increase height of waypoints
+  float ugv_antenna_height = 1.0;
   for (auto& waypoint : navigation_waypoints) {
-    waypoint.z = 0.6;
+    waypoint.z = ugv_antenna_height;
   }
 }
 
