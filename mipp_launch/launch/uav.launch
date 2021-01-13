@@ -154,12 +154,12 @@
     <node pkg="mipp_packages" type="communication_constraint_visualizer_node" name="communication_constraint_visualizer_node" respawn="true" output="screen">
       <param name="vehicle_id"                  value="$(arg uav_id)" />
       <param name="world_frame"                 value="map" />
-      <param name="vehicle_pose_topic"          value="$(arg ns)/mavros/local_position/pose" />
-      <param name="base_station_odom_topic"     value="/ugv/odometry/filtered" />
+      <param name="vehicle_pose_topic"          value="/gazebo/ground_truth_$(arg uav_name)" />
+      <param name="base_station_odom_topic"     value="/gazebo/ground_truth_ugv" />
       <param name="base_station_antenna_height" value="0.6" />
       <param name="communication_range"         value="$(arg com_range)" />
-      <param name="publish_rate"                value="10" />
-      <param name="counter_ceiling"             value="5" />
+      <param name="publish_rate"                value="10.0" />
+      <param name="counter_ceiling"             value="10" />
       <param name="unmapped_is_occupied"        value="false" />
     </node>
     
