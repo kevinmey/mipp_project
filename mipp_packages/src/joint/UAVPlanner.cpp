@@ -4,13 +4,14 @@
 
 void UAVPlanner::init(ros::NodeHandle n) {
   // Subscribers
-  sub_odometry = n.subscribe("/gazebo/ground_truth_uav"+std::to_string(uav_id), 1, &UAVPlanner::subOdometry, this);
+  sub_odometry  = n.subscribe("/gazebo/ground_truth_uav"+std::to_string(uav_id), 1, &UAVPlanner::subOdometry, this);
+  sub_com       = n.subscribe("/uav"+std::to_string(uav_id)+"/ComConstraintVisualizer/constraint_state", 1, &UAVPlanner::subCom, this);
   // Global Info (Stored in MippPlanner object)
   (*global_sensor_coverages)[uav_id] = sensor_coverage;
   (*global_uav_paths)[uav_id] = navigation_path;
   // Recovery behaviour
   no_viable_plan = false;
-  out_of_com_range = false;
+  com_constraints_broken = false;
   // Vehicle planner state
   vehicle_state = INIT;
   state_timer = n.createTimer(ros::Duration(0.1), boost::bind(&UAVPlanner::updateStateMachine, this));
@@ -44,6 +45,17 @@ void UAVPlanner::init(ros::NodeHandle n) {
   //std::random_device rd;  // Non-deterministic random nr. to seed generator
   //rng_generator = std::default_random_engine(rd());
   //rng_unit_distribution = std::uniform_real_distribution<double>(0.0, 1.0);
+}
+
+void UAVPlanner::subCom(const mipp_msgs::CommunicationStateConstPtr& com_msg)
+{
+  ROS_DEBUG("subCom");
+  if (com_msg->state == mipp_msgs::CommunicationState::STATE_WORKING) {
+    com_constraints_broken = false;
+  }
+  else {
+    com_constraints_broken = true;
+  }
 }
 
 void UAVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
@@ -186,8 +198,8 @@ void UAVPlanner::updateStateMachine() {
 }
 
 bool UAVPlanner::recoveryRequired() {
-  if ((no_viable_plan or out_of_com_range) and (vehicle_state != RECOVERING) and (vehicle_state != INIT)) {
-    ROS_WARN("Recovery: Plan(%d), Range(%d), State(%d)", (int)no_viable_plan, (int)out_of_com_range, (int)vehicle_state);
+  if ((no_viable_plan or com_constraints_broken) and (vehicle_state != RECOVERING) and (vehicle_state != INIT)) {
+    ROS_WARN("Recovery: Plan(%d), Com. broken(%d), State(%d)", (int)no_viable_plan, (int)com_constraints_broken, (int)vehicle_state);
     return true;
   }
   return false;
@@ -280,12 +292,31 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
     // Check if com constraints are satisfied
     bool com_constraint_satisfied = true;
     int nav_waypoint_idx = 0;
+    geometry_msgs::Point base_ugv_waypoint;
     for (auto const& pose_it : path_it.poses) {
+      geometry_msgs::Point ugv_waypoint, next_ugv_waypoint;
+      try {
+        ugv_waypoint = global_ugv_waypoints->at(nav_waypoint_idx);
+      }
+      catch (std::out_of_range const& exc) {
+        ROS_ERROR("Index %d out of UGV waypoint range %d", (int)nav_waypoint_idx, (int)global_ugv_waypoints->size());
+        ugv_waypoint = base_ugv_waypoint;
+      }
+      try {
+        next_ugv_waypoint = global_ugv_waypoints->at(nav_waypoint_idx+1);
+      }
+      catch (std::out_of_range const& exc) {
+        ROS_ERROR("Index %d out of UGV waypoint range %d", (int)nav_waypoint_idx+1, (int)global_ugv_waypoints->size());
+        next_ugv_waypoint = base_ugv_waypoint;
+      }
+      base_ugv_waypoint = ugv_waypoint;
+
+      bool ignore_unknown = false;
       com_constraint_satisfied = com_constraint_satisfied 
-                             and getDistanceBetweenPoints(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx))) < com_range
-                             and getDistanceBetweenPoints(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx+1))) < com_range
-                             and doPointsHaveLOS(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx)))
-                             and doPointsHaveLOS(pose_it.pose.position, (global_ugv_waypoints->at(nav_waypoint_idx+1)));
+                             and getDistanceBetweenPoints(pose_it.pose.position, ugv_waypoint) < com_range + com_range_padding
+                             and getDistanceBetweenPoints(pose_it.pose.position, next_ugv_waypoint) < com_range + com_range_padding
+                             and doPointsHaveLOS(pose_it.pose.position, ugv_waypoint, ignore_unknown, octomap)
+                             and doPointsHaveLOS(pose_it.pose.position, next_ugv_waypoint, ignore_unknown, octomap);
       nav_waypoint_idx++;
     }
 
@@ -513,25 +544,57 @@ nav_msgs::Path UAVPlanner::getEscortPath(const std::vector<geometry_msgs::Point>
 
 // LOS
 
-bool UAVPlanner::doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b) {
+/*bool UAVPlanner::doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b) {
   ROS_DEBUG("doPointsHaveLOS");
 
   double occupancy_threshold = octomap->getOccupancyThres();
   float point_distance = getDistanceBetweenPoints(point_a, point_b);
+  bool ignore_unknown = false;
+  auto unknown_cell_dist = 1.0;
   octomap::point3d om_end_point;
 
   octomap::point3d om_point_a(point_a.x, point_a.y, point_a.z);
   geometry_msgs::Vector3 direction_ab = getDirection(point_a, point_b);
   octomap::point3d om_direction_ab(direction_ab.x, direction_ab.y, direction_ab.z);
-  bool hit_occupied_ab = octomap->castRay(om_point_a, om_direction_ab, om_end_point, true, point_distance);
+
+  bool hit_occupied_ab = octomap->castRay(om_point_a, om_direction_ab, om_end_point, ignore_unknown, point_distance);
+  geometry_msgs::Point ray_end_point_ab = makePoint(om_end_point.x(), om_end_point.y(), om_end_point.z());
+  ROS_DEBUG_COND(hit_occupied_ab, "Hit occ. ab: (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f)",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ab.x, ray_end_point_ab.y, ray_end_point_ab.z,
+                                  point_b.x, point_b.y, point_b.z);
+
+  auto ray_end_point_to_point_b_distance = getDistanceBetweenPoints(point_b, ray_end_point_ab);
+  bool hit_unknown_ab = (ray_end_point_to_point_b_distance > unknown_cell_dist);
+  ROS_DEBUG_COND(hit_unknown_ab, "Hit unk. ab: (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f) : dist: %.2f",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ab.x, ray_end_point_ab.y, ray_end_point_ab.z,
+                                  point_b.x, point_b.y, point_b.z,
+                                  ray_end_point_to_point_b_distance);
 
   octomap::point3d om_point_b(point_b.x, point_b.y, point_b.z);
   geometry_msgs::Vector3 direction_ba = getDirection(point_b, point_a);
   octomap::point3d om_direction_ba(direction_ba.x, direction_ba.y, direction_ba.z);
-  bool hit_occupied_ba = octomap->castRay(om_point_b, om_direction_ba, om_end_point, true, point_distance);
 
-  return (!hit_occupied_ab and !hit_occupied_ba);
-}
+  bool hit_occupied_ba = octomap->castRay(om_point_b, om_direction_ba, om_end_point, ignore_unknown, point_distance);
+  geometry_msgs::Point ray_end_point_ba = makePoint(om_end_point.x(), om_end_point.y(), om_end_point.z());
+  ROS_DEBUG_COND(hit_occupied_ba, "Hit occ. ba: (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f)",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ba.x, ray_end_point_ba.y, ray_end_point_ba.z,
+                                  point_b.x, point_b.y, point_b.z);
+
+  auto ray_end_point_to_point_a_distance = getDistanceBetweenPoints(point_a, ray_end_point_ba);
+  bool hit_unknown_ba = (ray_end_point_to_point_a_distance > unknown_cell_dist);
+  ROS_DEBUG_COND(hit_unknown_ba, "Hit occ. ba: (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f) : dist: %.2f",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ba.x, ray_end_point_ba.y, ray_end_point_ba.z,
+                                  point_b.x, point_b.y, point_b.z,
+                                  ray_end_point_to_point_a_distance);
+
+  bool hit_unknown = (hit_unknown_ab and hit_unknown_ba) and (getDistanceBetweenPoints(ray_end_point_ab, ray_end_point_ba) > unknown_cell_dist);
+
+  return (!hit_occupied_ab and !hit_occupied_ba) and (!hit_unknown);
+}*/
 
 // Collision
 
@@ -681,7 +744,7 @@ float UAVPlanner::getPathInfoGain(const nav_msgs::Path& path, const std::vector<
     }
     // Need ratio of sensor coverage area to sensor overlap area (capped at max 1, aka 100%)
     double pose_sensor_coverage_overlap_ratio = pose_sensor_coverage_overlap / (M_PI*pow(pose_sensor_coverage.radius, 2));
-    path_info_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain;
+    path_info_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 0.9))*pose_gain;
     path_sensor_coverages.push_back(pose_sensor_coverage);
     ROS_DEBUG("Pose gain: (%.2f) * %.2f = %.2f", pose_sensor_coverage_overlap_ratio, pose_gain, (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain);
 

@@ -44,6 +44,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
   run_escorting_ = false;
   run_hybrid_ = false;
   reshaping_formation_ = false;
+  //com_constraints_broken_ = false;
 
   // Wait for map
   received_octomap_ = false;
@@ -185,13 +186,12 @@ void MippPlanner::runUpdates() {
     }
   }
 
-  // Check if UAVs are still fulfilling com constraints
+  // Update recovery goals
   for (auto& uav_it : uav_planners_) {
     uav_it.recovery_goal.header = ugv_planner_.ugv_odometry->header;
     uav_it.recovery_goal.pose = ugv_planner_.ugv_odometry->pose.pose;
     uav_it.recovery_goal.pose.position.z = uav_it.uav_altitude;
-    auto uav_distance = getDistanceBetweenPoints(ugv_planner_.ugv_odometry->pose.pose.position, uav_it.uav_odometry.pose.pose.position);
-    uav_it.out_of_com_range = (uav_distance > com_range_);
+    //uav_it.com_constraints_broken = com_constraints_broken_;
   }
 
   // Visualize
@@ -422,7 +422,7 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   np.param<float>("planner_com_range_padding", com_range_padding_, 1.0);
   np.param<float>("planner_hybrid_distance", planner_hybrid_distance_, 5.0);
   // Planners
-  np.param<float>("planner_sample_radius", sample_radius_, 1.0);
+  np.param<float>("planner_sample_radius", sample_radius_, 2.5);
   np.param<float>("planner_sample_yaw_range", sample_yaw_range_, M_PI/6.0);
   np.param<bool>("run_simple_formation", run_simple_formation_, true);
   // Utility
@@ -473,25 +473,57 @@ geometry_msgs::Pose MippPlanner::getFormationPose(int uav_id) {
   return formation_pose;
 }
 
-bool MippPlanner::doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b) {
+/*bool MippPlanner::doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b) {
   ROS_DEBUG("doPointsHaveLOS");
 
   double occupancy_threshold = octomap_->getOccupancyThres();
   float point_distance = getDistanceBetweenPoints(point_a, point_b);
+  bool ignore_unknown = false;
+  auto unknown_cell_dist = 1.0;
   octomap::point3d om_end_point;
 
   octomap::point3d om_point_a(point_a.x, point_a.y, point_a.z);
   geometry_msgs::Vector3 direction_ab = getDirection(point_a, point_b);
   octomap::point3d om_direction_ab(direction_ab.x, direction_ab.y, direction_ab.z);
-  bool hit_occupied_ab = octomap_->castRay(om_point_a, om_direction_ab, om_end_point, false, point_distance);
+
+  bool hit_occupied_ab = octomap_->castRay(om_point_a, om_direction_ab, om_end_point, ignore_unknown, point_distance);
+  geometry_msgs::Point ray_end_point_ab = makePoint(om_end_point.x(), om_end_point.y(), om_end_point.z());
+  ROS_DEBUG_COND(hit_occupied_ab, "Hit occ. ab: (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f)",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ab.x, ray_end_point_ab.y, ray_end_point_ab.z,
+                                  point_b.x, point_b.y, point_b.z);
+
+  auto ray_end_point_to_point_b_distance = getDistanceBetweenPoints(point_b, ray_end_point_ab);
+  bool hit_unknown_ab = (ray_end_point_to_point_b_distance > unknown_cell_dist);
+  ROS_DEBUG_COND(hit_unknown_ab, "Hit unk. ab: (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f) : dist: %.2f",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ab.x, ray_end_point_ab.y, ray_end_point_ab.z,
+                                  point_b.x, point_b.y, point_b.z,
+                                  ray_end_point_to_point_b_distance);
 
   octomap::point3d om_point_b(point_b.x, point_b.y, point_b.z);
   geometry_msgs::Vector3 direction_ba = getDirection(point_b, point_a);
   octomap::point3d om_direction_ba(direction_ba.x, direction_ba.y, direction_ba.z);
-  bool hit_occupied_ba = octomap_->castRay(om_point_b, om_direction_ba, om_end_point, false, point_distance);
 
-  return (!hit_occupied_ab and !hit_occupied_ba);
-}
+  bool hit_occupied_ba = octomap_->castRay(om_point_b, om_direction_ba, om_end_point, ignore_unknown, point_distance);
+  geometry_msgs::Point ray_end_point_ba = makePoint(om_end_point.x(), om_end_point.y(), om_end_point.z());
+  ROS_DEBUG_COND(hit_occupied_ba, "Hit occ. ba: (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f)",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ba.x, ray_end_point_ba.y, ray_end_point_ba.z,
+                                  point_b.x, point_b.y, point_b.z);
+
+  auto ray_end_point_to_point_a_distance = getDistanceBetweenPoints(point_a, ray_end_point_ba);
+  bool hit_unknown_ba = (ray_end_point_to_point_a_distance > unknown_cell_dist);
+  ROS_DEBUG_COND(hit_unknown_ba, "Hit occ. ba: (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f) : dist: %.2f",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ba.x, ray_end_point_ba.y, ray_end_point_ba.z,
+                                  point_b.x, point_b.y, point_b.z,
+                                  ray_end_point_to_point_a_distance);
+
+  bool hit_unknown = (hit_unknown_ab and hit_unknown_ba) and (getDistanceBetweenPoints(ray_end_point_ab, ray_end_point_ba) > unknown_cell_dist);
+
+  return (!hit_occupied_ab and !hit_occupied_ba) and (!hit_unknown);
+}*/
 
 // Visualization
 
@@ -668,8 +700,8 @@ void MippPlanner::visualizeNavWaypoints() {
   line_marker.color.g = 1.0;
   line_marker.color.b = 0.1;
   for (auto const& nav_waypoints : ugv_planner_.navigation_waypoints) {
-    line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 0.0));
-    line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 2.0));
+    line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 0.2));
+    line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 1.0));
   }
   pub_viz_nav_waypoints_.publish(line_marker);
 }

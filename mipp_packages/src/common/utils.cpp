@@ -163,6 +163,63 @@ int resolveUri(std::string& uri) {
 
 // Planner functions
 
+bool doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b, 
+                     bool ignore_unknown, float unknown_cell_dist, 
+                     const std::shared_ptr<octomap::OcTree>& map) {
+  ROS_DEBUG("doPointsHaveLOS");
+
+  double occupancy_threshold = map->getOccupancyThres();
+  float point_distance = getDistanceBetweenPoints(point_a, point_b);
+  octomap::point3d om_end_point;
+
+  octomap::point3d om_point_a(point_a.x, point_a.y, point_a.z);
+  geometry_msgs::Vector3 direction_ab = getDirection(point_a, point_b);
+  octomap::point3d om_direction_ab(direction_ab.x, direction_ab.y, direction_ab.z);
+
+  bool hit_occupied_ab = map->castRay(om_point_a, om_direction_ab, om_end_point, ignore_unknown, point_distance);
+  geometry_msgs::Point ray_end_point_ab = makePoint(om_end_point.x(), om_end_point.y(), om_end_point.z());
+  ROS_DEBUG_COND(hit_occupied_ab, "Hit occ. ab: (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f)",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ab.x, ray_end_point_ab.y, ray_end_point_ab.z,
+                                  point_b.x, point_b.y, point_b.z);
+
+  auto ray_end_point_to_point_b_distance = getDistanceBetweenPoints(point_b, ray_end_point_ab);
+  bool hit_unknown_ab = (ray_end_point_to_point_b_distance > unknown_cell_dist);
+  ROS_DEBUG_COND(hit_unknown_ab, "Hit unk. ab: (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f) : dist: %.2f",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ab.x, ray_end_point_ab.y, ray_end_point_ab.z,
+                                  point_b.x, point_b.y, point_b.z,
+                                  ray_end_point_to_point_b_distance);
+
+  octomap::point3d om_point_b(point_b.x, point_b.y, point_b.z);
+  geometry_msgs::Vector3 direction_ba = getDirection(point_b, point_a);
+  octomap::point3d om_direction_ba(direction_ba.x, direction_ba.y, direction_ba.z);
+
+  bool hit_occupied_ba = map->castRay(om_point_b, om_direction_ba, om_end_point, ignore_unknown, point_distance);
+  geometry_msgs::Point ray_end_point_ba = makePoint(om_end_point.x(), om_end_point.y(), om_end_point.z());
+  ROS_DEBUG_COND(hit_occupied_ba, "Hit occ. ba: (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f)",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ba.x, ray_end_point_ba.y, ray_end_point_ba.z,
+                                  point_b.x, point_b.y, point_b.z);
+
+  auto ray_end_point_to_point_a_distance = getDistanceBetweenPoints(point_a, ray_end_point_ba);
+  bool hit_unknown_ba = (ray_end_point_to_point_a_distance > unknown_cell_dist);
+  ROS_DEBUG_COND(hit_unknown_ba, "Hit occ. ba: (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f) <- (%.2f, %.2f, %.2f) : dist: %.2f",
+                                  point_a.x, point_a.y, point_a.z, 
+                                  ray_end_point_ba.x, ray_end_point_ba.y, ray_end_point_ba.z,
+                                  point_b.x, point_b.y, point_b.z,
+                                  ray_end_point_to_point_a_distance);
+
+  bool hit_unknown = (hit_unknown_ab and hit_unknown_ba) and (getDistanceBetweenPoints(ray_end_point_ab, ray_end_point_ba) > unknown_cell_dist);
+
+  return (!hit_occupied_ab and !hit_occupied_ba) and (!hit_unknown);
+}
+
+bool doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b, 
+                     bool ignore_unknown, const std::shared_ptr<octomap::OcTree>& map) {
+  return doPointsHaveLOS(point_a, point_b, ignore_unknown, 1.0, map);
+}
+
 float calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_b) {
   ROS_DEBUG("calculateSensorCoverageOverlap");
   

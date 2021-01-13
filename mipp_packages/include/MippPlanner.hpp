@@ -6,6 +6,7 @@
 
 #include <utils.hpp>
 
+#include <mipp_msgs/CommunicationState.h>
 #include "mipp_msgs/ExplorationResult.h"
 #include "mipp_msgs/ExplorationPath.h"
 #include "mipp_msgs/ExplorationPose.h"
@@ -86,7 +87,9 @@ struct UAVPlanner
   // Publishers
   ros::Publisher pub_position_goal;
   // Subscribers
+  void subCom(const mipp_msgs::CommunicationStateConstPtr& com_msg);
   void subOdometry(const nav_msgs::OdometryConstPtr& odom_msg);
+  ros::Subscriber sub_com;
   ros::Subscriber sub_odometry;
   // General vehicle parameters
   void init(ros::NodeHandle n);
@@ -114,7 +117,7 @@ struct UAVPlanner
   void prepareForRecovery();
   void sendRecoverVehicleGoal();
   bool no_viable_plan;
-  bool out_of_com_range;
+  bool com_constraints_broken;
   geometry_msgs::PoseStamped recovery_goal;
   // Exploration (Informative exploration using RRT)
   void sendExplorationGoal(float exploration_time);
@@ -150,7 +153,7 @@ struct UAVPlanner
   std::default_random_engine rng_generator;
   std::uniform_real_distribution<double> rng_unit_distribution;
   // LOS
-  bool doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b);
+  //bool doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b);
   // Collision check
   void initCollisionPoints();
   bool isPoseCollisionFree(const geometry_msgs::Point& pose, bool unmapped_is_collision = false);
@@ -210,7 +213,7 @@ private:
   // Utility functions
   void getParams(ros::NodeHandle np);
   geometry_msgs::Pose getFormationPose(int uav_id);
-  bool doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b);
+  //bool doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b);
   // Visualization functions
   void visualizeSensorCircle(SensorCircle sensor_circle);
   void visualizeSensorCoverages(std::vector<SensorCircle> sensor_coverages);
@@ -297,6 +300,7 @@ private:
   bool run_hybrid_;
   bool run_simple_formation_;
   bool reshaping_formation_;
+  bool com_constraints_broken_;
   std::shared_ptr<octomap::OcTree> octomap_; 
   bool received_octomap_;
   int octomap_size_;

@@ -3,7 +3,7 @@
 // SUBMODULE FOR MIPP PLANNER
 
 void MippPlanner::reshapeFormationUpdate() {
-  ROS_WARN("reshapeFormationUpdate");
+  ROS_DEBUG("reshapeFormationUpdate");
   if (run_simple_formation_) return;
   if (run_escorting_ or run_hybrid_) {
     // Update current position (shouldnt have changed but)
@@ -18,11 +18,11 @@ void MippPlanner::reshapeFormationUpdate() {
                 uav_it.formation_pose.position.z);
     }
     bool formation_viable = isFormationCollisionFree(current_formation_) and isFormationComConstrained(current_formation_);
-    ROS_WARN_COND(formation_viable, "Current formation is collision free.");
+    ROS_DEBUG_COND(formation_viable, "Current formation is collision free.");
 
     // Update formation bank
     std::map<float, std::vector<geometry_msgs::Pose>, std::greater<float>> new_formation_bank;
-    ROS_WARN("Size %d, updating...", (int)formation_bank_.size());
+    ROS_DEBUG("Size %d, updating...", (int)formation_bank_.size());
     for (auto const& formation : formation_bank_) {
       formation_viable = isFormationCollisionFree(formation.second) and isFormationComConstrained(formation.second);
       if (formation_viable) {
@@ -33,7 +33,7 @@ void MippPlanner::reshapeFormationUpdate() {
 
     // Keep only top 5 formations
     while (new_formation_bank.size() > 5) {
-      ROS_WARN("Size %d, removing...", (int)new_formation_bank.size());
+      ROS_DEBUG("Size %d, removing...", (int)new_formation_bank.size());
       new_formation_bank.erase(std::prev(new_formation_bank.end()));
     }
 
@@ -46,7 +46,7 @@ void MippPlanner::reshapeFormationUpdate() {
       ROS_DEBUG("Increasing yaw range to %.2f", sample_yaw_range);
     }
     while (new_formation_bank.size() < 10) {
-      ROS_WARN("Size %d, adding...", (int)new_formation_bank.size());
+      ROS_DEBUG("Size %d, adding...", (int)new_formation_bank.size());
       bool make_collision_free = true;
       std::vector<geometry_msgs::Pose> random_formation = getRandomColFreeFormation(current_formation_, sample_radius_, sample_yaw_range, sample_yaw_limit);
       int counter = 0;
@@ -56,7 +56,7 @@ void MippPlanner::reshapeFormationUpdate() {
       while (!formation_viable) {
         if (counter < 10) {
           random_formation = getRandomColFreeFormation(current_formation_, sample_radius, sample_yaw_range);
-          ROS_WARN("Cnt %d: (%.2f, %.2f)", counter, current_formation_.front().position.x, current_formation_.front().position.y);
+          ROS_DEBUG("Cnt %d: (%.2f, %.2f)", counter, current_formation_.front().position.x, current_formation_.front().position.y);
           //formation_viable = isFormationCollisionFree(random_formation) and isFormationComConstrained(random_formation);
           formation_viable = isFormationComConstrained(random_formation);
           ROS_DEBUG_COND(!isFormationCollisionFree(random_formation), "Formation in collision.");
@@ -76,7 +76,7 @@ void MippPlanner::reshapeFormationUpdate() {
         //ros::spinOnce();
       }
       float formation_utility = getFormationUtility(random_formation, current_formation_);
-      ROS_WARN("Utility %.2f: (%.2f, %.2f)", formation_utility, current_formation_.front().position.x, current_formation_.front().position.y);
+      ROS_DEBUG("Utility %.2f: (%.2f, %.2f)", formation_utility, current_formation_.front().position.x, current_formation_.front().position.y);
       if (new_formation_bank.count(formation_utility) > 0) {
         formation_utility -= 0.01*new_formation_bank.size();
       }
@@ -163,7 +163,7 @@ std::vector<geometry_msgs::Pose> MippPlanner::getRandomColFreeFormation(const st
     int counter = 0;
     bool pose_collision_free = false;
     while (!pose_collision_free and counter < 10) {
-      ROS_WARN("Cnt %d: (%.2f, %.2f)", counter, random_pose.position.x, random_pose.position.y);
+      ROS_DEBUG("Cnt %d: (%.2f, %.2f)", counter, random_pose.position.x, random_pose.position.y);
       random_pose.position = getRandomCirclePoint(current_pose.position, euc_range);
       float current_yaw = makeRPYFromQuat(current_pose.orientation).z;
       float random_yaw = getRandomYaw(0.0, yaw_range);
@@ -300,7 +300,7 @@ bool MippPlanner::isFormationComConstrained(std::vector<geometry_msgs::Pose> for
   for (auto const& formation_pose : formation) {
     float formation_distance = getDistanceBetweenPoints(makePoint(0,0,0), formation_pose.position);
     if (formation_distance > (com_range_ - com_range_padding_)) {
-      ROS_WARN("Out of range %.2f > %.2f - %.2f ? %d", formation_distance, com_range_, com_range_padding_, (int)(formation_distance > (com_range_ - com_range_padding_)));
+      ROS_DEBUG("Out of range %.2f > %.2f - %.2f ? %d", formation_distance, com_range_, com_range_padding_, (int)(formation_distance > (com_range_ - com_range_padding_)));
       return false;
     }
   }
@@ -323,14 +323,19 @@ bool MippPlanner::isFormationComConstrained(std::vector<geometry_msgs::Pose> for
     ugv_poses.push_back(ugv_pose);
   }
 
+  bool ignore_unknown = false;
+  int counter = 0;
   for (auto const& ugv_pose : ugv_poses) {
+    if (counter > 2) ignore_unknown = true;
     for (auto const& formation_pose : formation) {
       geometry_msgs::Pose escort_pose = getEscortPose(formation_pose, ugv_pose);
-      if (!doPointsHaveLOS(ugv_pose.position, escort_pose.position)) {
-        ROS_WARN("No LoS");
+      if (!doPointsHaveLOS(ugv_pose.position, escort_pose.position, ignore_unknown, octomap_)) {
+        ROS_WARN("No LoS on %d: (%.2f, %.2f) -> (%.2f, %.2f)", counter, ugv_pose.position.x, ugv_pose.position.y, 
+                                                               escort_pose.position.x, escort_pose.position.y);
         return false;
       } 
     }
+    counter++;
   }
   
   return true;
@@ -341,7 +346,7 @@ float MippPlanner::getFormationUtility(const std::vector<geometry_msgs::Pose>& f
   float info_gain = getFormationInfoGain(formation);
   float euc_dist, yaw_dist;
   getDistanceBetweenFormations(current_formation, formation, euc_dist, yaw_dist);
-  ROS_WARN("Utility: info(%.2f), euc(%.2f), yaw(%.2f)", info_gain, euc_dist, yaw_dist);
+  ROS_DEBUG("Utility: info(%.2f), euc(%.2f), yaw(%.2f)", info_gain, euc_dist, yaw_dist);
   return c_info*info_gain + c_euc_dist*euc_dist + c_yaw_dist*yaw_dist;
 }
 

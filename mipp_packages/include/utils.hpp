@@ -15,6 +15,10 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <angles/angles.h>
 
+#include <octomap_msgs/Octomap.h>
+#include <octomap_msgs/conversions.h>
+#include <octomap_msgs/GetOctomap.h>
+
 #include <string>
 #include <sstream>
 #include <sys/stat.h>
@@ -59,6 +63,13 @@ geometry_msgs::Point makePoint(double x, double y, double z);
 int resolveUri(std::string& uri);
 
 // Planner functions
+
+bool doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b, 
+                      bool ignore_unknown, float unknown_cell_dist, 
+                      const std::shared_ptr<octomap::OcTree>& map);
+
+bool doPointsHaveLOS(const geometry_msgs::Point point_a, const geometry_msgs::Point point_b, 
+                      bool ignore_unknown, const std::shared_ptr<octomap::OcTree>& map);
 
 float calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_b);
 
