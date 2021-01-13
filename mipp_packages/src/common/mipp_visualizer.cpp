@@ -274,7 +274,7 @@ void MippVisualizer::buildImage()
       geometry_msgs::Point com_endpoint_position = vehicle.com_state.los_lost_position;
       cv::Point2i point_com_endpoint = cv::Point2i((com_endpoint_position.x - image_origin_position_.x)/new_image_resolution, 
                                                    (com_endpoint_position.y - image_origin_position_.y)/new_image_resolution);
-      cv::line(image_, point_base_station, point_com_endpoint, constraint_color, 2*image_scale_);
+      cv::line(image_, point_base_station, point_com_endpoint, constraint_color, 1*image_scale_);
     }
   }
 
@@ -290,7 +290,7 @@ void MippVisualizer::buildImage()
       }
       else {
         auto path_pixel_point = getPixelPosition(path_point, image_origin_position_, new_image_resolution);;
-        cv::line(image_, prev_pixel_point, path_pixel_point, vehicle_color, 1*image_scale_);
+        cv::line(image_, prev_pixel_point, path_pixel_point, vehicle_color, (int)(1.5*image_scale_));
         ROS_DEBUG("Vehicle %d draw (%d, %d) -> (%d, %d)", (int)vehicle.id, prev_pixel_point.x, prev_pixel_point.y, path_pixel_point.x, path_pixel_point.y);
         prev_pixel_point = path_pixel_point;
       }

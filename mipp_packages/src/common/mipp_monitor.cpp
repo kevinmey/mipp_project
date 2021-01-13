@@ -88,7 +88,9 @@ private:
   std::vector<Vehicle> vehicles_;
   nav_msgs::Path path_;
   std::vector<nav_msgs::Path> tour_;
+  float init_octomap_size_;  // [m^3]
   float octomap_size_;  // [m^3]
+  int nr_of_recoveries_;
   bool started_;
   bool writing_csv_;
   std::ofstream csv_file_;
@@ -183,6 +185,7 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
   ros::Rate loop_rate(frequency_);
   bool planner_ready = false;
   bool communication_ready = false;
+  nr_of_recoveries_ = 0;
   while (ros::ok())
   {
     if (auto_start_ and !started_) {
@@ -272,6 +275,11 @@ void MippMonitor::pubMonitor() {
 void MippMonitor::subCom(const mipp_msgs::CommunicationStateConstPtr& com_msg, int vehicle_id)
 {
   ROS_DEBUG("subCom");
+  if ((vehicles_[vehicle_id+1].com_state.state != com_msg->state) and (com_msg->state != mipp_msgs::CommunicationState::STATE_WORKING)) {
+    vehicles_[vehicle_id+1].com_state = *com_msg;
+    ROS_WARN_COND(started_, "Recording a recovery, currently have recorded %d recoveries", nr_of_recoveries_);
+     if (started_) nr_of_recoveries_++;
+  }
   vehicles_[vehicle_id+1].com_state = *com_msg;
 }
 
@@ -336,7 +344,10 @@ void MippMonitor::startMipp() {
     return;
   }
 
+  // Recording starting things
   ros::Time start_time = ros::Time::now();
+  init_octomap_size_ = octomap_size_;
+  ROS_DEBUG("Size: %.4f", octomap_size_);
 
   // Open csv file for writing
   std::string filename;
@@ -372,6 +383,8 @@ void MippMonitor::startMipp() {
         csv_file_ << "," + uav_name + "_Euc_Dist" << "," + uav_name + "_Yaw_Dist";
       }
     }
+    // Recoveries (if not standing still scenario)
+    if (scenario != 0) csv_file_ << "," << "Recoveries";
     csv_file_ << "\n";
   }
   writing_csv_ = false;
@@ -543,7 +556,7 @@ void MippMonitor::startMipp() {
       counter++;
     }
 
-    ROS_WARN("Finished mipp");
+    ROS_WARN("Finished Standing still");
   }
 
   ROS_INFO_THROTTLE(1.0, "Writing CSV...");
@@ -558,13 +571,17 @@ void MippMonitor::startMipp() {
   auto time_used = (ros::Time::now() - start_time).toSec();
   csv_file_ << "," << time_used;
   // Data
-  csv_file_ << "," << octomap_size_;
+  csv_file_ << "," << octomap_size_ - init_octomap_size_;
   for (auto const& vehicle : vehicles_) {
     csv_file_ << "," << vehicle.distance_travelled << "," << vehicle.yaw_travelled;
   }
+  // Recoveries (if not standing still scenario)
+  if (scenario != 0) csv_file_ << "," << nr_of_recoveries_;
+
   csv_file_ << "\n";
-  
   csv_file_.close();
+
+  ROS_ERROR("\n*****************\n*\n* Finished mipp \n*\n*****************");
 }
 
 int main(int argc, char** argv){

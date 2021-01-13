@@ -11,6 +11,8 @@ void UGVPlanner::init(ros::NodeHandle n) {
 }
 
 void UGVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
+  //auto ugv_odom = *odom_msg;
+  //ugv_odom.pose.pose.position.z = 0.6;
   *ugv_odometry = *odom_msg;
 }
 
@@ -79,6 +81,11 @@ void UGVPlanner::createNavigationWaypoints(int nr_of_ugv_nav_waypoints, bool add
     navigation_waypoints.push_back(navigation_path.poses.rbegin()->pose.position);
     ROS_DEBUG("Padded with goal pose as nav. waypoint at (%.2f, %.2f)", navigation_path.poses.rbegin()->pose.position.x, 
                                                                      navigation_path.poses.rbegin()->pose.position.y);
+  }
+
+  // Increase height of waypoints
+  for (auto& waypoint : navigation_waypoints) {
+    waypoint.z = 0.6;
   }
 }
 
