@@ -352,6 +352,7 @@ void MippPlanner::actMipp(const mipp_msgs::StartMippGoalConstPtr &goal) {
     *(uav_planner_it.global_run_exploration) = run_exploration_;
     *(uav_planner_it.global_run_escorting) = run_escorting_;
     uav_planner_it.use_formation_bank = run_simple_formation_;
+    uav_planner_it.run_fsm = true;
   }
   while ((ros::Time::now() - start_time).toSec() < goal->max_time) {
     act_mipp_feedback_.voxels_discovered = octomap_size_;
@@ -359,6 +360,11 @@ void MippPlanner::actMipp(const mipp_msgs::StartMippGoalConstPtr &goal) {
     act_mipp_server_.publishFeedback(act_mipp_feedback_);
     ros::spinOnce();
     ros::Duration(0.5).sleep();
+  }
+  
+  // Finish
+  for (auto& uav_planner_it :uav_planners_) {
+    uav_planner_it.run_fsm = false;
   }
 }
 
@@ -700,8 +706,8 @@ void MippPlanner::visualizeNavWaypoints() {
   line_marker.color.g = 1.0;
   line_marker.color.b = 0.1;
   for (auto const& nav_waypoints : ugv_planner_.navigation_waypoints) {
-    line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 0.2));
-    line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 1.0));
+    line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 0.8));
+    line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 1.2));
   }
   pub_viz_nav_waypoints_.publish(line_marker);
 }

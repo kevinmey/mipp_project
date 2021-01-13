@@ -14,6 +14,7 @@ void UAVPlanner::init(ros::NodeHandle n) {
   com_constraints_broken = false;
   // Vehicle planner state
   vehicle_state = INIT;
+  run_fsm = false;
   state_timer = n.createTimer(ros::Duration(0.1), boost::bind(&UAVPlanner::updateStateMachine, this));
   std::string takeoff_client_name = "/uav"+std::to_string(uav_id)+"/takeoff_complete_service";
   takeoff_client = n.serviceClient<mipp_msgs::TakeoffComplete>(takeoff_client_name);
@@ -65,6 +66,8 @@ void UAVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
 void UAVPlanner::updateStateMachine() {
   ROS_DEBUG_THROTTLE(1.0, "UAV%d STATE: %d", uav_id, vehicle_state);
   ROS_DEBUG_THROTTLE(1.0, "UAV%d bools (%d, %d).", uav_id, (int)(*global_run_exploration), (int)(*global_run_escorting));
+
+  if (!run_fsm and vehicle_state != INIT) return;
   
   // Check first if UAV needs to be recovered
   if (recoveryRequired()) {

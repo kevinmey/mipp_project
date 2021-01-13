@@ -103,6 +103,7 @@ struct UAVPlanner
   // Global Info (Stored in MippPlanner object)
   bool* global_run_exploration;
   bool* global_run_escorting;
+  bool run_fsm;
   std::shared_ptr<nav_msgs::Odometry> global_ugv_odometry;
   std::vector<geometry_msgs::Point>* global_ugv_waypoints;
   std::map<int, std::vector<SensorCircle>>* global_sensor_coverages;
