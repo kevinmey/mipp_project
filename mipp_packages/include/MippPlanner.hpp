@@ -221,6 +221,7 @@ private:
   void visualizePaths(std::vector<nav_msgs::Path> paths);
   void visualizePathFOVs(std::vector<nav_msgs::Path> paths, float ray_length);
   void visualizeNavWaypoints();
+  void visualizeUAVStates();
 
   // Publishers
   ros::Timer tmr_run_updates_;
@@ -232,6 +233,7 @@ private:
   ros::Publisher pub_viz_uav_path_fovs_;
   ros::Publisher pub_viz_nav_waypoints_;
   ros::Publisher pub_viz_formations_;
+  ros::Publisher pub_viz_uav_states_;
   // Subscribers
   ros::Subscriber sub_clicked_point_;
   ros::Subscriber sub_ugv_goal_plan_;

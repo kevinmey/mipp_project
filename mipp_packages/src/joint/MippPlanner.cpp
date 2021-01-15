@@ -23,6 +23,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
   pub_viz_uav_path_fovs_        = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_uav_path_fovs", 1);
   pub_viz_nav_waypoints_        = n.advertise<visualization_msgs::Marker>("MippPlanner/viz_nav_waypoints", 1);
   pub_viz_formations_           = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_formations", 1);
+  pub_viz_uav_states_           = n.advertise<visualization_msgs::MarkerArray>("MippPlanner/viz_uav_states", 1);
 
   sub_clicked_point_  = n.subscribe("/exploration/start_collaborative", 1, &MippPlanner::subClickedPoint, this);
   sub_ugv_goal_plan_  = n.subscribe(ugv_ns_+"move_base/TebLocalPlannerROS/global_plan", 1, &MippPlanner::subUGVPlan, this);
@@ -208,6 +209,7 @@ void MippPlanner::runUpdates() {
     }
   }
   visualizeSensorCoverages(sensor_coverages);
+  visualizeUAVStates();
 }
 
 // Callback functions for subscriptions
@@ -583,7 +585,7 @@ void MippPlanner::visualizeSensorCoverages(std::vector<SensorCircle> sensor_cove
     marker.id = marker_array.markers.size();
     marker_array.markers.push_back(marker);
 
-    visualization_msgs::Marker text_marker;
+    /*visualization_msgs::Marker text_marker;
     text_marker.header = marker.header;
     text_marker.id = marker_array.markers.size();
     text_marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
@@ -592,7 +594,7 @@ void MippPlanner::visualizeSensorCoverages(std::vector<SensorCircle> sensor_cove
     text_marker.color.a = 1.0;
     text_marker.scale.z = 1.0;
     text_marker.text = std::to_string(circle_it->vehicle_id).c_str();
-    marker_array.markers.push_back(text_marker);
+    marker_array.markers.push_back(text_marker);*/
   }
   pub_viz_sensor_coverages_.publish(marker_array);
 }
@@ -710,4 +712,54 @@ void MippPlanner::visualizeNavWaypoints() {
     line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 1.2));
   }
   pub_viz_nav_waypoints_.publish(line_marker);
+}
+
+void MippPlanner::visualizeUAVStates() {
+  ROS_DEBUG("visualizeUAVState");
+  visualization_msgs::MarkerArray marker_array;
+
+  for (const auto& uav_planner : uav_planners_) {
+    visualization_msgs::Marker text_marker;
+    text_marker.header.frame_id = planner_world_frame_;
+    text_marker.header.stamp = ros::Time::now();
+    text_marker.id = marker_array.markers.size();
+    text_marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    text_marker.action = visualization_msgs::Marker::ADD;
+    text_marker.pose.position = uav_planner.uav_odometry.pose.pose.position;
+    text_marker.pose.position.z += 0.5;
+    text_marker.color.a = 1.0;
+    text_marker.scale.z = 0.6;
+    std::string uav_state;
+    bool not_silly = true;
+    switch (uav_planner.vehicle_state) {
+    case INIT:
+      uav_state = (not_silly) ? "INIT" : "Lemme start...";
+      break;
+    case IDLE:
+      uav_state = (not_silly) ? "IDLE" : "Aight I'm ready";
+      break;
+    case PLANNING:
+      uav_state = (not_silly) ? "PLAN" : "Hmmmm...";
+      break;
+    case MOVING:
+      uav_state = (not_silly) ? "MOVE" : "Leggo";
+      break;
+    case ESCORTING:
+      uav_state = (not_silly) ? "FORM" : "With da homies";
+      break;
+    case RECOVERING:
+      uav_state = (not_silly) ? "RCVR" : "Where da homies at";
+      break;
+    case DONE:
+      uav_state = (not_silly) ? "DONE" : "Cool";
+      break;
+    default:
+      break;
+    }
+    uav_state = std::to_string(uav_planner.uav_id)+":"+uav_state;
+    text_marker.text = uav_state.c_str();
+    marker_array.markers.push_back(text_marker);
+  }
+
+  pub_viz_uav_states_.publish(marker_array);
 }
