@@ -201,6 +201,9 @@ void UAVInformativeExplorer::actStartExploration(const mipp_msgs::StartExplorati
     path_.push_back(pose_it);
     ROS_DEBUG("Took out nav. path pose: (%.2f, %.2f)", pose_it.pose.position.x, pose_it.pose.position.y);
   }
+  if (!goal->init_path.empty()) {
+    uav_position_goal_ = goal->init_path.front();
+  }
   planner_sample_centers_ = goal->sampling_centers;
   planner_sample_radius_ = goal->sampling_radius;
   planner_sample_z_ = goal->sampling_z;
@@ -337,7 +340,7 @@ void UAVInformativeExplorer::runExploration() {
   double start_y = uav_pose_.pose.position.y;
   double start_z = uav_pose_.pose.position.z;
 
-  bool root_from_position_goal = getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position) < 1.0;
+  bool root_from_position_goal = getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position) < planner_max_ray_distance_;
   if (root_from_position_goal) {
     start_x = uav_position_goal_.pose.position.x;
     start_y = uav_position_goal_.pose.position.y;
