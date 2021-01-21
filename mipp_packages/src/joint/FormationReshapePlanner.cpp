@@ -45,7 +45,7 @@ void MippPlanner::reshapeFormationUpdate() {
       sample_yaw_range += yaw_left*(1.0 - ugv_planner_.navigation_goal_distance/planner_hybrid_distance_);
       ROS_DEBUG("Increasing yaw range to %.2f", sample_yaw_range);
     }
-    while (new_formation_bank.size() < 10) {
+    while (new_formation_bank.size() < 20) {
       ROS_DEBUG("Size %d, adding...", (int)new_formation_bank.size());
       bool make_collision_free = true;
       std::vector<geometry_msgs::Pose> random_formation = getRandomColFreeFormation(current_formation_, sample_radius_, sample_yaw_range, sample_yaw_limit);
@@ -202,8 +202,8 @@ float MippPlanner::getFormationInfoGain(const std::vector<geometry_msgs::Pose>& 
     }
     nav_msgs::Path escort_path = uav_planner.getEscortPath(ugv_planner_.navigation_waypoints, formation_pose);
     std::vector<SensorCircle> escort_path_sensor_coverages;
-    info_gain += uav_planner.getPathInfoGain(escort_path, existing_sensor_coverages, escort_path_sensor_coverages);
-    //std::move(escort_path_sensor_coverages.begin(), escort_path_sensor_coverages.end(), std::back_inserter(sensor_coverages));
+    info_gain += uav_planner.getPathInfoGain(escort_path, 
+                                             existing_sensor_coverages, escort_path_sensor_coverages);
     existing_sensor_coverages.insert(existing_sensor_coverages.end(), escort_path_sensor_coverages.begin(), escort_path_sensor_coverages.end());
   }
   return info_gain;
