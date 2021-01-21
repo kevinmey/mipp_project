@@ -99,6 +99,7 @@ private:
   ros::Timer pub_timer_;
   ros::Publisher pub_monitor_;
   ros::Publisher pub_path_;
+  ros::Publisher pub_mipp_done_;
   ros::Publisher pub_viz_tour_;
   // Subscribers
   ros::Subscriber sub_start_;
@@ -140,10 +141,11 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
   started_ = false;
   writing_csv_ = false;
 
-  pub_timer_    = n.createTimer(ros::Duration(1.0/frequency_), boost::bind(&MippMonitor::pubMonitor, this));
-  pub_monitor_  = n.advertise<mipp_msgs::MippMonitor>("/MippMonitor/monitor", 1);
-  pub_path_     = n.advertise<nav_msgs::Path>("/MippMonitor/path", 1);
-  pub_viz_tour_ = n.advertise<visualization_msgs::Marker>("/MippMonitor/viz_tour", 1);
+  pub_timer_      = n.createTimer(ros::Duration(1.0/frequency_), boost::bind(&MippMonitor::pubMonitor, this));
+  pub_monitor_    = n.advertise<mipp_msgs::MippMonitor>("/MippMonitor/monitor", 1);
+  pub_path_       = n.advertise<nav_msgs::Path>("/MippMonitor/path", 1);
+  pub_mipp_done_  = n.advertise<std_msgs::Bool>("/MippMonitor/mipp_done", 1);
+  pub_viz_tour_   = n.advertise<visualization_msgs::Marker>("/MippMonitor/viz_tour", 1);
 
   sub_start_    = n.subscribe("/MippMonitor/start", 1, &MippMonitor::subStart, this);
   sub_path_     = n.subscribe("/ugv/UGVPlanner/path", 1, &MippMonitor::subPath, this);
@@ -360,6 +362,7 @@ void MippMonitor::startMipp() {
   filename += "ugv" + std::to_string((int)(ugv_vel_*10)) + "_";   // UGV velocity * 10 (since 0.5 is normal)
   filename += "uav" + std::to_string(nr_of_uavs_) + "_";          // Nr of UAVs (1, 2 or 3)
   filename += "com" + std::to_string((int)com_range_);            // Com range (10 or 20)
+  filename += "_cost_info10dist1";                               // Com range (10 or 20)
   filename += ".csv";
   
   // Check if file exists, raise flag if it doesnt (will need a header)
@@ -582,6 +585,9 @@ void MippMonitor::startMipp() {
   csv_file_.close();
 
   ROS_ERROR("\n*****************\n*\n* Finished mipp \n*\n*****************");
+  std_msgs::Bool done_msg;
+  done_msg.data = true;
+  pub_mipp_done_.publish(done_msg);
 }
 
 int main(int argc, char** argv){
