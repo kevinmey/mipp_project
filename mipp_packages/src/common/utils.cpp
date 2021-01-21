@@ -237,6 +237,11 @@ float calculateSensorCoverageOverlap(SensorCircle circle_a, SensorCircle circle_
     // Circle A is smaller than B and is entirely contained within it
     return M_PI*pow(circle_a.radius, 2);
   }
+  else if (std::abs(circle_a.radius - circle_b.radius) < 0.001) {
+    // Radius is about the same, can return simple calculation
+    float r = circle_a.radius;
+    return 2.0*pow(r, 2)*acos(d/(2*r)) - (d/2.0)*sqrt(4*pow(r, 2) - pow(d, 2));
+  }
 
   // Circles have partial overlap, must calculate overlap
   // Source: https://diego.assencio.com/?index=8d6ca3d82151bad815f78addf9b5c1c6
