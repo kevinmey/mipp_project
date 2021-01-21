@@ -233,7 +233,7 @@ void UAVPlanner::sendExplorationGoal(float exploration_time) {
   exploration_goal.max_time = exploration_time;
   exploration_goal.init_path.clear();
   if (!navigation_path.poses.empty()) {
-    navigation_path.poses.erase(navigation_path.poses.begin());
+    //navigation_path.poses.erase(navigation_path.poses.begin());
     for (auto const& pose_it : navigation_path.poses) {
       exploration_goal.init_path.push_back(pose_it);
       ROS_DEBUG("Pushed in nav. path pose: (%.2f, %.2f)", pose_it.pose.position.x, pose_it.pose.position.y);
@@ -379,14 +379,14 @@ void UAVPlanner::initFormationPoseBank(int nr_of_uavs) {
     switch (uav_id)
     {
     case 0:
-      pose_near.position = makePoint(2.0, 0.0, uav_altitude);
+      pose_near.position = makePoint(1.0, 0.0, uav_altitude);
       pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, -(30.0/180.0)*M_PI));
       pose_far.position = makePoint(0.0, -3.0, uav_altitude);
       pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
       formation_pose = pose_near;
       break;
     case 1:
-      pose_near.position = makePoint(0.0, 0.0, uav_altitude);
+      pose_near.position = makePoint(-1.0, 0.0, uav_altitude);
       pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, (30.0/180.0)*M_PI));
       pose_far.position = makePoint(0.0, 3.0, uav_altitude);
       pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
@@ -416,7 +416,7 @@ void UAVPlanner::initFormationPoseBank(int nr_of_uavs) {
       formation_pose = pose_near;
       break;
     case 2:
-      pose_near.position = makePoint(0.0, 0.0, uav_altitude);
+      pose_near.position = makePoint(-2.0, 0.0, uav_altitude);
       pose_near.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, (60.0/180.0)*M_PI));
       pose_far.position = makePoint(0.0, 6.0, uav_altitude);
       pose_far.orientation = makeQuatFromRPY(makePoint(0.0, 0.0, 0.0));
@@ -728,14 +728,43 @@ float UAVPlanner::getPoseInfoGain(geometry_msgs::Point origin, float yaw) {
   return unmapped/(float)(info_camera_rays.size());
 }
 
-float UAVPlanner::getPathInfoGain(const nav_msgs::Path& path, const std::vector<SensorCircle>& other_sensor_coverages, std::vector<SensorCircle>& ret_path_sensor_coverages) {
+float UAVPlanner::getPathInfoGain(const nav_msgs::Path& path, 
+                                  const std::vector<SensorCircle>& other_sensor_coverages, std::vector<SensorCircle>& ret_path_sensor_coverages) {
   float path_info_gain = 0.0;    // Record this paths gain (will be sum of pose gains accounting for sensor overlap)
   std::vector<SensorCircle> path_sensor_coverages;  // Will be filled with previous poses in the path
   int pose_rank = 1;
   for (auto const& pose_it : path.poses) {
+    // Get info details
     float pose_yaw = makeRPYFromQuat(pose_it.pose.orientation).z;
     float pose_gain = getPoseInfoGain(pose_it.pose.position, pose_yaw)/pose_rank;
     SensorCircle pose_sensor_coverage = makeSensorCircleFromUAVPose(pose_it.pose, uav_id, camera_range);
+
+    // UGV waypoint multiplier
+    float ugv_waypoint_multiplier = 1.0;
+    if (use_ugv_waypoint_multiplier) {
+      // Get distance from sensor coverage to closest ugv waypoint
+      float closest_waypoint_distance = 10.0;
+      for (const auto& waypoint : *global_ugv_waypoints) {
+        float waypoint_distance = getDistanceBetweenPoints(pose_sensor_coverage.center, waypoint);
+        ROS_WARN("Distance from (%.2f, %.2f) to (%.2f, %.2f): (%.2f) comp (%.2f)", pose_sensor_coverage.center.x, pose_sensor_coverage.center.y,
+                                                                       waypoint.x, waypoint.y, waypoint_distance, closest_waypoint_distance);
+        closest_waypoint_distance = (waypoint_distance < closest_waypoint_distance) ? waypoint_distance : closest_waypoint_distance;
+      }
+
+      // Calculate multiplier
+      //   Function ramps up from outer ram to inner ramp, where it saturates
+      float ugv_waypoint_spacing = 2.0;
+      float multiplier_inner_ramp = ugv_waypoint_spacing/2.0;
+      float multiplier_outer_ramp = ugv_waypoint_spacing*2.0;
+      float multiplier_max = 2.0;
+      if (closest_waypoint_distance < multiplier_inner_ramp) {
+        ugv_waypoint_multiplier = multiplier_max;
+      }
+      else if (closest_waypoint_distance < multiplier_outer_ramp) {
+        ugv_waypoint_multiplier = multiplier_max - (closest_waypoint_distance - multiplier_inner_ramp) / (multiplier_outer_ramp - multiplier_inner_ramp);
+      }
+      ROS_WARN("UGV WP dist %.2f, multipler: %.2f", closest_waypoint_distance, ugv_waypoint_multiplier);
+    }
 
     // Overlap
     float pose_sensor_coverage_overlap = 0.0; // Will record area of overlap
@@ -745,9 +774,10 @@ float UAVPlanner::getPathInfoGain(const nav_msgs::Path& path, const std::vector<
     for (auto const& sensor_coverage_it : path_sensor_coverages) {
       pose_sensor_coverage_overlap += calculateSensorCoverageOverlap(pose_sensor_coverage, sensor_coverage_it);
     }
+
     // Need ratio of sensor coverage area to sensor overlap area (capped at max 1, aka 100%)
     double pose_sensor_coverage_overlap_ratio = pose_sensor_coverage_overlap / (M_PI*pow(pose_sensor_coverage.radius, 2));
-    path_info_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 0.9))*pose_gain;
+    path_info_gain += (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 0.9))*pose_gain*ugv_waypoint_multiplier;
     path_sensor_coverages.push_back(pose_sensor_coverage);
     ROS_DEBUG("Pose gain: (%.2f) * %.2f = %.2f", pose_sensor_coverage_overlap_ratio, pose_gain, (1.0 - std::min(pose_sensor_coverage_overlap_ratio, 1.0))*pose_gain);
 

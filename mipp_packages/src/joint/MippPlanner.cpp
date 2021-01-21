@@ -126,6 +126,7 @@ MippPlanner::MippPlanner(ros::NodeHandle n, ros::NodeHandle np)
     // Escort
     uav_planner_it.initFormationPoseBank(nr_of_uavs_);
     // Utility
+    uav_planner_it.use_ugv_waypoint_multiplier = use_ugv_waypoint_multiplier_;
     uav_planner_it.c_info = c_info;
     uav_planner_it.c_euc_dist = c_euc_dist;
     uav_planner_it.c_yaw_dist = c_yaw_dist;
@@ -437,6 +438,7 @@ void MippPlanner::getParams(ros::NodeHandle np) {
   np.param<float>("c_info", c_info, 10.0);
   np.param<float>("c_euc_dist", c_euc_dist, -1.0);
   np.param<float>("c_yaw_dist", c_yaw_dist, -1.0);
+  np.param<bool>("use_ugv_waypoint_multiplier", use_ugv_waypoint_multiplier_, true);
   // UGV
   np.param<float>("ugv_start_x", ugv_start_x_, 0.0);
   np.param<float>("ugv_start_y", ugv_start_y_, 0.0);
@@ -704,9 +706,9 @@ void MippPlanner::visualizeNavWaypoints() {
   line_marker.pose.orientation.w = 1.0;
   line_marker.scale.x = 0.2;
   line_marker.color.a = 0.8;
-  line_marker.color.r = 0.1;
-  line_marker.color.g = 1.0;
-  line_marker.color.b = 0.1;
+  line_marker.color.r = 1.0;
+  line_marker.color.g = 0.5;
+  line_marker.color.b = 0.0;
   for (auto const& nav_waypoints : ugv_planner_.navigation_waypoints) {
     line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 0.8));
     line_marker.points.push_back(makePoint(nav_waypoints.x, nav_waypoints.y, 1.2));
