@@ -5,12 +5,15 @@
 void MippPlanner::reshapeFormationUpdate() {
   ROS_DEBUG("reshapeFormationUpdate");
   if (run_simple_formation_) return;
-  if (run_escorting_ or run_hybrid_) {
+  if (run_escorting_ or run_hybrid_ or run_split_) {
     // Update current position (shouldnt have changed but)
     //if (reshaping_formation_) return;
+    int uavs_running_formation = 0;
+
     reshaping_formation_ = true;
     current_formation_.clear();
     for (auto& uav_it : uav_planners_) {
+      if (!uav_it.run_escort) continue;
       current_formation_.push_back(uav_it.formation_pose);
       ROS_DEBUG("Formation UAV%d (%.2f, %.2f, %.2f).", uav_it.uav_id,
                 uav_it.formation_pose.position.x, 
@@ -69,6 +72,7 @@ void MippPlanner::reshapeFormationUpdate() {
           ROS_DEBUG("Couldn't find collision free formation after %d attempts.", counter);
           random_formation.clear();
           for (auto const& uav_planner : uav_planners_) {
+            if (!uav_planner.run_escort) continue;
             random_formation.push_back(uav_planner.formation_poses.front());
           }
           formation_viable = true;
@@ -90,6 +94,7 @@ void MippPlanner::reshapeFormationUpdate() {
     // Use the best formation (will at least be collision free)
     current_formation_ = formation_bank_.begin()->second;
     for (auto& uav_planner : uav_planners_) {
+      if (!uav_planner.run_escort) continue;
       uav_planner.formation_pose = current_formation_.at(uav_planner.uav_id);
     }
     ROS_DEBUG("Chosen formation: (%.2f, %.2f)", current_formation_.front().position.x, current_formation_.front().position.y);
@@ -97,6 +102,7 @@ void MippPlanner::reshapeFormationUpdate() {
     // Visualize
     std::vector<SensorCircle> formation_sensor_circles;
     for (auto& uav_planner : uav_planners_) {
+      if (!uav_planner.run_escort) continue;
       formation_sensor_circles.push_back(makeSensorCircleFromUAVPose(uav_planner.getEscortPose(ugv_planner_.ugv_odometry->pose.pose, uav_planner.formation_pose).pose, uav_planner.uav_id, uav_camera_range_));
     }
     visualizeSensorCoverages(formation_sensor_circles);
@@ -152,12 +158,13 @@ std::vector<geometry_msgs::Pose> MippPlanner::getRandomColFreeFormation(const st
   }
 
   std::vector<geometry_msgs::Pose> random_formation;
-  if (current_formation.size() != uav_planners_.size()) {
+  if (current_formation.size() != uav_planners_.size() and !run_split_) {
     ROS_ERROR("Was given formation of size %d != nr of uavs %d", (int)current_formation.size(), (int)uav_planners_.size());
     return random_formation;
   }
 
   for (auto& uav_planner : uav_planners_) {
+    if (!uav_planner.run_escort) continue;
     geometry_msgs::Pose random_pose;
     geometry_msgs::Pose current_pose = current_formation.at(uav_planner.uav_id);
     int counter = 0;
@@ -179,7 +186,7 @@ std::vector<geometry_msgs::Pose> MippPlanner::getRandomColFreeFormation(const st
     }
     if (!pose_collision_free) {
       random_pose = uav_planner.formation_poses.front();
-      ROS_WARN("Couldn't sample collision free pose for UAV%d, using formation bank position (%.2f, %.2f)", uav_planner.uav_id, random_pose.position.x, random_pose.position.y);
+      ROS_WARN_THROTTLE(1.0, "Couldn't sample collision free pose for UAV%d, using formation bank position (%.2f, %.2f)", uav_planner.uav_id, random_pose.position.x, random_pose.position.y);
     }
     random_formation.push_back(random_pose);
   }
@@ -191,6 +198,7 @@ float MippPlanner::getFormationInfoGain(const std::vector<geometry_msgs::Pose>& 
   float info_gain;
   std::vector<SensorCircle> existing_sensor_coverages;
   for (auto& uav_planner : uav_planners_) {
+    if (!uav_planner.run_escort) continue;
     geometry_msgs::Pose formation_pose;
     try
     {
@@ -212,12 +220,13 @@ float MippPlanner::getFormationInfoGain(const std::vector<geometry_msgs::Pose>& 
 bool MippPlanner::isFormationCollisionFree(const std::vector<geometry_msgs::Pose>& formation_poses) {
   ROS_DEBUG("isFormationCollisionFree");
 
-  if (formation_poses.size() != uav_planners_.size()) {
+  if (formation_poses.size() != uav_planners_.size() and !run_split_) {
     ROS_ERROR("Was given formation of size %d != nr of uavs %d", (int)formation_poses.size(), (int)uav_planners_.size());
     return false;
   }
 
   for (auto& uav_planner : uav_planners_) {
+    if (!uav_planner.run_escort) continue;
     geometry_msgs::Pose formation_pose;
     try
     {
@@ -330,7 +339,7 @@ bool MippPlanner::isFormationComConstrained(std::vector<geometry_msgs::Pose> for
     for (auto const& formation_pose : formation) {
       geometry_msgs::Pose escort_pose = getEscortPose(formation_pose, ugv_pose);
       if (!doPointsHaveLOS(ugv_pose.position, escort_pose.position, ignore_unknown, octomap_)) {
-        ROS_WARN("No LoS on %d: (%.2f, %.2f) -> (%.2f, %.2f)", counter, ugv_pose.position.x, ugv_pose.position.y, 
+        ROS_DEBUG("No LoS on %d: (%.2f, %.2f) -> (%.2f, %.2f)", counter, ugv_pose.position.x, ugv_pose.position.y, 
                                                                escort_pose.position.x, escort_pose.position.y);
         return false;
       } 

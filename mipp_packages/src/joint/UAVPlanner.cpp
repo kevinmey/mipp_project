@@ -65,7 +65,7 @@ void UAVPlanner::subOdometry(const nav_msgs::OdometryConstPtr& odom_msg) {
 
 void UAVPlanner::updateStateMachine() {
   ROS_DEBUG_THROTTLE(1.0, "UAV%d STATE: %d", uav_id, vehicle_state);
-  ROS_DEBUG_THROTTLE(1.0, "UAV%d bools (%d, %d).", uav_id, (int)(*global_run_exploration), (int)(*global_run_escorting));
+  ROS_DEBUG_THROTTLE(1.0, "UAV%d bools (%d, %d).", uav_id, (int)(run_exploration), (int)(run_escort));
 
   if (!run_fsm and vehicle_state != INIT) return;
   
@@ -100,7 +100,7 @@ void UAVPlanner::updateStateMachine() {
       }
       break;}
     case IDLE: {
-      if (*global_run_exploration) {
+      if (run_exploration) {
         if (exploration_result.paths.empty()) {
           float exploration_max_time = 1.0;
           sendExplorationGoal(exploration_max_time);
@@ -119,7 +119,7 @@ void UAVPlanner::updateStateMachine() {
           navigation_path.poses.clear();
         }
       }
-      else if (*global_run_escorting) {
+      else if (run_escort) {
         vehicle_state = ESCORTING;
       }
       else {
@@ -152,7 +152,7 @@ void UAVPlanner::updateStateMachine() {
       }
       break;}
     case ESCORTING: {
-      if (!*(global_run_escorting)) {
+      if (!run_escort) {
         vehicle_state = IDLE;
         break;
       }
@@ -179,6 +179,11 @@ void UAVPlanner::updateStateMachine() {
         ROS_WARN_THROTTLE(1.0, "UAV%d escort path is in collision", uav_id);
         navigation_path.header.frame_id = "collision";
       }
+      sensor_coverage.clear();
+      for (auto const& pose_it : navigation_path.poses) {
+        sensor_coverage.push_back(makeSensorCircleFromUAVPose(pose_it.pose, uav_id, camera_range));
+      }
+      global_sensor_coverages->at(uav_id) = sensor_coverage;
       global_uav_paths->at(uav_id) = navigation_path;
       pub_position_goal.publish(uav_escort_pose);
       break;}
@@ -288,6 +293,7 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
   // Have current position (dont move) as initial "best path" in case no path is good enough
   best_path = makePathFromExpPath(*(exploration_result.paths.end()-1));
 
+  int viable_paths = 0;
   ros::Time begin_time = ros::Time::now();
   for (auto const& path_it : exploration_result.paths) {
     path_nr++;
@@ -325,8 +331,7 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
 
     // Compute total path utility
     if (com_constraint_satisfied) {
-      //float path_gain = getPathInfoGain(path_it, existing_sensor_coverages);
-      //float path_utility = getPathUtility(makePathFromExpPath(path_it), existing_sensor_coverages);
+      viable_paths++;
       float path_utility = getPathUtility(makePathFromExpPath(path_it), *global_ugv_waypoints, existing_sensor_coverages);
       if (path_utility > best_path_utility) {
         ROS_DEBUG("New path selected, gain increased from %.2f to %.2f", best_path_utility, path_utility);
@@ -340,7 +345,7 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
     }
   }
   // Best path selected, add its coverages to sensor_coverages_ and make it this UAVs navigation path
-  if (best_path_nr != -1) {
+  if (best_path_nr != -1 or viable_paths == 0) {
     no_viable_plan = false;
     for (auto const& pose_it : best_path.poses) {
       sensor_coverage.push_back(makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range));
@@ -351,7 +356,7 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
   }
   navigation_path = best_path;
   float time_used = (ros::Time::now() - begin_time).toSec();
-  ROS_DEBUG("UAV%d selected path nr. %d after %.2f seconds", uav_id, best_path_nr, time_used);
+  ROS_WARN("UAV%d selected path nr. %d / %d after %.2f seconds", uav_id, viable_paths, best_path_nr, time_used);
 }
 
 void UAVPlanner::sendMoveVehicleGoal(float move_vehicle_time) {
@@ -360,7 +365,7 @@ void UAVPlanner::sendMoveVehicleGoal(float move_vehicle_time) {
   move_vehicle_goal.goal_path.poses.clear();
   move_vehicle_goal.goal_path_to_be_improved = false;
   move_vehicle_goal.goal_reached_radius = 1.0;
-  move_vehicle_goal.goal_reached_yaw = 0.1;
+  move_vehicle_goal.goal_reached_yaw = 0.52;
   move_vehicle_goal.goal_reached_max_time = move_vehicle_time;
   move_vehicle_client->sendGoal(move_vehicle_goal);
 

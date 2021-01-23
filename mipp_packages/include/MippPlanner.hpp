@@ -101,8 +101,8 @@ struct UAVPlanner
   // General vehicle variables
   nav_msgs::Odometry uav_odometry;
   // Global Info (Stored in MippPlanner object)
-  bool* global_run_exploration;
-  bool* global_run_escorting;
+  bool run_exploration;
+  bool run_escort;
   bool run_fsm;
   std::shared_ptr<nav_msgs::Odometry> global_ugv_odometry;
   std::vector<geometry_msgs::Point>* global_ugv_waypoints;
@@ -162,10 +162,11 @@ struct UAVPlanner
   std::vector<octomap::point3d> collision_points;
   // Info gain
   float getPoseInfoGain(geometry_msgs::Point origin, float yaw);
-  float getPathInfoGain(const nav_msgs::Path& path, const std::vector<SensorCircle>& other_sensor_coverages, 
-                        std::vector<SensorCircle>& path_sensor_coverages);
-  float getPathInfoGain(const mipp_msgs::ExplorationPath& path, const std::vector<SensorCircle>& sensor_coverages);
+  float getPathInfoGain(const nav_msgs::Path& path, 
+                        const std::vector<SensorCircle>& other_sensor_coverages, std::vector<SensorCircle>& ret_path_sensor_coverages);
+  float getPathInfoGain(const mipp_msgs::ExplorationPath& path, const std::vector<SensorCircle>& sensor_coverages);//Deprecated
   std::vector<tf2::Vector3> info_camera_rays;
+  bool use_ugv_waypoint_multiplier;
   // Utility
   float getPathUtility(const nav_msgs::Path& path, const std::vector<SensorCircle>& other_sensor_coverages);
   float getPathUtility(const nav_msgs::Path& path, const std::vector<geometry_msgs::Point> ugv_waypoints, 
@@ -279,6 +280,7 @@ private:
   std::map<float, std::vector<geometry_msgs::Pose>, std::greater<float>> formation_bank_;
   std::vector<geometry_msgs::Pose> current_formation_;
   //// Utility
+  bool use_ugv_waypoint_multiplier_;
   float c_info;
   float c_euc_dist; // pr m
   float c_yaw_dist; // pr PI/3 = 60 deg
@@ -301,6 +303,7 @@ private:
   bool run_exploration_;
   bool run_escorting_;
   bool run_hybrid_;
+  bool run_split_;
   bool run_simple_formation_;
   bool reshaping_formation_;
   bool com_constraints_broken_;
