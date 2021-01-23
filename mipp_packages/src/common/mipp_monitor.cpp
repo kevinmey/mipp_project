@@ -362,7 +362,7 @@ void MippMonitor::startMipp() {
   filename += "ugv" + std::to_string((int)(ugv_vel_*10)) + "_";   // UGV velocity * 10 (since 0.5 is normal)
   filename += "uav" + std::to_string(nr_of_uavs_) + "_";          // Nr of UAVs (1, 2 or 3)
   filename += "com" + std::to_string((int)com_range_);            // Com range (10 or 20)
-  filename += "_cost_info10dist1";                               // Com range (10 or 20)
+  //filename += "_cost_info10dist1";                              //
   filename += ".csv";
   
   // Check if file exists, raise flag if it doesnt (will need a header)
@@ -376,19 +376,32 @@ void MippMonitor::startMipp() {
   // Add file header if not there (file didn't exist)
   if (!file_exists) {
     ROS_WARN("File didn't exist, adding header");
-    csv_file_ << "Date_Time,Time_Used,Info";
-    for (auto const& vehicle : vehicles_) {
-      if (vehicle.type == UGV) {
-        csv_file_ << ",UGV_Euc_Dist,UGV_Yaw_Dist";
-      }
-      else {
-        std::string uav_name = "UAV" + std::to_string(vehicle.id);
-        csv_file_ << "," + uav_name + "_Euc_Dist" << "," + uav_name + "_Yaw_Dist";
-      }
+
+    if (read_tour_) {
+      csv_file_ << "Date_Time,";
+      csv_file_ << "Time_Used_1,Info_1,Dist_1,Recoveries_1,";
+      csv_file_ << "Time_Used_2,Info_2,Dist_2,Recoveries_2,";
+      csv_file_ << "Time_Used_3,Info_3,Dist_3,Recoveries_3,";
+      csv_file_ << "Time_Used_4,Info_4,Dist_4,Recoveries_4,";
+      csv_file_ << "Time_Used_5,Info_5,Dist_5,Recoveries_5,";
+      csv_file_ << "Time_Used_6,Info_6,Dist_6,Recoveries_6";
+      csv_file_ << "\n";
     }
-    // Recoveries (if not standing still scenario)
-    if (scenario != 0) csv_file_ << "," << "Recoveries";
-    csv_file_ << "\n";
+    else {
+      csv_file_ << "Date_Time,Time_Used,Info";
+      for (auto const& vehicle : vehicles_) {
+        if (vehicle.type == UGV) {
+          csv_file_ << ",UGV_Euc_Dist,UGV_Yaw_Dist";
+        }
+        else {
+          std::string uav_name = "UAV" + std::to_string(vehicle.id);
+          csv_file_ << "," + uav_name + "_Euc_Dist" << "," + uav_name + "_Yaw_Dist";
+        }
+      }
+      // Recoveries (if not standing still scenario)
+      if (scenario != 0) csv_file_ << "," << "Recoveries";
+      csv_file_ << "\n";
+    }
   }
   writing_csv_ = false;
 
@@ -502,6 +515,16 @@ void MippMonitor::startMipp() {
       }
       pub_viz_tour_.publish(tour_marker);
     }
+    
+    // Record date/time for csv
+    ROS_INFO_THROTTLE(1.0, "Writing CSV...");
+    // Date/Time
+    time_t t = time(0);
+    struct tm * now = localtime( & t );
+    char buffer[80];
+    strftime(buffer,80,"%Y/%m/%d-%H:%M",now);
+    std::string date_time = buffer;
+    csv_file_ << date_time;
 
     started_ = true;
     float goal_wait_time = 10.0;
@@ -527,6 +550,23 @@ void MippMonitor::startMipp() {
         ros::Duration(0.1).sleep();
       }
 
+      // Record move-part to csv [Time used, info, dist, recoveries]
+      ROS_INFO_THROTTLE(1.0, "Writing CSV...");
+      csv_file_ << "," << (ros::Time::now() - start_time).toSec();
+      start_time = ros::Time::now();
+      csv_file_ << "," << octomap_size_ - init_octomap_size_;
+      init_octomap_size_ = octomap_size_;
+      float dist = 0.0;
+      for (auto& vehicle : vehicles_) {
+        if (vehicle.type == UAV) {
+          dist += vehicle.distance_travelled;
+          vehicle.distance_travelled = 0.0;
+        }
+      }
+      csv_file_ << "," << dist;
+      csv_file_ << "," << nr_of_recoveries_;
+      nr_of_recoveries_ = 0;
+
       ROS_INFO("Goal nr. %d reached, waiting %.1f seconds until next goal.", goal_nr, goal_wait_time);
       ros::Time wait_start_time = ros::Time::now();
       ros::spinOnce();
@@ -537,9 +577,29 @@ void MippMonitor::startMipp() {
         ros::Duration(0.1).sleep();
       }
       goal_nr++;
+      
+      // Record Stationary-part to csv [Time used, info, dist, recoveries]
+      ROS_INFO_THROTTLE(1.0, "Writing CSV...");
+      csv_file_ << "," << (ros::Time::now() - start_time).toSec();
+      start_time = ros::Time::now();
+      csv_file_ << "," << octomap_size_ - init_octomap_size_;
+      init_octomap_size_ = octomap_size_;
+      dist = 0.0;
+      for (auto& vehicle : vehicles_) {
+        if (vehicle.type == UAV) {
+          dist += vehicle.distance_travelled;
+          vehicle.distance_travelled = 0.0;
+        }
+      }
+      csv_file_ << "," << dist;
+      csv_file_ << "," << nr_of_recoveries_;
+      nr_of_recoveries_ = 0;
     }
     ROS_WARN("Tour complete");
+    
     //writing_csv_ = false;
+    csv_file_ << "\n";
+    csv_file_.close();
   }
   else {
     float no_mission_time = 30.0;
@@ -562,27 +622,29 @@ void MippMonitor::startMipp() {
     ROS_WARN("Finished Standing still");
   }
 
-  ROS_INFO_THROTTLE(1.0, "Writing CSV...");
-  // Date/Time
-  time_t t = time(0);
-  struct tm * now = localtime( & t );
-  char buffer[80];
-  strftime(buffer,80,"%Y/%m/%d-%H:%M",now);
-  std::string date_time = buffer;
-  csv_file_ << date_time;
-  // Time used
-  auto time_used = (ros::Time::now() - start_time).toSec();
-  csv_file_ << "," << time_used;
-  // Data
-  csv_file_ << "," << octomap_size_ - init_octomap_size_;
-  for (auto const& vehicle : vehicles_) {
-    csv_file_ << "," << vehicle.distance_travelled << "," << vehicle.yaw_travelled;
-  }
-  // Recoveries (if not standing still scenario)
-  if (scenario != 0) csv_file_ << "," << nr_of_recoveries_;
+  if (!read_tour_) {
+    ROS_INFO_THROTTLE(1.0, "Writing CSV...");
+    // Date/Time
+    time_t t = time(0);
+    struct tm * now = localtime( & t );
+    char buffer[80];
+    strftime(buffer,80,"%Y/%m/%d-%H:%M",now);
+    std::string date_time = buffer;
+    csv_file_ << date_time;
+    // Time used
+    auto time_used = (ros::Time::now() - start_time).toSec();
+    csv_file_ << "," << time_used;
+    // Data
+    csv_file_ << "," << octomap_size_ - init_octomap_size_;
+    for (auto const& vehicle : vehicles_) {
+      csv_file_ << "," << vehicle.distance_travelled << "," << vehicle.yaw_travelled;
+    }
+    // Recoveries (if not standing still scenario)
+    if (scenario != 0) csv_file_ << "," << nr_of_recoveries_;
 
-  csv_file_ << "\n";
-  csv_file_.close();
+    csv_file_ << "\n";
+    csv_file_.close();
+  }
 
   ROS_ERROR("\n*****************\n*\n* Finished mipp \n*\n*****************");
   std_msgs::Bool done_msg;
