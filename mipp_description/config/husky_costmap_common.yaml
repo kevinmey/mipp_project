@@ -1,5 +1,5 @@
 footprint: [[-0.5, -0.33], [-0.5, 0.33], [0.5, 0.33], [0.5, -0.33]]
-footprint_padding: 0.5
+footprint_padding: 0.2
 
 robot_base_frame: base_link
 update_frequency: 1.0
@@ -19,8 +19,8 @@ global_dynamic_map:
     map_topic: /projected_map
 
 global_inflation:
-    inflation_radius: 1.0
-    resolution: 0.2
+    inflation_radius: 0.5
+    resolution: 0.1
 
 #static_obstacles:
 #    observation_sources: octomap_cloud
