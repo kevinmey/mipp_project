@@ -268,6 +268,11 @@ bool UAVServer::cliIsTakeoffComplete(mipp_msgs::TakeoffComplete::Request& reques
 
 void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
 {
+  if (!uav_takeoff_complete_ and !uav_clearing_rotation_complete_) {
+    act_move_vehicle_server_.setAborted();
+    return;
+  }
+  
   ROS_DEBUG("actMoveVehicle");
   try{
     geometry_msgs::TransformStamped position_goal_tf = tf_buffer_.lookupTransform(uav_world_frame_, goal->goal_pose.header.frame_id, ros::Time(0));
@@ -296,9 +301,14 @@ void UAVServer::actMoveVehicle(const mipp_msgs::MoveVehicleGoalConstPtr &goal)
     bool goal_reached = false;
     while ((ros::Time::now() - start_time).toSec() < goal->goal_reached_max_time) {
       // Try to reach goal
-      act_move_vehicle_feedback_.goal_euc_distance = getDistanceBetweenPoints(uav_pose_.pose.position, uav_position_goal_.pose.position);
+      geometry_msgs::Point pose_2d, goal_2d;
+      pose_2d = uav_pose_.pose.position; pose_2d.z = 0;
+      goal_2d = uav_position_goal_.pose.position; goal_2d.z = 0;
+      act_move_vehicle_feedback_.goal_euc_distance = getDistanceBetweenPoints(pose_2d, goal_2d);
       act_move_vehicle_feedback_.goal_yaw_distance = abs(angles::shortest_angular_distance(uav_rpy_.vector.z, uav_position_goal_rpy_.z));
       act_move_vehicle_server_.publishFeedback(act_move_vehicle_feedback_);
+      ROS_DEBUG("UAV %d euc is %.2f < %.2f ? %d.", uav_id_, act_move_vehicle_feedback_.goal_euc_distance, goal->goal_reached_radius, int(act_move_vehicle_feedback_.goal_euc_distance < goal->goal_reached_radius));
+      ROS_DEBUG("UAV %d yaw is %.2f < %.2f ? %d.", uav_id_, act_move_vehicle_feedback_.goal_yaw_distance, goal->goal_reached_yaw, int(act_move_vehicle_feedback_.goal_yaw_distance < goal->goal_reached_yaw));
       if (act_move_vehicle_feedback_.goal_euc_distance < goal->goal_reached_radius and 
           act_move_vehicle_feedback_.goal_yaw_distance < goal->goal_reached_yaw) {
         act_move_vehicle_result_.time_used = (ros::Time::now() - start_time).toSec();
@@ -375,7 +385,7 @@ void UAVServer::takeoff() {
   mavros_setpoint.header.frame_id = uav_local_frame_;
   mavros_setpoint.pose.position.x = 0.0;
   mavros_setpoint.pose.position.y = 0.0;
-  mavros_setpoint.pose.position.z = uav_takeoff_z_;
+  mavros_setpoint.pose.position.z = uav_takeoff_z_/2.0;
   mavros_setpoint.pose.orientation.w = 1.0;
 
   // Wait for FCU connection
@@ -442,6 +452,7 @@ void UAVServer::takeoff() {
     while (clearing_rotation_angle < 360.0) {
       double clearing_rotation = angles::from_degrees(clearing_rotation_angle);
       double angle_threshold = angles::from_degrees(10.0);
+      //mavros_setpoint.pose.position.z = std::min(uav_takeoff_z_, mavros_setpoint.pose.position.z + 0.1);
       mavros_setpoint.pose.orientation = makeQuatFromRPY(0.0, 0.0, clearing_rotation);
       while (angles::shortest_angular_distance(uav_rpy_.vector.z, clearing_rotation) > angle_threshold) {
         pub_mavros_setpoint_.publish(mavros_setpoint);
