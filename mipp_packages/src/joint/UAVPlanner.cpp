@@ -345,13 +345,14 @@ void UAVPlanner::createNavigationPlan(std::vector<SensorCircle> existing_sensor_
     }
   }
   // Best path selected, add its coverages to sensor_coverages_ and make it this UAVs navigation path
-  if (best_path_nr != -1 or viable_paths == 0) {
+  if (best_path_nr != -1 and viable_paths > 0) {
     no_viable_plan = false;
     for (auto const& pose_it : best_path.poses) {
       sensor_coverage.push_back(makeSensorCircleFromUAVPose(pose_it.pose, uav_id, uav_camera_range));
     }
   }
   else {
+    ROS_WARN("UAV%d plan not viable", uav_id);
     no_viable_plan = true;
   }
   navigation_path = best_path;

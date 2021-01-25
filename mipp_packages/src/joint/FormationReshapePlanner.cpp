@@ -4,6 +4,8 @@
 
 void MippPlanner::reshapeFormationUpdate() {
   ROS_DEBUG("reshapeFormationUpdate");
+  if (!planner_initialized_) return;
+
   if (run_simple_formation_) return;
   if (run_escorting_ or run_hybrid_ or run_split_) {
     // Update current position (shouldnt have changed but)
