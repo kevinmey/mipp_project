@@ -527,7 +527,7 @@ void MippMonitor::startMipp() {
     csv_file_ << date_time;
 
     started_ = true;
-    float goal_wait_time = 10.0;
+    float goal_wait_time = 20.0;
     int goal_nr = 1;
     start_mipp_goal.max_time = 720.0;
     start_mipp_goal.mipp_mode = planner_mode_;
@@ -566,34 +566,38 @@ void MippMonitor::startMipp() {
       csv_file_ << "," << dist;
       csv_file_ << "," << nr_of_recoveries_;
       nr_of_recoveries_ = 0;
-
-      ROS_INFO("Goal nr. %d reached, waiting %.1f seconds until next goal.", goal_nr, goal_wait_time);
-      ros::Time wait_start_time = ros::Time::now();
-      ros::spinOnce();
-      ros::Duration(0.1).sleep();
-      while ((ros::Time::now() - wait_start_time).toSec() < goal_wait_time) {
-        ROS_INFO_THROTTLE(1.0, "Waiting... %d", (int)(ros::Time::now() - wait_start_time).toSec());
+      if (goal_nr != 3) {
+        ROS_INFO("Goal nr. %d reached, waiting %.1f seconds until next goal.", goal_nr, goal_wait_time);
+        ros::Time wait_start_time = ros::Time::now();
         ros::spinOnce();
         ros::Duration(0.1).sleep();
-      }
-      goal_nr++;
-      
-      // Record Stationary-part to csv [Time used, info, dist, recoveries]
-      ROS_INFO_THROTTLE(1.0, "Writing CSV...");
-      csv_file_ << "," << (ros::Time::now() - start_time).toSec();
-      start_time = ros::Time::now();
-      csv_file_ << "," << octomap_size_ - init_octomap_size_;
-      init_octomap_size_ = octomap_size_;
-      dist = 0.0;
-      for (auto& vehicle : vehicles_) {
-        if (vehicle.type == UAV) {
-          dist += vehicle.distance_travelled;
-          vehicle.distance_travelled = 0.0;
+        while ((ros::Time::now() - wait_start_time).toSec() < goal_wait_time) {
+          ROS_INFO_THROTTLE(1.0, "Waiting... %d", (int)(ros::Time::now() - wait_start_time).toSec());
+          ros::spinOnce();
+          ros::Duration(0.1).sleep();
         }
+        goal_nr++;
+        
+        // Record Stationary-part to csv [Time used, info, dist, recoveries]
+        ROS_INFO_THROTTLE(1.0, "Writing CSV...");
+        csv_file_ << "," << (ros::Time::now() - start_time).toSec();
+        start_time = ros::Time::now();
+        csv_file_ << "," << octomap_size_ - init_octomap_size_;
+        init_octomap_size_ = octomap_size_;
+        dist = 0.0;
+        for (auto& vehicle : vehicles_) {
+          if (vehicle.type == UAV) {
+            dist += vehicle.distance_travelled;
+            vehicle.distance_travelled = 0.0;
+          }
+        }
+        csv_file_ << "," << dist;
+        csv_file_ << "," << nr_of_recoveries_;
+        nr_of_recoveries_ = 0;
       }
-      csv_file_ << "," << dist;
-      csv_file_ << "," << nr_of_recoveries_;
-      nr_of_recoveries_ = 0;
+      else {
+        ROS_INFO("Goal nr. %d reached, stopping mipp tour.", goal_nr);
+      }
     }
     ROS_WARN("Tour complete");
     
