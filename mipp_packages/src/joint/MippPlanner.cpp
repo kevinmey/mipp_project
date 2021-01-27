@@ -620,6 +620,7 @@ void MippPlanner::visualizePaths(std::vector<nav_msgs::Path> paths) {
 
   bool add_current_pose_to_path = false;
 
+  int uav_id = 0;
   visualization_msgs::MarkerArray path_marker_array;
   for (auto const& path_it : paths) {
     visualization_msgs::Marker path_marker;
@@ -631,9 +632,9 @@ void MippPlanner::visualizePaths(std::vector<nav_msgs::Path> paths) {
     path_marker.pose.orientation.w = 1.0;
     path_marker.scale.x = 0.05;
     path_marker.color.a = 1.0;
-    path_marker.color.r = 0.1;
-    path_marker.color.g = 1.0;
-    path_marker.color.b = 0.1;
+    path_marker.color.r = uav_id*0.3;
+    path_marker.color.g = 0.0;
+    path_marker.color.b = 1.0;
     if (path_it.header.frame_id == "collision") {
       path_marker.color.r = 1.0;
       path_marker.color.g = 0.1;
@@ -647,6 +648,7 @@ void MippPlanner::visualizePaths(std::vector<nav_msgs::Path> paths) {
       path_marker.points.push_back(pose_it.pose.position);
     }
     path_marker_array.markers.push_back(path_marker);
+    uav_id++;
   }
   
   pub_viz_uav_paths_.publish(path_marker_array);
@@ -658,6 +660,7 @@ void MippPlanner::visualizePathFOVs(std::vector<nav_msgs::Path> paths, float ray
     return;
   }
 
+  int uav_id = 0;
   visualization_msgs::MarkerArray fov_marker_array;
   for (auto const& path_it : paths) {
     visualization_msgs::Marker fov_marker;
@@ -669,9 +672,9 @@ void MippPlanner::visualizePathFOVs(std::vector<nav_msgs::Path> paths, float ray
     fov_marker.pose.orientation.w = 1.0;
     fov_marker.scale.x = 0.05;
     fov_marker.color.a = 0.8;
-    fov_marker.color.r = 0.1;
-    fov_marker.color.g = 1.0;
-    fov_marker.color.b = 0.1;
+    fov_marker.color.r = uav_id*0.3;
+    fov_marker.color.g = 0.0;
+    fov_marker.color.b = 1.0;
     if (path_it.header.frame_id == "collision") {
       fov_marker.color.r = 1.0;
       fov_marker.color.g = 0.1;
@@ -704,6 +707,7 @@ void MippPlanner::visualizePathFOVs(std::vector<nav_msgs::Path> paths, float ray
       fov_marker.points.push_back(ray_endpoints[0]);
     }
     fov_marker_array.markers.push_back(fov_marker);
+    uav_id++;
   }
   pub_viz_uav_path_fovs_.publish(fov_marker_array);
 }

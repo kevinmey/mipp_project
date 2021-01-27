@@ -536,9 +536,9 @@ void UAVServer::visualizeLineToGoal() {
   line_marker.pose.orientation.w = 1.0;
   line_marker.scale.x = 0.05;
   line_marker.color.a = 1.0;
-  line_marker.color.r = 0.1;
-  line_marker.color.g = 1.0;
-  line_marker.color.b = 0.1;
+  line_marker.color.r = uav_id_*0.3;
+  line_marker.color.g = 0.0;
+  line_marker.color.b = 1.0;
   line_marker.points.push_back(uav_pose_.pose.position);
   line_marker.points.push_back(uav_position_goal_.pose.position);
   

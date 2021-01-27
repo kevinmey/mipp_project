@@ -864,6 +864,7 @@ geometry_msgs::Vector3 UAVInformativeExplorer::makeRPYFromQuat(geometry_msgs::Qu
 
 /* 
 *  Visualization functions
+vehicle.id*50,0,255
 */
 
 void UAVInformativeExplorer::visualizeInformationPoints() {
@@ -900,9 +901,9 @@ void UAVInformativeExplorer::visualizeTree() {
   tree_marker.action = visualization_msgs::Marker::ADD;
   tree_marker.pose.orientation.w = 1.0;
   tree_marker.scale.x = 0.02;
-  tree_marker.color.a = 0.6;
-  tree_marker.color.r = 0.2;
-  tree_marker.color.g = 0.2;
+  tree_marker.color.a = 0.2;
+  tree_marker.color.r = uav_id_*0.2;
+  tree_marker.color.g = 0.0;
   tree_marker.color.b = 1.0;
   for(Node tree_node : tree_)
   {
@@ -930,9 +931,9 @@ void UAVInformativeExplorer::visualizePath() {
   path_marker.pose.orientation.w = 1.0;
   path_marker.scale.x = 0.05;
   path_marker.color.a = 1.0;
-  path_marker.color.r = 0.1;
-  path_marker.color.g = 1.0;
-  path_marker.color.b = 0.1;
+  path_marker.color.r = uav_id_*0.2;
+  path_marker.color.g = 0.0;
+  path_marker.color.b = 1.0;
 
   path_marker.points.push_back(root_.position_);
   for (auto const& path_pose : path_) {
@@ -956,9 +957,9 @@ void UAVInformativeExplorer::visualizePathFOVs(double ray_length) {
   fov_marker.pose.orientation.w = 1.0;
   fov_marker.scale.x = 0.05;
   fov_marker.color.a = 0.8;
-  fov_marker.color.r = 0.1;
-  fov_marker.color.g = 1.0;
-  fov_marker.color.b = 0.1;
+  fov_marker.color.r = uav_id_*0.2;
+  fov_marker.color.g = 0.0;
+  fov_marker.color.b = 1.0;
   bool show_all_rays = false;
   tf2::Matrix3x3 ray_direction_rotmat;
   for (auto const& path_pose : path_) {

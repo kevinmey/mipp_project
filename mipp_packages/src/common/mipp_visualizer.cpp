@@ -246,7 +246,7 @@ void MippVisualizer::buildImage()
 
   // Scale image
   image_size = image_.size();
-  int new_image_size = 500*image_scale_;
+  int new_image_size = 400*image_scale_;
   float old_image_resolution = grid_info_.resolution; // [m pr pixel]
   float image_scale_ratio = (float)image_size.width / (float)new_image_size;
   cv::resize(image_, image_, cv::Size(new_image_size, new_image_size));
@@ -280,7 +280,7 @@ void MippVisualizer::buildImage()
 
   // Draw paths
   for (const auto& vehicle : vehicles_) {
-    cv::Vec3b vehicle_color = (vehicle.type == UGV) ? cv::Vec3b(0,255,0) : cv::Vec3b(vehicle.id*50,0,255);
+    cv::Vec3b vehicle_color = (vehicle.type == UGV) ? cv::Vec3b(0,255,0) : cv::Vec3b(vehicle.id*80,0,255);
     bool first = true;
     cv::Point prev_pixel_point;
     for (const auto& path_point : vehicle.path) {
