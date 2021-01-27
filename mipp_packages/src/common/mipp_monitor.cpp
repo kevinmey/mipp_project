@@ -78,6 +78,7 @@ private:
   bool write_path_;
   bool read_path_;
   bool read_tour_;
+  bool do_explore_;
   int planner_mode_;
   float com_range_;
   std::string path_bag_name_;
@@ -99,6 +100,7 @@ private:
   ros::Timer pub_timer_;
   ros::Publisher pub_monitor_;
   ros::Publisher pub_path_;
+  ros::Publisher pub_frontier_;
   ros::Publisher pub_mipp_done_;
   ros::Publisher pub_viz_tour_;
   // Subscribers
@@ -136,6 +138,7 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
   np.param<std::string>("path_file_name", path_bag_name_, "$(find mipp_launch)/bags/sc2_path_1.bag");
   np.param<bool>("read_tour", read_tour_, false);
   np.param("tour_file_names", tour_bag_names_, std::vector<std::string>());
+  np.param<bool>("do_explore", do_explore_, false);
 
   path_.poses.clear();
   started_ = false;
@@ -144,6 +147,7 @@ MippMonitor::MippMonitor(ros::NodeHandle n, ros::NodeHandle np) {
   pub_timer_      = n.createTimer(ros::Duration(1.0/frequency_), boost::bind(&MippMonitor::pubMonitor, this));
   pub_monitor_    = n.advertise<mipp_msgs::MippMonitor>("/MippMonitor/monitor", 1);
   pub_path_       = n.advertise<nav_msgs::Path>("/MippMonitor/path", 1);
+  pub_frontier_   = n.advertise<std_msgs::Bool>("/MippMonitor/start_frontier_exploration", 1);
   pub_mipp_done_  = n.advertise<std_msgs::Bool>("/MippMonitor/mipp_done", 1);
   pub_viz_tour_   = n.advertise<visualization_msgs::Marker>("/MippMonitor/viz_tour", 1);
 
@@ -442,9 +446,9 @@ void MippMonitor::startMipp() {
       tour_marker.pose.orientation.w = 1.0;
       tour_marker.scale.x = 0.2;
       tour_marker.color.a = 0.5;
-      tour_marker.color.r = 0.1;
-      tour_marker.color.g = 1.0;
-      tour_marker.color.b = 0.1;
+      tour_marker.color.r = 1.0;
+      tour_marker.color.g = 0.5;
+      tour_marker.color.b = 0.0;
       for (auto const& pose_it : path->poses) {
         tour_marker.points.push_back(pose_it.pose.position);
       }
@@ -505,9 +509,9 @@ void MippMonitor::startMipp() {
       tour_marker.pose.orientation.w = 1.0;
       tour_marker.scale.x = 0.2;
       tour_marker.color.a = 0.5;
-      tour_marker.color.r = 0.1;
-      tour_marker.color.g = 1.0;
-      tour_marker.color.b = 0.1;
+      tour_marker.color.r = 1.0;
+      tour_marker.color.g = 0.5;
+      tour_marker.color.b = 0.0;
       for (auto const& tour_path_it : tour_) {
         for (auto const& pose_it : tour_path_it.poses) {
           tour_marker.points.push_back(pose_it.pose.position);
@@ -604,6 +608,28 @@ void MippMonitor::startMipp() {
     //writing_csv_ = false;
     csv_file_ << "\n";
     csv_file_.close();
+  }
+  else if (do_explore_) {
+    float explore_time = 600.0;
+
+    start_mipp_goal.max_time = explore_time;
+    start_mipp_goal.mipp_mode = planner_mode_;
+    start_mipp_client->sendGoal(start_mipp_goal);
+    started_ = true;
+
+    std_msgs::Bool begin_explore_msg;
+    begin_explore_msg.data = true;
+    pub_frontier_.publish(begin_explore_msg);
+
+    int counter = 0;
+    while (counter < (int)explore_time) {
+      ROS_INFO_THROTTLE(1.0, "Exploring. %d/%d", counter, (int)explore_time);
+      ros::spinOnce();
+      ros::Duration(1.0).sleep();
+      counter++;
+    }
+
+    ROS_WARN("Finished Exploring");
   }
   else {
     float no_mission_time = 30.0;

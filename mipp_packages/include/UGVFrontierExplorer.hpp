@@ -6,6 +6,10 @@
 #include <utils.hpp>
 
 #include <actionlib/server/simple_action_server.h>
+#include <actionlib/client/simple_action_client.h>
+#include <actionlib/client/terminal_state.h>
+
+#include "mipp_msgs/MoveVehicleAction.h"
 #include <mipp_msgs/StartExplorationAction.h>
 #include "mipp_msgs/ExplorationResult.h"
 #include "mipp_msgs/ExplorationPath.h"
@@ -23,6 +27,7 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
+#include <std_msgs/Bool.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
@@ -38,7 +43,7 @@ public:
   ~UGVFrontierExplorer();
   
 private:
-  void subStartExploration(const geometry_msgs::PointStampedConstPtr& clicked_point_msg);
+  void subStartExploration(const std_msgs::Bool& msg);
   void subMap(const nav_msgs::OccupancyGridConstPtr& map_msg);
   void subMapUpdate(const map_msgs::OccupancyGridUpdateConstPtr& map_update_msg);
   void subOdometry(const nav_msgs::Odometry odometry_msg);
@@ -78,6 +83,8 @@ private:
   actionlib::SimpleActionServer<mipp_msgs::StartExplorationAction> act_exploration_server_;
   mipp_msgs::StartExplorationFeedback act_exploration_feedback_;
   mipp_msgs::StartExplorationResult act_exploration_result_;
+  actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>* move_vehicle_client_;
+  mipp_msgs::MoveVehicleGoal move_vehicle_goal_;
   // TF
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener* tf_listener_; 
@@ -119,6 +126,7 @@ private:
   double planner_rate_;
   double planner_max_ray_distance_;
   double planner_max_time_;
+  int planner_max_frontier_nodes_;
   double planner_min_distance_to_frontier_;
   double planner_max_distance_to_frontier_;
   int collision_threshold_;

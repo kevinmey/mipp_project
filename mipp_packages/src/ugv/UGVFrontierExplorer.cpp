@@ -16,12 +16,16 @@ UGVFrontierExplorer::UGVFrontierExplorer(ros::NodeHandle n, ros::NodeHandle np)
   pub_viz_frontier_nodes_ = n.advertise<visualization_msgs::Marker>("UGVFrontierExplorer/viz_frontier_nodes", 1);
 
   map_initialized_ = false;
-  sub_start_exploration_indiv_ = n.subscribe("/exploration/start_individual", 1, &UGVFrontierExplorer::subStartExploration, this);
+  sub_start_exploration_indiv_ = n.subscribe("/MippMonitor/start_frontier_exploration", 1, &UGVFrontierExplorer::subStartExploration, this);
   sub_map_ = n.subscribe("move_base/global_costmap/costmap", 1, &UGVFrontierExplorer::subMap, this);
   sub_map_update_ = n.subscribe("move_base/global_costmap/costmap_updates", 1, &UGVFrontierExplorer::subMapUpdate, this);
   sub_odometry_ = n.subscribe("odometry/filtered", 1, &UGVFrontierExplorer::subOdometry, this);
 
   act_exploration_server_.start();
+
+  std::string move_vehicle_client_name = "/ugv/UGVPlanner/move_vehicle_action";
+  move_vehicle_client_ = new actionlib::SimpleActionClient<mipp_msgs::MoveVehicleAction>(move_vehicle_client_name, true);
+  move_vehicle_client_->waitForServer(ros::Duration(10.0));
 
   tf_listener_ = new tf2_ros::TransformListener(tf_buffer_);
 
@@ -56,19 +60,10 @@ UGVFrontierExplorer::~UGVFrontierExplorer()
 *  Subscriber callbacks
 */
 
-void UGVFrontierExplorer::subStartExploration(const geometry_msgs::PointStampedConstPtr& clicked_point_msg)
+void UGVFrontierExplorer::subStartExploration(const std_msgs::Bool& msg)
 {
   ROS_DEBUG("subStartExploration");
-  int mx;
-  int my;
-  double wx = clicked_point_msg->point.x;
-  double wy = clicked_point_msg->point.y;
-  convWorldToMap(wx, wy, mx, my);
-  ROS_DEBUG("World (%f, %f) = Map (%d, %d)",wx,wy,mx,my);
   
-  int gridCost = map_.data[getGridIndex(wx, wy)];
-  ROS_DEBUG("Cost %d, is collision: %d", gridCost, (int)!isPositionCollisionFree(wx, wy));
-
   if (running_frontier_exploration_) { 
     ROS_INFO("Stopping frontier exploration.");
     running_frontier_exploration_ = false;
@@ -78,7 +73,11 @@ void UGVFrontierExplorer::subStartExploration(const geometry_msgs::PointStampedC
     running_frontier_exploration_ = true;
       runFrontierExploration();
       if (frontier_nodes_.size() > 0) {
-        current_frontier_goal_ = makePoseStampedFromNode(*frontier_nodes_.begin()->second.getParent());
+        auto frontier_goal_node = frontier_nodes_.begin()->second.getParent();
+        if (frontier_goal_node->id_ != 0) {
+          frontier_goal_node = frontier_goal_node->getParent();
+        }
+        current_frontier_goal_ = makePoseStampedFromNode(*frontier_goal_node);
 
         nav_msgs::Path goal_path;
         goal_path.header = current_frontier_goal_.header;
@@ -93,8 +92,20 @@ void UGVFrontierExplorer::subStartExploration(const geometry_msgs::PointStampedC
           node_on_path = *(node_on_path.getParent());
         }
 
-        pub_goal_.publish(current_frontier_goal_);
-        pub_goal_path_.publish(goal_path);
+        bool use_actionlib = true;
+        if (use_actionlib) {
+          move_vehicle_goal_.goal_pose = current_frontier_goal_;
+          //move_vehicle_goal_.goal_path.poses = goal_path.poses;
+          move_vehicle_goal_.goal_path_to_be_improved = true;
+          move_vehicle_goal_.goal_reached_radius = 1.0;
+          move_vehicle_goal_.goal_reached_yaw = 0.1;
+          move_vehicle_goal_.goal_reached_max_time = 600.0;
+          move_vehicle_client_->sendGoal(move_vehicle_goal_);
+        }
+        else {
+          pub_goal_.publish(current_frontier_goal_);
+          pub_goal_path_.publish(goal_path);
+        } 
       }
   }
 
@@ -103,7 +114,11 @@ void UGVFrontierExplorer::subStartExploration(const geometry_msgs::PointStampedC
     if (getDistanceBetweenPoints(ugv_odometry_.pose.pose.position, current_frontier_goal_.pose.position) < 0.5) {
       runFrontierExploration();
       if (frontier_nodes_.size() > 0) {
-        current_frontier_goal_ = makePoseStampedFromNode(*frontier_nodes_.begin()->second.getParent());
+        auto frontier_goal_node = frontier_nodes_.begin()->second.getParent();
+        if (frontier_goal_node->id_ != 0) {
+          frontier_goal_node = frontier_goal_node->getParent();
+        }
+        current_frontier_goal_ = makePoseStampedFromNode(*frontier_goal_node);
 
         nav_msgs::Path goal_path;
         goal_path.header = current_frontier_goal_.header;
@@ -118,8 +133,20 @@ void UGVFrontierExplorer::subStartExploration(const geometry_msgs::PointStampedC
           node_on_path = *(node_on_path.getParent());
         }
 
-        pub_goal_.publish(current_frontier_goal_);
-        pub_goal_path_.publish(goal_path);
+        bool use_actionlib = true;
+        if (use_actionlib) {
+          move_vehicle_goal_.goal_pose = current_frontier_goal_;
+          //move_vehicle_goal_.goal_path.poses = goal_path.poses;
+          move_vehicle_goal_.goal_path_to_be_improved = true;
+          move_vehicle_goal_.goal_reached_radius = 1.0;
+          move_vehicle_goal_.goal_reached_yaw = 0.1;
+          move_vehicle_goal_.goal_reached_max_time = 600.0;
+          move_vehicle_client_->sendGoal(move_vehicle_goal_);
+        }
+        else {
+          pub_goal_.publish(current_frontier_goal_);
+          pub_goal_path_.publish(goal_path);
+        } 
       }
     }
 
@@ -271,7 +298,7 @@ void UGVFrontierExplorer::runFrontierExploration()
   // Grow frontier exploration tree
   ros::Rate rate(planner_rate_);
   ros::Time start_time = ros::Time::now();
-  while((ros::Time::now() - start_time).toSec() < planner_max_time_){
+  while((ros::Time::now() - start_time).toSec() < planner_max_time_ and frontier_nodes_.size() < planner_max_frontier_nodes_){
     ros::Time begin = ros::Time::now();
     
     geometry_msgs::Point sample_point = generateRandomPoint();
@@ -429,6 +456,7 @@ void UGVFrontierExplorer::getParams(ros::NodeHandle np)
   np.param<std::string>("planner_world_frame", planner_world_frame_, "map");
   np.param<double>("planner_rate", planner_rate_, 10.0);
   np.param<double>("planner_max_time", planner_max_time_, 5.0);
+  np.param<int>("planner_max_frontier_nodes", planner_max_frontier_nodes_, 50);
   np.param<double>("planner_max_ray_distance", planner_max_ray_distance_, 2.0);
   np.param<double>("planner_min_distance_to_frontier", planner_min_distance_to_frontier_, 4.0);
   np.param<double>("planner_max_distance_to_frontier", planner_max_distance_to_frontier_, 100.0);
@@ -597,9 +625,9 @@ void UGVFrontierExplorer::visualizeTree()
   tree_marker.pose.orientation.w = 1.0;
   tree_marker.scale.x = 0.03;
   tree_marker.color.a = 0.8;
-  tree_marker.color.r = 0.4;
-  tree_marker.color.g = 0.4;
-  tree_marker.color.b = 0.9;
+  tree_marker.color.r = 1.0;
+  tree_marker.color.g = 0.5;
+  tree_marker.color.b = 0.0;
   for(Node tree_node : tree_)
   {
     if(tree_node.getParent() != NULL) 
