@@ -13,8 +13,9 @@
       <param name="y_range_min"               value="$(eval arg('robot_start_y')-10.0)"/>
       <param name="y_range_max"               value="$(eval arg('robot_start_y')+10.0)"/>
       <param name="planner_rate"              value="200.0"/>
-      <param name="planner_max_time"          value="30.0"/> 
-      <param name="planner_max_ray_distance"          value="0.5"/>
+      <param name="planner_max_time"          value="5.0"/> 
+      <param name="planner_max_frontier_nodes"        value="50"/> 
+      <param name="planner_max_ray_distance"          value="2.0"/>
 
       <!-- Remap topics -->
       <!-- Published topics -->

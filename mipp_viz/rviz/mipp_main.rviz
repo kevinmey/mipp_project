@@ -1,17 +1,12 @@
 Panels:
   - Class: rviz/Displays
-    Help Height: 0
+    Help Height: 111
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Global Options1
-        - /UGV1
-        - /UGV1/Navigation1
         - /UGV1/Navigation1/Global RRT planner1/PathToGoal1
-        - /UGV nav. waypoints1
-        - /Mission path1
-      Splitter Ratio: 0.3964401185512543
-    Tree Height: 670
+      Splitter Ratio: 0.7530319690704346
+    Tree Height: 266
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -31,7 +26,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: MIPP Visualizer Image
+    SyncSource: LaserScan
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -673,7 +668,7 @@ Visualization Manager:
               Marker Topic: /uav0/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                {}
+                "": true
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -699,7 +694,7 @@ Visualization Manager:
           Axes Radius: 0.10000000149011612
           Class: rviz/Pose
           Color: 0; 255; 0
-          Enabled: true
+          Enabled: false
           Head Length: 0.30000001192092896
           Head Radius: 0.10000000149011612
           Name: Mavros setpoint
@@ -708,7 +703,7 @@ Visualization Manager:
           Shape: Arrow
           Topic: /uav0/mavros/setpoint_position/local
           Unreliable: false
-          Value: true
+          Value: false
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
@@ -751,7 +746,7 @@ Visualization Manager:
           Color: 255; 255; 255
           Color Transformer: Intensity
           Decay Time: 0
-          Enabled: true
+          Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Max Intensity: 4096
@@ -768,7 +763,7 @@ Visualization Manager:
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
-          Value: true
+          Value: false
       Enabled: true
       Name: UAV0
     - Class: rviz/Group
@@ -789,6 +784,14 @@ Visualization Manager:
             "": true
           Queue Size: 100
           Value: true
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /uav1/uav_server/viz_line_to_goal
+          Name: Line to goal
+          Namespaces:
+            "": true
+          Queue Size: 100
+          Value: true
         - Class: rviz/Group
           Displays:
             - Class: rviz/Image
@@ -804,21 +807,21 @@ Visualization Manager:
               Unreliable: false
               Value: false
             - Class: rviz/Marker
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav1/local_planner_manager/complete_tree
               Name: Tree
               Namespaces:
                 {}
               Queue Size: 100
-              Value: false
+              Value: true
             - Class: rviz/Marker
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav1/local_planner_manager/tree_path
               Name: TreePath
               Namespaces:
                 {}
               Queue Size: 100
-              Value: false
+              Value: true
             - Class: rviz/Marker
               Enabled: false
               Marker Topic: /uav1/local_planner_manager/take_off_pose
@@ -892,13 +895,13 @@ Visualization Manager:
               Queue Size: 100
               Value: false
             - Class: rviz/MarkerArray
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav1/local_planner_manager/goal_position
               Name: Goal
               Namespaces:
                 {}
               Queue Size: 100
-              Value: false
+              Value: true
             - Class: rviz/Marker
               Enabled: false
               Marker Topic: /uav1/local_planner_manager/path_waypoint
@@ -962,7 +965,7 @@ Visualization Manager:
               Marker Topic: /uav1/uav_server/viz_tree
               Name: Viz Tree
               Namespaces:
-                {}
+                "": true
               Queue Size: 100
               Value: true
             - Class: rviz/Marker
@@ -988,7 +991,7 @@ Visualization Manager:
           Axes Radius: 0.10000000149011612
           Class: rviz/Pose
           Color: 0; 255; 0
-          Enabled: true
+          Enabled: false
           Head Length: 0.30000001192092896
           Head Radius: 0.10000000149011612
           Name: Mavros setpoint
@@ -997,7 +1000,7 @@ Visualization Manager:
           Shape: Arrow
           Topic: /uav1/mavros/setpoint_position/local
           Unreliable: false
-          Value: true
+          Value: false
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
@@ -1040,7 +1043,7 @@ Visualization Manager:
           Color: 255; 255; 255
           Color Transformer: Intensity
           Decay Time: 0
-          Enabled: true
+          Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Max Intensity: 4096
@@ -1057,7 +1060,7 @@ Visualization Manager:
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
-          Value: true
+          Value: false
       Enabled: true
       Name: UAV1
     - Class: rviz/Group
@@ -1078,6 +1081,14 @@ Visualization Manager:
             {}
           Queue Size: 100
           Value: true
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /uav2/uav_server/viz_line_to_goal
+          Name: Line to goal
+          Namespaces:
+            {}
+          Queue Size: 100
+          Value: true
         - Class: rviz/Group
           Displays:
             - Class: rviz/Image
@@ -1093,21 +1104,21 @@ Visualization Manager:
               Unreliable: false
               Value: false
             - Class: rviz/Marker
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav2/local_planner_manager/complete_tree
               Name: Tree
               Namespaces:
                 {}
               Queue Size: 100
-              Value: false
+              Value: true
             - Class: rviz/Marker
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav2/local_planner_manager/tree_path
               Name: TreePath
               Namespaces:
                 {}
               Queue Size: 100
-              Value: false
+              Value: true
             - Class: rviz/Marker
               Enabled: false
               Marker Topic: /uav2/local_planner_manager/take_off_pose
@@ -1181,13 +1192,13 @@ Visualization Manager:
               Queue Size: 100
               Value: false
             - Class: rviz/MarkerArray
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav2/local_planner_manager/goal_position
               Name: Goal
               Namespaces:
                 {}
               Queue Size: 100
-              Value: false
+              Value: true
             - Class: rviz/Marker
               Enabled: false
               Marker Topic: /uav2/local_planner_manager/path_waypoint
@@ -1277,7 +1288,7 @@ Visualization Manager:
           Axes Radius: 0.10000000149011612
           Class: rviz/Pose
           Color: 0; 255; 0
-          Enabled: true
+          Enabled: false
           Head Length: 0.30000001192092896
           Head Radius: 0.10000000149011612
           Name: Mavros setpoint
@@ -1286,7 +1297,7 @@ Visualization Manager:
           Shape: Arrow
           Topic: /uav2/mavros/setpoint_position/local
           Unreliable: false
-          Value: true
+          Value: false
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
@@ -1329,7 +1340,7 @@ Visualization Manager:
           Color: 255; 255; 255
           Color Transformer: Intensity
           Decay Time: 0
-          Enabled: true
+          Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Max Intensity: 4096
@@ -1346,22 +1357,22 @@ Visualization Manager:
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
-          Value: true
+          Value: false
       Enabled: true
       Name: UAV2
     - Class: rviz/Group
       Displays:
         - Class: octomap_rviz_plugin/OccupancyGrid
           Enabled: true
-          Max. Height Display: 3.4028234663852886e+38
+          Max. Height Display: 10
           Max. Octree Depth: 16
-          Min. Height Display: -3.4028234663852886e+38
+          Min. Height Display: 0
           Name: Octomap Obstacle
           Octomap Topic: /octomap_full
           Queue Size: 5
           Value: true
           Voxel Alpha: 1
-          Voxel Coloring: Z-Axis
+          Voxel Coloring: Cell Probability
           Voxel Rendering: Occupied Voxels
         - Class: octomap_rviz_plugin/OccupancyGrid
           Enabled: false
@@ -1372,11 +1383,95 @@ Visualization Manager:
           Octomap Topic: /octomap_full
           Queue Size: 5
           Value: false
-          Voxel Alpha: 0.009999999776482582
+          Voxel Alpha: 0.006000000052154064
           Voxel Coloring: Cell Probability
           Voxel Rendering: All Voxels
       Enabled: true
       Name: Octomap
+    - Class: rviz/Group
+      Displays:
+        - Class: rviz/MarkerArray
+          Enabled: false
+          Marker Topic: /MippPlanner/viz_sensor_coverages_
+          Name: UAV sensor coverages
+          Namespaces:
+            {}
+          Queue Size: 100
+          Value: false
+        - Class: rviz/MarkerArray
+          Enabled: true
+          Marker Topic: /MippPlanner/viz_uav_path_fovs
+          Name: UAV FOVs
+          Namespaces:
+            "": true
+          Queue Size: 100
+          Value: true
+        - Class: rviz/MarkerArray
+          Enabled: true
+          Marker Topic: /MippPlanner/viz_uav_paths
+          Name: UAV Paths
+          Namespaces:
+            "": true
+          Queue Size: 100
+          Value: true
+        - Class: rviz/Image
+          Enabled: false
+          Image Topic: /MippVisualizer/image
+          Max Value: 1
+          Median window: 5
+          Min Value: 0
+          Name: MIPP Visualizer Image
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          Unreliable: false
+          Value: false
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /MippPlanner/viz_nav_waypoints
+          Name: UGV nav. waypoints
+          Namespaces:
+            "": true
+          Queue Size: 100
+          Value: true
+        - Class: rviz/Image
+          Enabled: false
+          Image Topic: /ugv/overhead_camera/rgb/image_raw
+          Max Value: 1
+          Median window: 5
+          Min Value: 0
+          Name: Overhead camera
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          Unreliable: false
+          Value: false
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /MippMonitor/viz_tour
+          Name: Mission path
+          Namespaces:
+            "": true
+          Queue Size: 100
+          Value: true
+        - Class: rviz/MarkerArray
+          Enabled: true
+          Marker Topic: /MippPlanner/viz_formations
+          Name: Resampled formations
+          Namespaces:
+            {}
+          Queue Size: 100
+          Value: true
+        - Class: rviz/MarkerArray
+          Enabled: true
+          Marker Topic: /MippPlanner/viz_uav_states
+          Name: MarkerArray
+          Namespaces:
+            "": true
+          Queue Size: 100
+          Value: true
+      Enabled: true
+      Name: MIPP
     - Alpha: 0.5
       Cell Size: 1
       Class: rviz/Grid
@@ -1409,86 +1504,6 @@ Visualization Manager:
         {}
       Update Interval: 0
       Value: false
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /MippPlanner/viz_sensor_coverages_
-      Name: UAV sensor coverages
-      Namespaces:
-        "": true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /MippPlanner/viz_uav_path_fovs
-      Name: UAV FOVs
-      Namespaces:
-        "": true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /MippPlanner/viz_uav_paths
-      Name: UAV Paths
-      Namespaces:
-        "": true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Image
-      Enabled: true
-      Image Topic: /MippVisualizer/image
-      Max Value: 1
-      Median window: 5
-      Min Value: 0
-      Name: MIPP Visualizer Image
-      Normalize Range: true
-      Queue Size: 2
-      Transport Hint: raw
-      Unreliable: false
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /MippPlanner/viz_nav_waypoints
-      Name: UGV nav. waypoints
-      Namespaces:
-        "": true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Image
-      Enabled: true
-      Image Topic: /ugv/overhead_camera/rgb/image_raw
-      Max Value: 1
-      Median window: 5
-      Min Value: 0
-      Name: Overhead camera
-      Normalize Range: true
-      Queue Size: 2
-      Transport Hint: raw
-      Unreliable: false
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /MippMonitor/viz_tour
-      Name: Mission path
-      Namespaces:
-        "": true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /MippPlanner/viz_formations
-      Name: Resampled formations
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: true
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /MippPlanner/viz_uav_states
-      Name: MarkerArray
-      Namespaces:
-        "": true
-      Queue Size: 100
-      Value: true
   Enabled: true
   Global Options:
     Background Color: 89; 120; 76
@@ -1518,26 +1533,26 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Class: rviz/ThirdPersonFollower
-      Distance: 78.06187438964844
+      Class: rviz/Orbit
+      Distance: 85.66227722167969
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -23.543455123901367
-        Y: -24.01268768310547
-        Z: 7.247150642797351e-5
-      Focal Shape Fixed Size: true
+        X: -1.3399426937103271
+        Y: 0.23193013668060303
+        Z: -11.565890312194824
+      Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.699796199798584
-      Target Frame: fcu
-      Value: ThirdPersonFollower (rviz)
-      Yaw: 3.9785871505737305
+      Pitch: 0.6997971534729004
+      Target Frame: map
+      Value: Orbit (rviz)
+      Yaw: 3.9722495079040527
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 10
@@ -1581,17 +1596,17 @@ Visualization Manager:
         Yaw: 3.120396137237549
 Window Geometry:
   Displays:
-    collapsed: false
-  Height: 2103
-  Hide Left Dock: false
+    collapsed: true
+  Height: 2105
+  Hide Left Dock: true
   Hide Right Dock: true
   Image:
     collapsed: false
   MIPP Visualizer Image:
-    collapsed: false
+    collapsed: true
   Overhead camera:
-    collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001560000079efc020000000dfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000005e50000028d0000018500000189fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000002db000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002b5000002660000001600fffffffb0000000a0049006d00610067006500000003f5000001070000001600fffffffb0000000a0049006d0061006700650000000319000000cb0000001600fffffffb0000002a004d004900500050002000560069007300750061006c0069007a0065007200200049006d006100670065010000031e0000034c0000001600fffffffb0000001e004f0076006500720068006500610064002000630061006d00650072006101000006700000016b0000001600ffffff000000010000013200000357fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003d00000357000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000075f00000039fc0100000002fb0000000800540069006d006501000000000000075f000002eb00fffffffb0000000800540069006d00650100000000000004500000000000000000000006030000079e00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+    collapsed: true
+  QMainWindow State: 000000ff00000000fd00000004000000000000038d000007a0fc020000000dfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000005e50000028d0000018500000189fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000003d000001b6000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002b5000002660000001600fffffffb0000000a0049006d00610067006500000003f5000001070000001600fffffffb0000000a0049006d0061006700650000000319000000cb0000001600fffffffb0000002a004d004900500050002000560069007300750061006c0069007a0065007200200049006d00610067006500000001f9000003f80000001600fffffffb0000001e004f0076006500720068006500610064002000630061006d00650072006100000005f7000001e60000001600ffffff0000000100000132000007a0fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003d000007a0000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000075f00000039fc0100000002fb0000000800540069006d006501000000000000075f000002eb00fffffffb0000000800540069006d006501000000000000045000000000000000000000075f000007a000000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -1601,5 +1616,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 1887
-  X: 67
+  X: 1953
   Y: 27

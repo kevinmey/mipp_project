@@ -143,6 +143,7 @@
     <arg name="robot_namespace"         value="$(arg robot_namespace)"/>
     <arg name="robot_start_x"           value="$(arg x)"/>
     <arg name="robot_start_y"           value="$(arg y)"/>
+    <remap from="/exploration/start_individual"   to="/MippMonitor/start_frontier_exploration"/>
   </include>
 
 </launch>

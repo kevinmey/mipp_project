@@ -7,7 +7,7 @@
   <!-- Static global frame in which the map will be published. A 
        transform from sensor data to this frame needs to be available 
        when dynamically building maps. -->
-  <arg name="frame_id"                default="map"/>
+  <arg name="frame_id"                default="world"/>
   <!-- The robot's base frame in which ground plane detection is 
        performed (if enabled) -->
   <arg name="base_frame_id"           default="base_footprint"/>
