@@ -36,13 +36,13 @@ void MippPlanner::reshapeFormationUpdate() {
       }
     }
 
-    // Keep only top 5 formations
+    // Keep only top 10 formations
     while (new_formation_bank.size() > 5) {
       ROS_DEBUG("Size %d, removing...", (int)new_formation_bank.size());
       new_formation_bank.erase(std::prev(new_formation_bank.end()));
     }
 
-    // Fill back to 10 with new random formations
+    // Fill back to 50 with new random formations
     float sample_yaw_range = sample_yaw_range_;
     float sample_yaw_limit = sample_yaw_range_;
     if (ugv_planner_.navigation_goal_distance < planner_hybrid_distance_) {
